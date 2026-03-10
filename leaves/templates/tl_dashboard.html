@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}TL Dashboard — LeaveOS{% endblock %}
+{% block page_title %}Team Leader Dashboard{% endblock %}
+{% block nav_tl %}active{% endblock %}
+
+{% block content %}
+<div class="page-header animate-in">
+  <div class="page-header-top">
+    <div>
+      <h1 class="page-title">Team Leader Dashboard</h1>
+      <p class="page-subtitle">Review and manage your team's leave requests.</p>
+    </div>
+  </div>
+</div>
+
+<div class="stat-grid">
+  <div class="stat-card animate-in delay-1" style="--stat-color:#ffb347;--stat-rgb:255,179,71;">
+    <div class="stat-icon"><i class="fa-solid fa-clock"></i></div>
+    <div class="stat-value">{{ leaves|length }}</div>
+    <div class="stat-label">Pending Review</div>
+  </div>
+</div>
+
+<div class="table-container animate-in delay-2">
+  <div class="table-header">
+    <h2 class="table-title"><i class="fa-solid fa-inbox" style="color:var(--accent);margin-right:8px;"></i>Pending Leave Requests</h2>
+  </div>
+
+  {% if leaves %}
+  <table>
+    <thead>
+      <tr>
+        <th>Employee</th>
+        <th>Leave Type</th>
+        <th>Duration</th>
+        <th>From</th>
+        <th>To</th>
+        <th>Reason</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for leave in leaves %}
+      <tr>
+        <td>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div class="avatar">{{ leave.employee.first_name|first|upper }}{{ leave.employee.last_name|first|upper }}</div>
+            <div>
+              <strong>{{ leave.employee.get_full_name|default:leave.employee.username }}</strong>
+              <div style="font-size:11px;color:var(--text-faint);">{{ leave.employee.email }}</div>
+            </div>
+          </div>
+        </td>
+        <td><span class="badge badge-info">{{ leave.leave_type }}</span></td>
+        <td>{{ leave.duration }}</td>
+        <td>{{ leave.start_date }}</td>
+        <td>{{ leave.end_date }}</td>
+        <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ leave.reason|truncatechars:35 }}</td>
+        <td>
+          <div style="display:flex;gap:8px;">
+            <form method="POST" action="{% url 'approve_leave' leave.id %}">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-success btn-sm"><i class="fa-solid fa-check"></i> Approve</button>
+            </form>
+            <form method="POST" action="{% url 'reject_leave' leave.id %}">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Reject this leave?')"><i class="fa-solid fa-xmark"></i> Reject</button>
+            </form>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state">
+    <div class="empty-icon"><i class="fa-solid fa-check-double"></i></div>
+    <div class="empty-title">All Caught Up!</div>
+    <p>No pending leave requests from your team right now.</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

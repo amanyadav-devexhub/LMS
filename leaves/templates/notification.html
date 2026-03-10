@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}Notifications — LeaveOS{% endblock %}
+{% block page_title %}Notifications{% endblock %}
+{% block nav_notif %}active{% endblock %}
+
+{% block extra_head %}
+<style>
+  .notif-list { display: flex; flex-direction: column; gap: 8px; }
+
+  .notif-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 16px 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    transition: all 0.2s;
+    animation: fadeUp 0.3s ease forwards;
+  }
+
+  .notif-item:hover { border-color: var(--border-strong); background: var(--surface2); }
+
+  .notif-item.unread {
+    border-left: 3px solid var(--accent);
+    background: rgba(108,99,255,0.05);
+  }
+
+  .notif-icon {
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    background: rgba(108,99,255,0.12);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    color: var(--accent);
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .notif-content { flex: 1; }
+
+  .notif-msg { font-size: 14px; color: var(--text); line-height: 1.5; }
+
+  .notif-time { font-size: 11px; color: var(--text-faint); margin-top: 4px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header animate-in">
+  <div class="page-header-top">
+    <div>
+      <h1 class="page-title">Notifications</h1>
+      <p class="page-subtitle">All your activity updates in one place.</p>
+    </div>
+    <div class="badge badge-info">{{ notifications|length }} total</div>
+  </div>
+</div>
+
+{% if notifications %}
+<div class="notif-list animate-in delay-1">
+  {% for n in notifications %}
+  <div class="notif-item {% if not n.read_status %}unread{% endif %}">
+    <div class="notif-icon">
+      {% if 'approved' in n.message|lower %}
+        <i class="fa-solid fa-circle-check" style="color:var(--success);"></i>
+      {% elif 'rejected' in n.message|lower %}
+        <i class="fa-solid fa-circle-xmark" style="color:var(--danger);"></i>
+      {% else %}
+        <i class="fa-solid fa-bell"></i>
+      {% endif %}
+    </div>
+    <div class="notif-content">
+      <div class="notif-msg">{{ n.message }}</div>
+      <div class="notif-time">
+        <i class="fa-regular fa-clock"></i>
+        {{ n.created_at|timesince }} ago
+      </div>
+    </div>
+    {% if not n.read_status %}
+    <div style="width:8px;height:8px;border-radius:50%;background:var(--accent);flex-shrink:0;margin-top:6px;"></div>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty-state animate-in">
+  <div class="empty-icon"><i class="fa-regular fa-bell-slash"></i></div>
+  <div class="empty-title">No Notifications</div>
+  <p>You're all up to date. Check back later!</p>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,252 @@
+{% extends "base.html" %}
+{% block title %}Admin Dashboard — LeaveOS{% endblock %}
+{% block page_title %}Admin Dashboard{% endblock %}
+{% block nav_admin %}active{% endblock %}
+
+{% block extra_head %}
+<style>
+  .admin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  @media (max-width: 1000px) { .admin-grid { grid-template-columns: 1fr; } }
+
+  .tab-bar { display: flex; gap: 4px; }
+
+  .employee-row-actions { display: flex; gap: 6px; opacity: 0; transition: opacity 0.2s; }
+  tbody tr:hover .employee-row-actions { opacity: 1; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header animate-in">
+  <div class="page-header-top">
+    <div>
+      <h1 class="page-title">Admin Control Panel</h1>
+      <p class="page-subtitle">Full system overview — employees, leaves, and platform health.</p>
+    </div>
+    <button onclick="document.getElementById('create-modal').style.display='flex'" class="btn btn-primary">
+      <i class="fa-solid fa-user-plus"></i> Add Employee
+    </button>
+  </div>
+</div>
+
+<!-- Stats -->
+<div class="stat-grid">
+  <div class="stat-card animate-in delay-1" style="--stat-color:#6c63ff;--stat-rgb:108,99,255;">
+    <div class="stat-icon"><i class="fa-solid fa-users"></i></div>
+    <div class="stat-value">{{ total_employees }}</div>
+    <div class="stat-label">Total Employees</div>
+  </div>
+  <div class="stat-card animate-in delay-2" style="--stat-color:#00d9b1;--stat-rgb:0,217,177;">
+    <div class="stat-icon"><i class="fa-solid fa-circle-check"></i></div>
+    <div class="stat-value">{{ active_count }}</div>
+    <div class="stat-label">Active Employees</div>
+  </div>
+  <div class="stat-card animate-in delay-3" style="--stat-color:#ff4f6d;--stat-rgb:255,79,109;">
+    <div class="stat-icon"><i class="fa-solid fa-circle-xmark"></i></div>
+    <div class="stat-value">{{ inactive_count }}</div>
+    <div class="stat-label">Inactive Employees</div>
+  </div>
+  <div class="stat-card animate-in delay-4" style="--stat-color:#ffb347;--stat-rgb:255,179,71;">
+    <div class="stat-icon"><i class="fa-solid fa-file-lines"></i></div>
+    <div class="stat-value">{{ leaves|length }}</div>
+    <div class="stat-label">Total Leave Requests</div>
+  </div>
+</div>
+
+<div class="admin-grid">
+  <!-- Employee List -->
+  <div class="table-container animate-in delay-2">
+    <div class="table-header">
+      <h2 class="table-title"><i class="fa-solid fa-users" style="color:var(--accent);margin-right:8px;"></i>Employees</h2>
+      <div style="display:flex;gap:8px;">
+        <div class="search-box">
+          <i class="fa-solid fa-search"></i>
+          <input type="text" name="search" class="form-control" placeholder="Search..." value="{{ search_query }}" style="width:180px;">
+        </div>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div style="padding:0 20px 12px;display:flex;gap:4px;background:var(--surface);">
+      <a href="?tab=all{% if search_query %}&search={{ search_query }}{% endif %}" class="tab {% if current_tab == 'all' %}active{% endif %}">All</a>
+      <a href="?tab=active{% if search_query %}&search={{ search_query }}{% endif %}" class="tab {% if current_tab == 'active' %}active{% endif %}">Active</a>
+      <a href="?tab=inactive{% if search_query %}&search={{ search_query }}{% endif %}" class="tab {% if current_tab == 'inactive' %}active{% endif %}">Inactive</a>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Employee</th>
+          <th>Role</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for emp in employees %}
+        <tr>
+          <td>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div class="avatar" style="{% if not emp.is_active %}opacity:0.4;{% endif %}">{{ emp.first_name|first|upper }}{{ emp.last_name|first|upper }}</div>
+              <div>
+                <strong>{{ emp.get_full_name|default:emp.username }}</strong>
+                <div style="font-size:11px;color:var(--text-faint);">{{ emp.email }}</div>
+              </div>
+            </div>
+          </td>
+          <td><span class="badge badge-info" style="font-size:10px;">{{ emp.role.name|default:"—" }}</span></td>
+          <td>
+            {% if emp.is_active %}
+              <span class="badge badge-approved"><i class="fa-solid fa-circle" style="font-size:6px;"></i> Active</span>
+            {% else %}
+              <span class="badge badge-rejected"><i class="fa-solid fa-circle" style="font-size:6px;"></i> Inactive</span>
+            {% endif %}
+          </td>
+          <td>
+            <div style="display:flex;gap:6px;">
+              <a href="{% url 'employee_detail' emp.pk %}" class="btn btn-ghost btn-sm"><i class="fa-solid fa-eye"></i></a>
+              <form method="POST" action="{% url 'toggle_employee_status' emp.id %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm {% if emp.is_active %}btn-danger{% else %}btn-success{% endif %}" title="{% if emp.is_active %}Deactivate{% else %}Activate{% endif %}">
+                  <i class="fa-solid fa-power-off"></i>
+                </button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="4">
+          <div class="empty-state" style="padding:30px;"><div class="empty-title">No employees found</div></div>
+        </td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Recent Leaves -->
+  <div class="table-container animate-in delay-3">
+    <div class="table-header">
+      <h2 class="table-title"><i class="fa-solid fa-calendar-days" style="color:var(--accent2);margin-right:8px;"></i>Recent Leaves</h2>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Employee</th>
+          <th>Type</th>
+          <th>Dates</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for leave in leaves|slice:":20" %}
+        <tr>
+          <td><strong>{{ leave.employee.username }}</strong></td>
+          <td><span class="badge badge-info" style="font-size:10px;">{{ leave.leave_type }}</span></td>
+          <td style="font-size:12px;">{{ leave.start_date }} → {{ leave.end_date }}</td>
+          <td>
+            {% if leave.status == 'APPROVED' %}
+              <span class="badge badge-approved" style="font-size:10px;">Approved</span>
+            {% elif leave.status == 'REJECTED' %}
+              <span class="badge badge-rejected" style="font-size:10px;">Rejected</span>
+            {% else %}
+              <span class="badge badge-pending" style="font-size:10px;">Pending</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if 'PENDING' in leave.status %}
+            <div style="display:flex;gap:4px;">
+              <form method="POST" action="{% url 'approve_leave' leave.id %}">{% csrf_token %}
+                <button type="submit" class="btn btn-success btn-sm" title="Approve"><i class="fa-solid fa-check"></i></button>
+              </form>
+              <form method="POST" action="{% url 'reject_leave' leave.id %}">{% csrf_token %}
+                <button type="submit" class="btn btn-danger btn-sm" title="Reject"><i class="fa-solid fa-xmark"></i></button>
+              </form>
+            </div>
+            {% else %}—{% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5"><div class="empty-state" style="padding:30px;"><div class="empty-title">No leave records</div></div></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Create Employee Modal -->
+<div id="create-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:999;align-items:center;justify-content:center;backdrop-filter:blur(4px);">
+  <div class="card" style="width:100%;max-width:480px;border-color:var(--border-strong);box-shadow:0 24px 60px rgba(0,0,0,0.6);">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+      <h2 style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700;">Add New Employee</h2>
+      <button onclick="document.getElementById('create-modal').style.display='none'" class="icon-btn"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form method="POST" action="{% url 'create_employee' %}">
+      {% csrf_token %}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+        <div class="form-group">
+          <label class="form-label">First Name</label>
+          <input type="text" name="first_name" class="form-control" required placeholder="John">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Username</label>
+          <input type="text" name="username" class="form-control" required placeholder="john_doe">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input type="email" name="email" class="form-control" required placeholder="john@company.com">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input type="password" name="password" class="form-control" required placeholder="••••••••">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Reporting Manager (TL)</label>
+        <input type="number" name="reporting_manager_id" class="form-control" placeholder="Manager ID (optional)">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Role</label>
+        <select name="role_id" class="form-control" required>
+          <option value="">Select Role</option>
+          {% for role in roles %}
+            <option value="{{ role.id }}">{{ role.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:8px;">
+        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-user-plus"></i> Create Employee</button>
+        <button type="button" onclick="document.getElementById('create-modal').style.display='none'" class="btn btn-ghost">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+const searchInput = document.querySelector('input[name="search"]');
+const tbody = document.querySelector('table tbody');
+
+searchInput.addEventListener('input', function() {
+    const query = this.value;
+
+    fetch(`/leave/admin/employees/search/?q=${query}`)
+        .then(res => res.json())
+        .then(data => {
+            tbody.innerHTML = '';
+            if (data.employees.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4">No employees found</td></tr>`;
+            } else {
+                data.employees.forEach(emp => {
+                    tbody.innerHTML += `
+                        <tr>
+                          <td>${emp.name}<br><small>${emp.email}</small></td>
+                          <td>${emp.role}</td>
+                          <td>${emp.is_active ? 'Active' : 'Inactive'}</td>
+                          <td>—</td>
+                        </tr>
+                    `;
+                });
+            }
+        });
+});
+</script>
+{% endblock %}

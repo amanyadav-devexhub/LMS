@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}HR Dashboard — LeaveOS{% endblock %}
+{% block page_title %}HR Dashboard{% endblock %}
+{% block nav_hr %}active{% endblock %}
+
+{% block content %}
+<div class="page-header animate-in">
+  <div class="page-header-top">
+    <div>
+      <h1 class="page-title">HR Dashboard</h1>
+      <p class="page-subtitle">Manage department leave approvals and employee records.</p>
+    </div>
+    <a href="{% url 'hr_employee_list' %}" class="btn btn-ghost">
+      <i class="fa-solid fa-users"></i> View All Employees
+    </a>
+  </div>
+</div>
+
+<div class="stat-grid">
+  <div class="stat-card animate-in delay-1" style="--stat-color:#ff6b9d;--stat-rgb:255,107,157;">
+    <div class="stat-icon"><i class="fa-solid fa-file-circle-exclamation"></i></div>
+    <div class="stat-value">{{ leaves|length }}</div>
+    <div class="stat-label">Awaiting HR Review</div>
+  </div>
+</div>
+
+<div class="table-container animate-in delay-2">
+  <div class="table-header">
+    <h2 class="table-title"><i class="fa-solid fa-file-signature" style="color:var(--accent2);margin-right:8px;"></i>TL-Approved Requests</h2>
+    <span class="badge badge-pending">{{ leaves|length }} Pending</span>
+  </div>
+
+  {% if leaves %}
+  <table>
+    <thead>
+      <tr>
+        <th>Employee</th>
+        <th>Department</th>
+        <th>Type</th>
+        <th>Duration</th>
+        <th>From</th>
+        <th>To</th>
+        <th>Reason</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for leave in leaves %}
+      <tr>
+        <td>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div class="avatar">{{ leave.employee.first_name|first|upper }}{{ leave.employee.last_name|first|upper }}</div>
+            <div>
+              <strong>{{ leave.employee.get_full_name|default:leave.employee.username }}</strong>
+              <div style="font-size:11px;color:var(--text-faint);">{{ leave.employee.email }}</div>
+            </div>
+          </div>
+        </td>
+        <td>{{ leave.employee.department|default:"—" }}</td>
+        <td><span class="badge badge-info">{{ leave.leave_type }}</span></td>
+        <td>{{ leave.duration }}</td>
+        <td>{{ leave.start_date }}</td>
+        <td>{{ leave.end_date }}</td>
+        <td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ leave.reason|truncatechars:30 }}</td>
+        <td>
+          <div style="display:flex;gap:8px;">
+            <form method="POST" action="{% url 'approve_leave' leave.id %}">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-success btn-sm"><i class="fa-solid fa-check"></i> Approve</button>
+            </form>
+            <form method="POST" action="{% url 'reject_leave' leave.id %}">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Reject this leave?')"><i class="fa-solid fa-xmark"></i> Reject</button>
+            </form>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state">
+    <div class="empty-icon"><i class="fa-solid fa-inbox"></i></div>
+    <div class="empty-title">No Pending Approvals</div>
+    <p>All leave requests have been processed.</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

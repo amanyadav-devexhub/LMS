@@ -1,0 +1,389 @@
+{% extends 'base.html' %}
+{% block title %}Permissions — LeaveSetu{% endblock %}
+{% block page_title %}Role Permissions{% endblock %}
+
+{% block extra_head %}
+<style>
+/* ══════════════════════════════════════════════════════
+   ROLE PERMISSIONS  —  Two-Panel Corporate UI
+══════════════════════════════════════════════════════ */
+.rp-layout {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 22px;
+    align-items: start;
+}
+@media (max-width: 860px) { .rp-layout { grid-template-columns: 1fr; } }
+
+/* ── LEFT PANEL ── */
+.role-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 2px 16px rgba(0,0,0,0.06);
+    position: sticky; top: 24px;
+}
+.role-panel-head {
+    background: linear-gradient(135deg, #0d1117, #141b24);
+    padding: 18px 20px 16px;
+    border-bottom: 1px solid #1e2733;
+}
+.role-panel-title   { font-size: 10.5px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 3px; }
+.role-panel-subtitle{ font-size: 13px; font-weight: 700; color: #e2e8f0; }
+
+.role-item {
+    display: flex; align-items: center; gap: 13px;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    text-decoration: none; cursor: pointer;
+    transition: all 0.18s; position: relative;
+}
+.role-item:last-child { border-bottom: none; }
+.role-item:hover { background: var(--surface2); }
+.role-item.active {
+    background: linear-gradient(90deg, rgba(0,198,212,0.08), rgba(0,198,212,0.02));
+    border-left: 3px solid var(--aqua);
+}
+.role-item.active .ri-name { color: var(--aqua-deep); }
+
+.ri-icon { width: 38px; height: 38px; border-radius: 11px; display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0; }
+.ri-admin   { background: rgba(245,158,11,0.12); color: #f59e0b; border: 1px solid rgba(245,158,11,0.25); }
+.ri-hr      { background: rgba(139,92,246,0.12); color: #a78bfa; border: 1px solid rgba(139,92,246,0.25); }
+.ri-manager { background: rgba(59,130,246,0.12); color: #60a5fa; border: 1px solid rgba(59,130,246,0.25); }
+.ri-tl      { background: rgba(20,184,166,0.12); color: #2dd4bf; border: 1px solid rgba(20,184,166,0.25); }
+.ri-default { background: rgba(0,198,212,0.10);  color: #22d3ee; border: 1px solid rgba(0,198,212,0.2); }
+
+.ri-info { flex: 1; min-width: 0; }
+.ri-name  { font-size: 13.5px; font-weight: 700; color: var(--text); }
+.ri-sub   { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+.ri-arrow { font-size: 11px; color: var(--text-faint); transition: all 0.18s; }
+.role-item.active .ri-arrow,
+.role-item:hover  .ri-arrow { color: var(--aqua); transform: translateX(2px); }
+
+/* ── RIGHT PANEL ── */
+.perm-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px; overflow: hidden;
+    box-shadow: 0 2px 16px rgba(0,0,0,0.06);
+}
+.perm-empty {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 80px 40px; text-align: center;
+    min-height: 400px;
+}
+.perm-empty-icon {
+    width: 72px; height: 72px; border-radius: 20px;
+    background: linear-gradient(135deg, #0d1117, #141b24);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 28px; color: #22d3ee;
+    margin-bottom: 22px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+}
+.perm-empty-title { font-size: 18px; font-weight: 800; color: var(--text); margin-bottom: 8px; }
+.perm-empty-sub   { font-size: 13px; color: var(--text-muted); max-width: 260px; line-height: 1.6; }
+
+/* Panel header (when role selected) */
+.perm-panel-head {
+    background: linear-gradient(135deg, #0d1117, #141b24);
+    padding: 20px 24px;
+    border-bottom: 1px solid #1e2733;
+    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;
+}
+.pph-left { display: flex; align-items: center; gap: 14px; }
+.pph-avatar {
+    width: 46px; height: 46px; border-radius: 13px;
+    display: flex; align-items: center; justify-content: center; font-size: 18px;
+}
+.pph-role-name  { font-size: 17px; font-weight: 800; color: #f1f5f9; }
+.pph-role-lbl   { font-size: 10.5px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.7px; margin-top: 2px; }
+
+.btn-save-perm {
+    background: linear-gradient(135deg, #15803d, #22c55e);
+    color: #fff; border: none; padding: 10px 22px; border-radius: 10px;
+    font-size: 13px; font-weight: 700; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 9px;
+    box-shadow: 0 4px 16px rgba(34,197,94,0.35);
+    font-family: 'Plus Jakarta Sans', sans-serif; transition: all 0.22s;
+}
+.btn-save-perm:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(34,197,94,0.5); }
+
+/* Permission table */
+.perm-table { width: 100%; border-collapse: collapse; }
+
+.perm-table thead th {
+    background: #f8fafc;
+    padding: 12px 20px;
+    font-size: 11px; font-weight: 800;
+    text-transform: uppercase; letter-spacing: 0.7px; color: #64748b;
+    border-bottom: 2px solid #e2e8f0; text-align: center;
+}
+.perm-table thead th:first-child { text-align: left; min-width: 200px; }
+.th-view   { color: #0891b2 !important; }
+.th-create { color: #16a34a !important; }
+.th-edit   { color: #d97706 !important; }
+.th-delete { color: #dc2626 !important; }
+
+/* Select-all row */
+.pt-select td {
+    padding: 10px 20px; background: #f0f9ff;
+    border-bottom: 2px solid #bae6fd; text-align: center; vertical-align: middle;
+}
+.pt-select td:first-child { text-align: left; }
+.sel-lbl {
+    font-size: 10.5px; font-weight: 800; color: #0369a1;
+    text-transform: uppercase; letter-spacing: 0.6px;
+    display: flex; align-items: center; gap: 7px;
+}
+
+/* Module rows */
+.pt-row td {
+    padding: 0 20px; border-bottom: 1px solid #f1f5f9;
+    height: 66px; vertical-align: middle; text-align: center;
+}
+.pt-row td:first-child { text-align: left; }
+.pt-row:last-child td { border-bottom: none; }
+.pt-row:hover td { background: #f8faff; }
+
+.mod-cell { display: flex; align-items: center; gap: 13px; }
+.mod-icon {
+    width: 38px; height: 38px; border-radius: 11px;
+    background: linear-gradient(135deg, #0f172a, #1e293b);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; color: #67e8f9; flex-shrink: 0;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+.mod-name { font-size: 13.5px; font-weight: 700; color: #1e293b; }
+.mod-key  { font-size: 11px; color: #94a3b8; margin-top: 2px; font-family: monospace; }
+
+/* ── Checkboxes ── */
+.cb-cell { display: flex; align-items: center; justify-content: center; }
+
+.perm-cb {
+    -webkit-appearance: none; appearance: none;
+    width: 24px; height: 24px; border-radius: 7px;
+    border: 2px solid #cbd5e1; background: #fff;
+    cursor: pointer; position: relative;
+    transition: all 0.18s ease; display: block;
+}
+.perm-cb::after {
+    content: '';
+    position: absolute;
+    left: 6px; top: 2px;
+    width: 6px; height: 11px;
+    border: 2.5px solid #fff;
+    border-top: none; border-left: none;
+    transform: rotate(45deg);
+    opacity: 0; transition: opacity 0.15s;
+}
+.perm-cb:checked::after { opacity: 1; }
+.perm-cb:hover { border-color: #94a3b8; transform: scale(1.1); }
+.perm-cb:checked:hover { transform: scale(1.05); }
+
+.perm-cb.cb-view:checked   { background: #0891b2; border-color: #0e7490; box-shadow: 0 0 0 3px rgba(8,145,178,0.18); }
+.perm-cb.cb-create:checked { background: #16a34a; border-color: #15803d; box-shadow: 0 0 0 3px rgba(22,163,74,0.18); }
+.perm-cb.cb-edit:checked   { background: #d97706; border-color: #b45309; box-shadow: 0 0 0 3px rgba(217,119,6,0.18); }
+.perm-cb.cb-delete:checked { background: #dc2626; border-color: #b91c1c; box-shadow: 0 0 0 3px rgba(220,38,38,0.18); }
+
+/* Footer */
+.perm-footer {
+    padding: 16px 22px; background: #f8fafc;
+    border-top: 1px solid #e2e8f0;
+    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;
+}
+.legend { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.leg-item { display: flex; align-items: center; gap: 7px; font-size: 11.5px; font-weight: 600; color: #64748b; }
+.leg-dot  { width: 12px; height: 12px; border-radius: 3px; }
+
+/* Toast */
+.rp-toast {
+    position: fixed; bottom: 28px; right: 28px;
+    background: #0f172a; color: #f1f5f9;
+    border: 1px solid #1e293b; border-radius: 12px;
+    padding: 14px 20px;
+    display: flex; align-items: center; gap: 12px;
+    font-size: 13px; font-weight: 600;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    z-index: 999;
+    transform: translateY(80px); opacity: 0;
+    transition: all 0.35s cubic-bezier(.4,0,.2,1);
+    pointer-events: none;
+}
+.rp-toast.show { transform: translateY(0); opacity: 1; }
+</style>
+{% endblock %}
+
+
+{% block content %}
+
+<!-- Header -->
+<div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:14px;margin-bottom:22px;" class="animate-in">
+    <div>
+        <div style="font-size:21px;font-weight:800;color:var(--text);letter-spacing:-0.5px;">
+            <i class="fa-solid fa-key" style="color:var(--aqua);margin-right:10px;"></i>Role Permissions
+        </div>
+        <div style="font-size:13px;color:var(--text-muted);margin-top:4px;">
+            Select a role to view and edit its module-level access rights.
+        </div>
+    </div>
+    <a href="{% url 'role_list' %}"
+       style="background:var(--surface2);color:var(--text-muted);border:1px solid var(--border);
+              padding:10px 18px;border-radius:10px;font-size:13px;font-weight:600;
+              display:inline-flex;align-items:center;gap:8px;text-decoration:none;transition:all 0.18s;">
+        <i class="fa-solid fa-arrow-left"></i> Back to Roles
+    </a>
+</div>
+
+<div class="rp-layout animate-in delay-1">
+
+    <!-- ══ LEFT: Role list ══ -->
+    <div class="role-panel">
+        <div class="role-panel-head">
+            <div class="role-panel-title"><i class="fa-solid fa-shield-halved" style="margin-right:6px;"></i>Roles</div>
+            <div class="role-panel-subtitle">Click to manage permissions</div>
+        </div>
+
+        {% for role in roles %}
+        <a href="?role={{ role.pk }}"
+           class="role-item {% if selected_role and selected_role.pk == role.pk %}active{% endif %}">
+            <div class="ri-icon {% if role.name == 'Admin' %}ri-admin{% elif role.name == 'HR' %}ri-hr{% elif role.name == 'Manager' %}ri-manager{% elif role.name == 'TL' %}ri-tl{% else %}ri-default{% endif %}">
+                {% if role.name == "Admin" %}<i class="fa-solid fa-crown"></i>
+                {% elif role.name == "HR" %}<i class="fa-solid fa-users-gear"></i>
+                {% elif role.name == "Manager" %}<i class="fa-solid fa-briefcase"></i>
+                {% elif role.name == "TL" %}<i class="fa-solid fa-code-branch"></i>
+                {% else %}<i class="fa-solid fa-user-tie"></i>{% endif %}
+            </div>
+            <div class="ri-info">
+                <div class="ri-name">{{ role.name }}</div>
+                <div class="ri-sub">Manage access rights</div>
+            </div>
+            <i class="fa-solid fa-chevron-right ri-arrow"></i>
+        </a>
+        {% empty %}
+        <div style="padding:40px 20px;text-align:center;color:var(--text-muted);font-size:13px;">
+            No roles yet. <a href="{% url 'role_list' %}">Create one.</a>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- ══ RIGHT: Permission editor ══ -->
+    <div class="perm-panel">
+
+        {% if not selected_role %}
+        <div class="perm-empty">
+            <div class="perm-empty-icon"><i class="fa-solid fa-shield-halved"></i></div>
+            <div class="perm-empty-title">No Role Selected</div>
+            <div class="perm-empty-sub">Choose a role from the left panel to view and configure its permissions.</div>
+        </div>
+
+        {% else %}
+
+        <div class="perm-panel-head">
+            <div class="pph-left">
+                <div class="pph-avatar {% if selected_role.name == 'Admin' %}ri-admin{% elif selected_role.name == 'HR' %}ri-hr{% elif selected_role.name == 'Manager' %}ri-manager{% elif selected_role.name == 'TL' %}ri-tl{% else %}ri-default{% endif %}">
+                    {% if selected_role.name == "Admin" %}<i class="fa-solid fa-crown"></i>
+                    {% elif selected_role.name == "HR" %}<i class="fa-solid fa-users-gear"></i>
+                    {% elif selected_role.name == "Manager" %}<i class="fa-solid fa-briefcase"></i>
+                    {% elif selected_role.name == "TL" %}<i class="fa-solid fa-code-branch"></i>
+                    {% else %}<i class="fa-solid fa-user-tie"></i>{% endif %}
+                </div>
+                <div>
+                    <div class="pph-role-name">{{ selected_role.name }}</div>
+                    <div class="pph-role-lbl">Module Permissions</div>
+                </div>
+            </div>
+            <button form="permForm" type="submit" class="btn-save-perm">
+                <i class="fa-solid fa-floppy-disk"></i> Save Permissions
+            </button>
+        </div>
+
+        <form method="post" action="{% url 'role_permission_save' %}" id="permForm">
+            {% csrf_token %}
+            <input type="hidden" name="role_id" value="{{ selected_role.pk }}">
+
+            <table class="perm-table">
+                <thead>
+                    <tr>
+                        <th style="text-align:left;">Module</th>
+                        <th class="th-view"><i class="fa-solid fa-eye" style="margin-right:5px;"></i>View</th>
+                        <th class="th-create"><i class="fa-solid fa-plus" style="margin-right:5px;"></i>Create</th>
+                        <th class="th-edit"><i class="fa-solid fa-pen" style="margin-right:5px;"></i>Edit</th>
+                        <th class="th-delete"><i class="fa-solid fa-trash" style="margin-right:5px;"></i>Delete</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Select all row -->
+                    <tr class="pt-select">
+                        <td><div class="sel-lbl"><i class="fa-solid fa-wand-magic-sparkles"></i> Select All</div></td>
+                        <td><div class="cb-cell"><input type="checkbox" class="perm-cb cb-view"   onchange="toggleAllCol('view',   this.checked)" title="Toggle all View"></div></td>
+                        <td><div class="cb-cell"><input type="checkbox" class="perm-cb cb-create" onchange="toggleAllCol('create', this.checked)" title="Toggle all Create"></div></td>
+                        <td><div class="cb-cell"><input type="checkbox" class="perm-cb cb-edit"   onchange="toggleAllCol('edit',   this.checked)" title="Toggle all Edit"></div></td>
+                        <td><div class="cb-cell"><input type="checkbox" class="perm-cb cb-delete" onchange="toggleAllCol('delete', this.checked)" title="Toggle all Delete"></div></td>
+                    </tr>
+
+                    {% for row in perm_rows %}
+                    <tr class="pt-row">
+                        <td>
+                            <div class="mod-cell">
+                                <div class="mod-icon"><i class="fa-solid {{ row.icon }}"></i></div>
+                                <div>
+                                    <div class="mod-name">{{ row.label }}</div>
+                                    <div class="mod-key">{{ row.key }}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td><div class="cb-cell"><input type="checkbox" class="perm-cb cb-view"   name="{{ row.key }}_view"   data-action="view"   {% if row.perm and row.perm.can_view   %}checked{% endif %}></div></td>
+                        <td><div class="cb-cell"><input type="checkbox" class="perm-cb cb-create" name="{{ row.key }}_create" data-action="create" {% if row.perm and row.perm.can_create %}checked{% endif %}></div></td>
+                        <td><div class="cb-cell"><input type="checkbox" class="perm-cb cb-edit"   name="{{ row.key }}_edit"   data-action="edit"   {% if row.perm and row.perm.can_edit   %}checked{% endif %}></div></td>
+                        <td><div class="cb-cell"><input type="checkbox" class="perm-cb cb-delete" name="{{ row.key }}_delete" data-action="delete" {% if row.perm and row.perm.can_delete %}checked{% endif %}></div></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            <div class="perm-footer">
+                <div class="legend">
+                    <div class="leg-item"><div class="leg-dot" style="background:#0891b2;"></div>View</div>
+                    <div class="leg-item"><div class="leg-dot" style="background:#16a34a;"></div>Create</div>
+                    <div class="leg-item"><div class="leg-dot" style="background:#d97706;"></div>Edit</div>
+                    <div class="leg-item"><div class="leg-dot" style="background:#dc2626;"></div>Delete</div>
+                    <div class="leg-item"><div class="leg-dot" style="background:#e2e8f0;border:1px solid #cbd5e1;"></div>No Access</div>
+                </div>
+                <button type="submit" class="btn-save-perm">
+                    <i class="fa-solid fa-floppy-disk"></i> Save Permissions
+                </button>
+            </div>
+        </form>
+
+        {% endif %}
+    </div>
+
+</div>
+
+<!-- Toast -->
+<div class="rp-toast" id="rpToast">
+    <i class="fa-solid fa-circle-check" style="color:#4ade80;font-size:17px;"></i>
+    <span id="rpToastMsg">Permissions saved!</span>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function toggleAllCol(action, checked) {
+    document.querySelectorAll(`input.perm-cb[data-action="${action}"]`)
+            .forEach(cb => cb.checked = checked);
+}
+
+{% if messages %}{% for message in messages %}{% if 'success' in message.tags %}
+window.addEventListener('DOMContentLoaded', () => {
+    const t = document.getElementById('rpToast');
+    document.getElementById('rpToastMsg').textContent = "{{ message|escapejs }}";
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 3500);
+});
+{% endif %}{% endfor %}{% endif %}
+</script>
+{% endblock %}

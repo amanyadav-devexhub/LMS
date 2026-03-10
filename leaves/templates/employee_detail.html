@@ -1,0 +1,219 @@
+{% extends "base.html" %}
+{% block title %}{{ employee.get_full_name }} — LeaveOS{% endblock %}
+{% block page_title %}Employee Profile{% endblock %}
+
+{% block extra_head %}
+<style>
+  .profile-grid {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    gap: 24px;
+    align-items: start;
+  }
+
+  .profile-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    position: sticky;
+    top: 80px;
+  }
+
+  .profile-banner {
+    height: 100px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    position: relative;
+  }
+
+  .profile-avatar-wrap {
+    position: absolute;
+    bottom: -28px;
+    left: 24px;
+  }
+
+  .profile-avatar {
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    background: var(--surface);
+    border: 3px solid var(--surface);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Syne', sans-serif;
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--accent);
+  }
+
+  .profile-info { padding: 44px 24px 24px; }
+
+  .profile-name {
+    font-family: 'Syne', sans-serif;
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+
+  .profile-role { font-size: 13px; color: var(--text-muted); margin-bottom: 20px; }
+
+  .detail-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+  }
+
+  .detail-row:last-child { border-bottom: none; }
+
+  .detail-icon {
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    background: rgba(108,99,255,0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    color: var(--accent);
+    flex-shrink: 0;
+  }
+
+  .detail-label { font-size: 11px; color: var(--text-faint); }
+  .detail-val { color: var(--text); font-weight: 500; }
+
+  @media (max-width: 900px) {
+    .profile-grid { grid-template-columns: 1fr; }
+    .profile-card { position: static; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header animate-in">
+  <div class="page-header-top">
+    <div>
+      <h1 class="page-title">Employee Profile</h1>
+      <p class="page-subtitle">Viewing details for {{ employee.get_full_name|default:employee.username }}</p>
+    </div>
+    <a href="javascript:history.back()" class="btn btn-ghost">
+      <i class="fa-solid fa-arrow-left"></i> Back
+    </a>
+  </div>
+</div>
+
+<div class="profile-grid">
+  <!-- Profile Card -->
+  <div class="profile-card animate-in delay-1">
+    <div class="profile-banner">
+      <div class="profile-avatar-wrap">
+        <div class="profile-avatar">
+          {{ employee.first_name|first|upper }}{{ employee.last_name|first|upper }}
+        </div>
+      </div>
+    </div>
+    <div class="profile-info">
+      <div class="profile-name">{{ employee.get_full_name|default:employee.username }}</div>
+      <div class="profile-role">
+        <span class="badge badge-info">{{ employee.role.name|default:"Employee" }}</span>
+        &nbsp;
+        {% if employee.is_active %}
+          <span class="badge badge-approved">Active</span>
+        {% else %}
+          <span class="badge badge-rejected">Inactive</span>
+        {% endif %}
+      </div>
+
+      <div class="detail-row">
+        <div class="detail-icon"><i class="fa-solid fa-at"></i></div>
+        <div>
+          <div class="detail-label">Email</div>
+          <div class="detail-val">{{ employee.email|default:"—" }}</div>
+        </div>
+      </div>
+      <div class="detail-row">
+        <div class="detail-icon"><i class="fa-solid fa-user"></i></div>
+        <div>
+          <div class="detail-label">Username</div>
+          <div class="detail-val">{{ employee.username }}</div>
+        </div>
+      </div>
+      <div class="detail-row">
+        <div class="detail-icon"><i class="fa-solid fa-building"></i></div>
+        <div>
+          <div class="detail-label">Department</div>
+          <div class="detail-val">{{ employee.department|default:"Not Assigned" }}</div>
+        </div>
+      </div>
+      <div class="detail-row">
+        <div class="detail-icon"><i class="fa-solid fa-sitemap"></i></div>
+        <div>
+          <div class="detail-label">Reporting To</div>
+          <div class="detail-val">{{ employee.reporting_manager.get_full_name|default:"Not Assigned" }}</div>
+        </div>
+      </div>
+      <div class="detail-row">
+        <div class="detail-icon"><i class="fa-solid fa-calendar-plus"></i></div>
+        <div>
+          <div class="detail-label">Joined</div>
+          <div class="detail-val">{{ employee.date_joined|date:"M d, Y" }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Leave History -->
+  <div class="animate-in delay-2">
+    <div class="table-container">
+      <div class="table-header">
+        <h2 class="table-title"><i class="fa-solid fa-calendar-days" style="color:var(--accent);margin-right:8px;"></i>Leave History</h2>
+      </div>
+
+      {% with leaves=employee.leaverequest_set.all %}
+      {% if leaves %}
+      <table>
+        <thead>
+          <tr>
+            <th>Type</th>
+            <th>Duration</th>
+            <th>From</th>
+            <th>To</th>
+            <th>Reason</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for leave in leaves %}
+          <tr>
+            <td><span class="badge badge-info">{{ leave.leave_type }}</span></td>
+            <td>{{ leave.duration }}</td>
+            <td>{{ leave.start_date }}</td>
+            <td>{{ leave.end_date }}</td>
+            <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ leave.reason|truncatechars:40 }}</td>
+            <td>
+              {% if leave.status == 'APPROVED' %}
+                <span class="badge badge-approved">Approved</span>
+              {% elif leave.status == 'REJECTED' %}
+                <span class="badge badge-rejected">Rejected</span>
+              {% else %}
+                <span class="badge badge-pending">Pending</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="empty-state">
+        <div class="empty-icon"><i class="fa-solid fa-calendar-xmark"></i></div>
+        <div class="empty-title">No Leave History</div>
+        <p>This employee hasn't applied for any leave yet.</p>
+      </div>
+      {% endif %}
+      {% endwith %}
+    </div>
+  </div>
+</div>
+{% endblock %}

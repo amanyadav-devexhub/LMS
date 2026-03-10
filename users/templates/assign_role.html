@@ -1,0 +1,394 @@
+{% extends 'base.html' %}
+{% block title %}Assign Roles — LeaveSetu{% endblock %}
+{% block page_title %}Assign Roles{% endblock %}
+
+{% block extra_head %}
+<style>
+/* ══════════════════════════════════════════
+   ASSIGN ROLE PAGE
+══════════════════════════════════════════ */
+
+/* Filter bar */
+.filter-bar {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px 24px;
+    display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap;
+    margin-bottom: 22px;
+    box-shadow: var(--shadow-xs);
+    position: relative; overflow: hidden;
+}
+.filter-bar::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: linear-gradient(90deg, var(--aqua-deep), var(--aqua-light));
+}
+.filter-group { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 160px; }
+.filter-label { font-size: 11px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.7px; }
+
+/* Bulk assign card */
+.bulk-card {
+    background: linear-gradient(135deg, rgba(0,198,212,0.06), rgba(0,122,138,0.04));
+    border: 1px solid var(--border-mid);
+    border-radius: var(--radius);
+    padding: 22px 26px;
+    margin-bottom: 24px;
+    display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+    position: relative; overflow: hidden;
+}
+.bulk-card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; bottom: 0; width: 4px;
+    background: linear-gradient(180deg, var(--aqua-deep), var(--aqua-light));
+    border-radius: 4px 0 0 4px;
+}
+.bulk-card-icon {
+    width: 50px; height: 50px; border-radius: 14px;
+    background: linear-gradient(135deg, var(--ink), #1a2332);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; color: var(--aqua-light);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+    flex-shrink: 0;
+}
+.bulk-card-text h3 { font-size: 15px; font-weight: 800; color: var(--text); margin-bottom: 3px; }
+.bulk-card-text p  { font-size: 12.5px; color: var(--text-muted); margin: 0; }
+.bulk-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-left: auto; }
+
+/* User table */
+.users-table-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: var(--shadow);
+}
+.users-table-header {
+    padding: 18px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    background: linear-gradient(90deg, rgba(0,198,212,0.04), transparent);
+}
+.users-table-title {
+    font-size: 15px; font-weight: 800; color: var(--text);
+    display: flex; align-items: center; gap: 10px;
+}
+
+table.assign-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.assign-table thead th {
+    background: #0a0e14; color: var(--text-muted);
+    padding: 12px 16px; text-align: left;
+    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.7px;
+    border-bottom: 1px solid var(--border);
+}
+table.assign-table tbody td {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+    color: var(--text-mid);
+}
+table.assign-table tbody tr:last-child td { border-bottom: none; }
+table.assign-table tbody tr:hover td { background: var(--surface2); }
+
+/* Avatar */
+.user-avatar {
+    width: 36px; height: 36px; border-radius: 10px;
+    background: linear-gradient(135deg, var(--aqua-deep), var(--aqua));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 800; color: #fff;
+    flex-shrink: 0; box-shadow: 0 3px 10px rgba(0,198,212,0.35);
+}
+
+.user-cell { display: flex; align-items: center; gap: 12px; }
+.user-name  { font-weight: 700; color: var(--text); font-size: 13.5px; }
+.user-email { font-size: 11.5px; color: var(--text-muted); margin-top: 1px; }
+
+/* Role badge */
+.role-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 12px; border-radius: 20px;
+    font-size: 11.5px; font-weight: 700;
+}
+.badge-admin   { background: rgba(218,165,32,0.12); color: #b8860b; border: 1px solid rgba(218,165,32,0.3); }
+.badge-hr      { background: rgba(139,92,246,0.12); color: #7c3aed; border: 1px solid rgba(139,92,246,0.3); }
+.badge-manager { background: rgba(59,130,246,0.12); color: #1d4ed8; border: 1px solid rgba(59,130,246,0.3); }
+.badge-tl      { background: rgba(20,184,166,0.12); color: #0f766e; border: 1px solid rgba(20,184,166,0.3); }
+.badge-default { background: var(--aqua-glass);      color: var(--aqua-deep); border: 1px solid var(--border-mid); }
+.badge-none    { background: rgba(255,255,255,0.05); color: var(--text-faint); border: 1px solid var(--border); }
+
+/* Inline role select */
+.role-select-inline {
+    display: flex; align-items: center; gap: 8px;
+}
+.role-select-inline select {
+    flex: 1; min-width: 130px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 8px; padding: 7px 10px;
+    font-size: 12.5px; font-family: 'Plus Jakarta Sans', sans-serif;
+    cursor: pointer; transition: border-color 0.18s;
+}
+.role-select-inline select:focus { outline: none; border-color: var(--aqua); }
+
+.btn-assign {
+    background: linear-gradient(135deg, var(--aqua-deep), var(--aqua));
+    color: #fff; border: none;
+    padding: 7px 14px; border-radius: 8px;
+    font-size: 12px; font-weight: 700; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 7px;
+    box-shadow: 0 3px 12px rgba(0,198,212,0.35);
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    transition: all 0.18s; white-space: nowrap;
+}
+.btn-assign:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(0,198,212,0.5); }
+
+/* Filters apply button */
+.btn-filter {
+    background: var(--surface2); color: var(--text);
+    border: 1px solid var(--border);
+    padding: 9px 18px; border-radius: var(--radius-sm);
+    font-size: 13px; font-weight: 600; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    transition: all 0.18s;
+}
+.btn-filter:hover { border-color: var(--aqua); color: var(--aqua-deep); }
+.btn-filter-primary {
+    background: linear-gradient(135deg, var(--aqua-deep), var(--aqua));
+    color: #fff; border-color: transparent;
+    box-shadow: 0 3px 12px rgba(0,198,212,0.35);
+}
+.btn-filter-primary:hover { box-shadow: 0 6px 18px rgba(0,198,212,0.5); color: #fff; }
+
+/* Bulk role select */
+.bulk-select {
+    min-width: 180px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 9px; padding: 9px 12px;
+    font-size: 13px; font-family: 'Plus Jakarta Sans', sans-serif;
+    cursor: pointer;
+}
+.bulk-select:focus { outline: none; border-color: var(--aqua); }
+
+.btn-bulk {
+    background: linear-gradient(135deg, #16a34a, #22c55e);
+    color: #fff; border: none;
+    padding: 10px 20px; border-radius: 9px;
+    font-size: 13px; font-weight: 700; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 8px;
+    box-shadow: 0 3px 14px rgba(34,197,94,0.4);
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    transition: all 0.2s;
+}
+.btn-bulk:hover { transform: translateY(-2px); box-shadow: 0 6px 22px rgba(34,197,94,0.55); }
+
+/* Empty state */
+.assign-empty { text-align: center; padding: 60px 24px; color: var(--text-muted); }
+.assign-empty-icon { font-size: 48px; color: var(--aqua-light); opacity: 0.28; margin-bottom: 16px; }
+</style>
+{% endblock %}
+
+
+{% block content %}
+
+<!-- Filters -->
+<div class="filter-bar animate-in">
+    <div style="font-size:14px; font-weight:800; color:var(--text); width:100%; margin-bottom:4px; display:flex; align-items:center; gap:10px;">
+        <i class="fa-solid fa-filter" style="color:var(--aqua);"></i>
+        Filter Employees
+    </div>
+    <form method="get" style="display:flex; align-items:flex-end; gap:14px; flex-wrap:wrap; width:100%;">
+
+        <div class="filter-group">
+            <span class="filter-label"><i class="fa-solid fa-magnifying-glass"></i> Search</span>
+            <input type="text" name="q" value="{{ search }}"
+                   class="form-control" placeholder="Name or email…" style="height:38px;">
+        </div>
+
+        <div class="filter-group">
+            <span class="filter-label"><i class="fa-solid fa-building"></i> Department</span>
+            <select name="dept" class="form-control" style="height:38px;">
+                <option value="">All Departments</option>
+                {% for dept in departments %}
+                <option value="{{ dept.pk }}" {% if dept_id == dept.pk|stringformat:"s" %}selected{% endif %}>
+                    {{ dept.name }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="filter-group">
+            <span class="filter-label"><i class="fa-solid fa-shield-halved"></i> Role</span>
+            <select name="role" class="form-control" style="height:38px;">
+                <option value="">All Roles</option>
+                {% for role in roles %}
+                <option value="{{ role.pk }}" {% if filter_role == role.pk|stringformat:"s" %}selected{% endif %}>
+                    {{ role.name }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div style="display:flex; gap:8px; padding-bottom:0;">
+            <button type="submit" class="btn-filter btn-filter-primary">
+                <i class="fa-solid fa-filter"></i> Apply
+            </button>
+            <a href="{% url 'assign_role' %}" class="btn-filter">
+                <i class="fa-solid fa-xmark"></i> Clear
+            </a>
+        </div>
+
+    </form>
+</div>
+
+
+<!-- Bulk Assign Card -->
+<div class="bulk-card animate-in delay-1">
+    <div class="bulk-card-icon"><i class="fa-solid fa-users-gear"></i></div>
+    <div class="bulk-card-text">
+        <h3>Bulk Assign by Department</h3>
+        <p>Assign a role to all employees in a department at once. Admin users will be skipped.</p>
+    </div>
+    <form method="post" action="{% url 'assign_role_bulk' %}" class="bulk-controls">
+        {% csrf_token %}
+        <select name="department_id" class="bulk-select" required>
+            <option value="">Select Department</option>
+            {% for dept in departments %}
+            <option value="{{ dept.pk }}">{{ dept.name }}</option>
+            {% endfor %}
+        </select>
+        <select name="role_id" class="bulk-select" required>
+            <option value="">Select Role</option>
+            {% for role in roles %}
+            <option value="{{ role.pk }}">{{ role.name }}</option>
+            {% endfor %}
+        </select>
+        <button type="submit" class="btn-bulk">
+            <i class="fa-solid fa-bolt"></i> Bulk Assign
+        </button>
+    </form>
+</div>
+
+
+<!-- Users Table -->
+<div class="users-table-wrap animate-in delay-2">
+    <div class="users-table-header">
+        <div class="users-table-title">
+            <i class="fa-solid fa-users" style="color:var(--aqua);"></i>
+            Employees
+            <span style="background:var(--aqua-glass); border:1px solid var(--border-mid); border-radius:20px; padding:3px 12px; font-size:12px; color:var(--aqua-deep);">
+                {{ total_users }}
+            </span>
+        </div>
+        <a href="{% url 'role_list' %}" style="font-size:13px; color:var(--text-muted); display:flex; align-items:center; gap:7px; text-decoration:none;">
+            <i class="fa-solid fa-shield-halved" style="font-size:11px;"></i> Manage Roles
+        </a>
+    </div>
+
+    <table class="assign-table">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Employee</th>
+                <th>Department</th>
+                <th>Current Role</th>
+                <th>Assign New Role</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for user in users %}
+            <tr>
+                <td style="color:var(--text-faint); width:40px;">{{ forloop.counter }}</td>
+
+                <!-- Employee info -->
+                <td>
+                    <div class="user-cell">
+                        <div class="user-avatar">
+                            {{ user.first_name|first|upper }}{{ user.last_name|first|upper }}
+                        </div>
+                        <div>
+                            <div class="user-name">
+                                {{ user.get_full_name|default:user.username }}
+                                {% if user.is_senior %}
+                                <span style="font-size:10px; color:var(--aqua); margin-left:4px;">
+                                    <i class="fa-solid fa-star"></i> Senior
+                                </span>
+                                {% endif %}
+                            </div>
+                            <div class="user-email">{{ user.email }}</div>
+                        </div>
+                    </div>
+                </td>
+
+                <!-- Department -->
+                <td>
+                    {% if user.department %}
+                    <span style="display:flex; align-items:center; gap:6px; font-weight:600; color:var(--text-mid);">
+                        <i class="fa-solid fa-building" style="color:var(--aqua); font-size:11px;"></i>
+                        {{ user.department.name }}
+                    </span>
+                    {% else %}
+                    <span style="color:var(--text-faint);">—</span>
+                    {% endif %}
+                </td>
+
+                <!-- Current role badge -->
+                <td>
+                    {% if user.role %}
+                        {% if user.role.name == "Admin" %}
+                        <span class="role-badge badge-admin"><i class="fa-solid fa-crown" style="font-size:10px;"></i> {{ user.role.name }}</span>
+                        {% elif user.role.name == "HR" %}
+                        <span class="role-badge badge-hr"><i class="fa-solid fa-users-gear" style="font-size:10px;"></i> {{ user.role.name }}</span>
+                        {% elif user.role.name == "Manager" %}
+                        <span class="role-badge badge-manager"><i class="fa-solid fa-briefcase" style="font-size:10px;"></i> {{ user.role.name }}</span>
+                        {% elif user.role.name == "TL" %}
+                        <span class="role-badge badge-tl"><i class="fa-solid fa-code-branch" style="font-size:10px;"></i> {{ user.role.name }}</span>
+                        {% else %}
+                        <span class="role-badge badge-default"><i class="fa-solid fa-user-tie" style="font-size:10px;"></i> {{ user.role.name }}</span>
+                        {% endif %}
+                    {% else %}
+                    <span class="role-badge badge-none"><i class="fa-solid fa-user-slash" style="font-size:10px;"></i> No Role</span>
+                    {% endif %}
+                </td>
+
+                <!-- Assign new role -->
+                <td>
+                    <form method="post" action="{% url 'assign_role' %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="user_id" value="{{ user.pk }}">
+                        <div class="role-select-inline">
+                            <select name="role_id" required>
+                                <option value="">— Pick role —</option>
+                                {% for role in roles %}
+                                <option value="{{ role.pk }}"
+                                    {% if user.role and user.role.pk == role.pk %}selected{% endif %}>
+                                    {{ role.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <button type="submit" class="btn-assign">
+                                <i class="fa-solid fa-check"></i> Assign
+                            </button>
+                        </div>
+                    </form>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="5">
+                    <div class="assign-empty">
+                        <div class="assign-empty-icon"><i class="fa-solid fa-users"></i></div>
+                        <div style="font-size:17px; font-weight:800; color:var(--text); margin-bottom:8px;">No Employees Found</div>
+                        <p>{% if search or dept_id or filter_role %}Try adjusting your filters.{% else %}No users exist yet.{% endif %}</p>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% endblock %}

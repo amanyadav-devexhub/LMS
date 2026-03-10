@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}Manager Dashboard — LeaveOS{% endblock %}
+{% block page_title %}Manager Dashboard{% endblock %}
+{% block nav_manager %}active{% endblock %}
+
+{% block content %}
+<div class="page-header animate-in">
+  <div class="page-header-top">
+    <div>
+      <h1 class="page-title">Manager Dashboard</h1>
+      <p class="page-subtitle">Final approval authority for all leave requests.</p>
+    </div>
+    <a href="{% url 'hr_employee_list' %}" class="btn btn-ghost">
+      <i class="fa-solid fa-users"></i> All Employees
+    </a>
+  </div>
+</div>
+
+<div class="stat-grid">
+  <div class="stat-card animate-in delay-1" style="--stat-color:#6c63ff;--stat-rgb:108,99,255;">
+    <div class="stat-icon"><i class="fa-solid fa-gavel"></i></div>
+    <div class="stat-value">{{ leaves|length }}</div>
+    <div class="stat-label">Awaiting Final Approval</div>
+  </div>
+</div>
+
+<div class="table-container animate-in delay-2">
+  <div class="table-header">
+    <h2 class="table-title"><i class="fa-solid fa-gavel" style="color:var(--accent);margin-right:8px;"></i>Final Approval Queue</h2>
+    <span class="badge badge-info">{{ leaves|length }} Requests</span>
+  </div>
+
+  {% if leaves %}
+  <table>
+    <thead>
+      <tr>
+        <th>Employee</th>
+        <th>Type</th>
+        <th>Duration</th>
+        <th>Dates</th>
+        <th>Reason</th>
+        <th>Short Leave Info</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for leave in leaves %}
+      <tr>
+        <td>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div class="avatar">{{ leave.employee.first_name|first|upper }}{{ leave.employee.last_name|first|upper }}</div>
+            <div>
+              <strong>{{ leave.employee.get_full_name|default:leave.employee.username }}</strong>
+              <div style="font-size:11px;color:var(--text-faint);">{{ leave.employee.department|default:"No Dept" }}</div>
+            </div>
+          </div>
+        </td>
+        <td><span class="badge badge-info">{{ leave.leave_type }}</span></td>
+        <td>{{ leave.duration }}</td>
+        <td>
+          <div style="font-size:12px;">
+            <div>{{ leave.start_date }}</div>
+            {% if leave.start_date != leave.end_date %}<div style="color:var(--text-faint);">→ {{ leave.end_date }}</div>{% endif %}
+          </div>
+        </td>
+        <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ leave.reason|truncatechars:30 }}</td>
+        <td>
+          {% if leave.duration == 'SHORT' %}
+            <span class="badge badge-pending">{{ leave.short_session }} · {{ leave.short_hours }}h</span>
+          {% else %}—{% endif %}
+        </td>
+        <td>
+          <div style="display:flex;gap:8px;">
+            <form method="POST" action="{% url 'approve_leave' leave.id %}">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-primary btn-sm"><i class="fa-solid fa-check"></i> Approve</button>
+            </form>
+            <form method="POST" action="{% url 'reject_leave' leave.id %}">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Reject this leave request?')"><i class="fa-solid fa-xmark"></i> Reject</button>
+            </form>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state">
+    <div class="empty-icon"><i class="fa-solid fa-star"></i></div>
+    <div class="empty-title">Queue is Clear</div>
+    <p>No requests waiting for your approval.</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

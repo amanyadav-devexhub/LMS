@@ -1,0 +1,460 @@
+{% extends 'base.html' %}
+{% block title %}Roles — LeaveSetu{% endblock %}
+{% block page_title %}Roles{% endblock %}
+
+{% block extra_head %}
+<style>
+/* ══════════════════════════════════════════
+   ROLE LIST PAGE
+══════════════════════════════════════════ */
+.stats-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 16px;
+    margin-bottom: 28px;
+}
+
+.stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 22px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: var(--shadow-xs);
+    transition: all 0.25s;
+}
+.stat-card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: linear-gradient(90deg, var(--aqua-deep), var(--aqua-light));
+}
+.stat-card:hover { transform: translateY(-3px); box-shadow: var(--shadow); border-color: var(--border-mid); }
+.stat-icon { width: 42px; height: 42px; border-radius: 12px; background: var(--aqua-glass); border: 1px solid var(--border-mid); display: flex; align-items: center; justify-content: center; font-size: 17px; color: var(--aqua-deep); margin-bottom: 14px; transition: all 0.22s; }
+.stat-card:hover .stat-icon { background: linear-gradient(135deg, var(--aqua-deep), var(--aqua)); color: #fff; box-shadow: 0 4px 16px rgba(0,198,212,0.4); border-color: transparent; }
+.stat-val   { font-size: 30px; font-weight: 800; color: var(--text); letter-spacing: -1px; line-height: 1; margin-bottom: 4px; }
+.stat-label { font-size: 12px; color: var(--text-muted); font-weight: 500; }
+
+/* Roles grid */
+.roles-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+    gap: 18px;
+}
+
+.role-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    position: relative;
+    transition: all 0.28s ease;
+    box-shadow: var(--shadow-xs);
+}
+.role-card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: linear-gradient(90deg, var(--aqua-deep), var(--aqua-light));
+    transform: scaleX(0); transform-origin: left;
+    transition: transform 0.3s ease;
+}
+.role-card:hover { transform: translateY(-5px); box-shadow: var(--shadow-lg); border-color: var(--border-mid); }
+.role-card:hover::before { transform: scaleX(1); }
+
+.role-card-body { padding: 24px; }
+
+.role-icon {
+    width: 56px; height: 56px; border-radius: 16px;
+    background: linear-gradient(135deg, var(--ink), #1a2332);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 24px; color: var(--aqua-light);
+    margin-bottom: 18px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+    position: relative; overflow: hidden;
+}
+.role-icon::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(circle at 70% 30%, rgba(0,198,212,0.3), transparent 60%);
+}
+
+.role-name { font-size: 18px; font-weight: 800; color: var(--text); letter-spacing: -0.4px; margin-bottom: 8px; }
+
+.role-count-pill {
+    display: inline-flex; align-items: center; gap: 7px;
+    background: var(--aqua-glass);
+    border: 1px solid var(--border-mid);
+    border-radius: 20px;
+    padding: 5px 14px;
+    font-size: 12px; font-weight: 700; color: var(--aqua-deep);
+}
+
+.role-card-footer {
+    padding: 13px 22px;
+    background: var(--surface2);
+    border-top: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+}
+
+.role-badge-admin {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 11px; font-weight: 700; color: #b8860b;
+    background: rgba(218,165,32,0.12);
+    border: 1px solid rgba(218,165,32,0.3);
+    border-radius: 20px; padding: 3px 10px;
+}
+
+/* Action buttons */
+.action-btns { display: flex; gap: 6px; }
+.act-btn {
+    width: 33px; height: 33px; border-radius: 9px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; cursor: pointer;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    transition: all 0.18s;
+    text-decoration: none; color: inherit;
+}
+.act-btn-edit   { color: var(--aqua-deep); }
+.act-btn-edit:hover   { background: var(--aqua-glass); border-color: var(--border-mid); color: var(--aqua-deep); }
+.act-btn-perm   { color: #8b5cf6; }
+.act-btn-perm:hover   { background: rgba(139,92,246,0.1); border-color: rgba(139,92,246,0.3); }
+.act-btn-delete { color: var(--danger); }
+.act-btn-delete:hover { background: rgba(240,64,88,0.1); border-color: rgba(240,64,88,0.3); }
+.act-btn-lock   { color: var(--text-faint); cursor: not-allowed; }
+
+/* New role button */
+.btn-new {
+    background: linear-gradient(135deg, var(--aqua-deep), var(--aqua));
+    color: #fff !important; border: none;
+    padding: 11px 22px; border-radius: var(--radius-sm);
+    font-size: 13px; font-weight: 700; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 9px;
+    box-shadow: 0 4px 18px rgba(0,198,212,0.4);
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    text-decoration: none; transition: all 0.22s;
+}
+.btn-new:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(0,198,212,0.55); }
+
+/* ── MODALS ──────────────────────────── */
+.modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(13,17,23,0.7);
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    z-index: 600; display: flex; align-items: center; justify-content: center;
+    opacity: 0; pointer-events: none; transition: opacity 0.25s;
+}
+.modal-overlay.open { opacity: 1; pointer-events: all; }
+.modal-box {
+    background: var(--surface);
+    border: 1px solid var(--border-mid);
+    border-radius: var(--radius);
+    width: 100%; max-width: 460px;
+    box-shadow: 0 40px 100px rgba(0,0,0,0.35), 0 0 0 1px rgba(0,198,212,0.08);
+    transform: translateY(24px) scale(0.96);
+    transition: all 0.3s cubic-bezier(.4,0,.2,1);
+    overflow: hidden;
+}
+.modal-overlay.open .modal-box { transform: translateY(0) scale(1); }
+.modal-head {
+    padding: 20px 24px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    background: linear-gradient(90deg, rgba(0,198,212,0.06), transparent);
+}
+.modal-head-title { display: flex; align-items: center; gap: 13px; font-size: 15px; font-weight: 800; color: var(--text); }
+.modal-head-icon {
+    width: 36px; height: 36px; border-radius: 10px;
+    background: linear-gradient(135deg, var(--aqua-deep), var(--aqua));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; color: #fff;
+    box-shadow: 0 4px 14px rgba(0,198,212,0.4);
+}
+.modal-head-icon.danger { background: linear-gradient(135deg, #c0132a, var(--danger)); box-shadow: 0 4px 14px rgba(240,64,88,0.4); }
+.modal-close {
+    width: 30px; height: 30px; border-radius: 8px;
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text-muted); display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 13px; transition: all 0.18s;
+}
+.modal-close:hover { background: var(--surface3); color: var(--text); }
+.modal-body   { padding: 24px; }
+.modal-footer {
+    padding: 16px 24px; border-top: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: flex-end; gap: 10px;
+    background: var(--surface2);
+}
+.delete-warning {
+    background: rgba(240,64,88,0.07); border: 1px solid rgba(240,64,88,0.22);
+    border-radius: var(--radius-sm); padding: 14px 16px;
+    font-size: 13px; color: #c0132a;
+    display: flex; align-items: flex-start; gap: 11px; margin-top: 14px;
+}
+.delete-warning i { font-size: 15px; margin-top: 1px; flex-shrink: 0; }
+
+/* Empty state */
+.roles-empty {
+    grid-column: 1/-1; text-align: center;
+    padding: 80px 24px; color: var(--text-muted);
+}
+.roles-empty-icon { font-size: 56px; color: var(--aqua-light); opacity: 0.28; margin-bottom: 18px; }
+.roles-empty-title { font-size: 20px; font-weight: 800; color: var(--text); margin-bottom: 8px; }
+</style>
+{% endblock %}
+
+
+{% block content %}
+
+<!-- ── Stats ── -->
+<div class="stats-row animate-in">
+    <div class="stat-card">
+        <div class="stat-icon"><i class="fa-solid fa-shield-halved"></i></div>
+        <div class="stat-val">{{ total_roles }}</div>
+        <div class="stat-label">Total Roles</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon"><i class="fa-solid fa-users"></i></div>
+        <div class="stat-val">{{ total_users }}</div>
+        <div class="stat-label">Total Users</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon"><i class="fa-solid fa-key"></i></div>
+        <div class="stat-val">{{ total_roles }}</div>
+        <div class="stat-label">Permission Sets</div>
+    </div>
+</div>
+
+<!-- ── Header row ── -->
+<div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-bottom:22px;" class="animate-in delay-1">
+    <div>
+        <div style="font-size:18px; font-weight:800; color:var(--text);">All Roles</div>
+        <div style="font-size:13px; color:var(--text-muted); margin-top:3px;">
+            Manage roles and what each role can access
+        </div>
+    </div>
+    <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <a href="{% url 'role_permission_list' %}" class="act-btn act-btn-perm" style="width:auto; padding:0 16px; gap:8px; font-size:13px; font-weight:700;">
+            <i class="fa-solid fa-key"></i> Manage Permissions
+        </a>
+        <button class="btn-new" onclick="openModal('createModal')">
+            <i class="fa-solid fa-plus"></i> New Role
+        </button>
+    </div>
+</div>
+
+<!-- ── Role Cards ── -->
+<div class="roles-grid animate-in delay-2">
+
+    {% for role in roles %}
+    <div class="role-card">
+        <div class="role-card-body">
+
+            <!-- Icon -->
+            <div class="role-icon">
+                {% if role.name == "Admin" %}       <i class="fa-solid fa-crown"></i>
+                {% elif role.name == "HR" %}         <i class="fa-solid fa-users-gear"></i>
+                {% elif role.name == "Manager" %}    <i class="fa-solid fa-briefcase"></i>
+                {% elif role.name == "TL" %}         <i class="fa-solid fa-code-branch"></i>
+                {% else %}                           <i class="fa-solid fa-user-tie"></i>
+                {% endif %}
+            </div>
+
+            <div class="role-name">{{ role.name }}</div>
+
+            <div class="role-count-pill" style="margin-bottom:0;">
+                <i class="fa-solid fa-users" style="font-size:11px;"></i>
+                {{ role.user_count }} user{{ role.user_count|pluralize }}
+            </div>
+
+        </div>
+
+        <div class="role-card-footer">
+            {% if role.name == "Admin" %}
+            <div class="role-badge-admin">
+                <i class="fa-solid fa-crown"></i> Protected
+            </div>
+            {% else %}
+            <div style="font-size:12px; color:var(--text-faint);">Active</div>
+            {% endif %}
+
+            <div class="action-btns">
+                <!-- Permissions -->
+                <a href="{% url 'role_permission_list' %}?role={{ role.pk }}"
+                   class="act-btn act-btn-perm" title="Edit Permissions">
+                    <i class="fa-solid fa-key"></i>
+                </a>
+                <!-- Assign -->
+                <a href="{% url 'assign_role' %}?role={{ role.pk }}"
+                   class="act-btn" style="color:var(--text-muted);" title="View / Assign Users">
+                    <i class="fa-solid fa-eye"></i>
+                </a>
+                <!-- Edit -->
+                <button class="act-btn act-btn-edit" title="Rename Role"
+                        onclick="openEditModal({{ role.pk }}, '{{ role.name|escapejs }}')">
+                    <i class="fa-solid fa-pen"></i>
+                </button>
+                <!-- Delete -->
+                {% if role.name == "Admin" %}
+                <div class="act-btn act-btn-lock" title="Admin role cannot be deleted">
+                    <i class="fa-solid fa-lock"></i>
+                </div>
+                {% else %}
+                <button class="act-btn act-btn-delete" title="Delete Role"
+                        onclick="openDeleteModal({{ role.pk }}, '{{ role.name|escapejs }}', {{ role.user_count }})">
+                    <i class="fa-solid fa-trash"></i>
+                </button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="roles-empty">
+        <div class="roles-empty-icon"><i class="fa-solid fa-shield-halved"></i></div>
+        <div class="roles-empty-title">No Roles Yet</div>
+        <p>Create your first role to get started.</p>
+        <button class="btn-new" style="margin-top:18px;" onclick="openModal('createModal')">
+            <i class="fa-solid fa-plus"></i> Create Role
+        </button>
+    </div>
+    {% endfor %}
+
+</div>
+
+
+<!-- ════════════ CREATE MODAL ════════════ -->
+<div class="modal-overlay" id="createModal">
+    <div class="modal-box">
+        <div class="modal-head">
+            <div class="modal-head-title">
+                <div class="modal-head-icon"><i class="fa-solid fa-shield-halved"></i></div>
+                Create New Role
+            </div>
+            <button class="modal-close" onclick="closeModal('createModal')"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <form method="post" action="{% url 'role_create' %}">
+            {% csrf_token %}
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Role Name <span style="color:var(--danger)">*</span></label>
+                    <input type="text" name="name" class="form-control"
+                           placeholder="e.g. Senior Developer, QA Lead, DevOps…"
+                           required autofocus>
+                    <div style="font-size:12px; color:var(--text-muted); margin-top:6px;">
+                        <i class="fa-solid fa-circle-info" style="color:var(--aqua);"></i>
+                        Choose a clear, descriptive name for this role.
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-ghost btn-sm" onclick="closeModal('createModal')">Cancel</button>
+                <button type="submit" class="btn-new" style="padding:9px 20px; font-size:13px;">
+                    <i class="fa-solid fa-plus"></i> Create Role
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+
+<!-- ════════════ EDIT MODAL ════════════ -->
+<div class="modal-overlay" id="editModal">
+    <div class="modal-box">
+        <div class="modal-head">
+            <div class="modal-head-title">
+                <div class="modal-head-icon"><i class="fa-solid fa-pen"></i></div>
+                Rename Role
+            </div>
+            <button class="modal-close" onclick="closeModal('editModal')"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <form method="post" id="editForm">
+            {% csrf_token %}
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Role Name <span style="color:var(--danger)">*</span></label>
+                    <input type="text" name="name" id="editName" class="form-control" required>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-ghost btn-sm" onclick="closeModal('editModal')">Cancel</button>
+                <button type="submit" class="btn-new" style="padding:9px 20px; font-size:13px; background:linear-gradient(135deg,#005a67,var(--aqua));">
+                    <i class="fa-solid fa-floppy-disk"></i> Save Changes
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+
+<!-- ════════════ DELETE MODAL ════════════ -->
+<div class="modal-overlay" id="deleteModal">
+    <div class="modal-box">
+        <div class="modal-head" style="background:linear-gradient(90deg,rgba(240,64,88,0.06),transparent);">
+            <div class="modal-head-title">
+                <div class="modal-head-icon danger"><i class="fa-solid fa-trash"></i></div>
+                Delete Role
+            </div>
+            <button class="modal-close" onclick="closeModal('deleteModal')"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <form method="post" id="deleteForm">
+            {% csrf_token %}
+            <div class="modal-body">
+                <p style="font-size:14px; color:var(--text-mid);">
+                    Are you sure you want to delete the role
+                    <strong id="deleteRoleName" style="color:var(--text);"></strong>?
+                    This action cannot be undone.
+                </p>
+                <div class="delete-warning" id="deleteWarn" style="display:none;">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    <span>
+                        <strong id="deleteCount"></strong> user(s) currently have this role.
+                        They will be unassigned and lose access tied to this role.
+                    </span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-ghost btn-sm" onclick="closeModal('deleteModal')">Cancel</button>
+                <button type="submit" class="btn btn-danger btn-sm" style="font-weight:700;">
+                    <i class="fa-solid fa-trash"></i> Delete Role
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function openModal(id)  { document.getElementById(id).classList.add('open'); document.body.style.overflow = 'hidden'; }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); document.body.style.overflow = ''; }
+
+document.querySelectorAll('.modal-overlay').forEach(o =>
+    o.addEventListener('click', e => { if (e.target === o) closeModal(o.id); })
+);
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+        document.querySelectorAll('.modal-overlay.open').forEach(m => m.classList.remove('open'));
+        document.body.style.overflow = '';
+    }
+});
+
+function openEditModal(pk, name) {
+    document.getElementById('editName').value = name;
+    document.getElementById('editForm').action = `/roles/${pk}/edit/`;
+    openModal('editModal');
+    setTimeout(() => document.getElementById('editName').focus(), 300);
+}
+
+function openDeleteModal(pk, name, count) {
+    document.getElementById('deleteRoleName').textContent = name;
+    document.getElementById('deleteForm').action = `/roles/${pk}/delete/`;
+    const warn = document.getElementById('deleteWarn');
+    if (count > 0) {
+        document.getElementById('deleteCount').textContent = count;
+        warn.style.display = 'flex';
+    } else {
+        warn.style.display = 'none';
+    }
+    openModal('deleteModal');
+}
+</script>
+{% endblock %}

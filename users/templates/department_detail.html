@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+{% block title %}{{ dept.name }} — LeaveSetu{% endblock %}
+{% block page_title %}{{ dept.name }}{% endblock %}
+
+{% block content %}
+
+<!-- Back + Header -->
+<div class="page-header animate-in">
+    <div class="page-header-top">
+        <div>
+            <a href="{% url 'department_list' %}"
+               style="display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:var(--text-muted);margin-bottom:10px;text-decoration:none;">
+                <i class="fa-solid fa-arrow-left" style="font-size:11px;"></i> Back to Departments
+            </a>
+            <div class="page-title">{{ dept.name }}</div>
+            <div class="page-subtitle">
+                {% if dept.hr %}
+                    <i class="fa-solid fa-user-tie" style="color:var(--aqua);margin-right:5px;"></i>
+                    HR: {{ dept.hr.get_full_name|default:dept.hr.email }}
+                {% else %}
+                    No HR assigned
+                {% endif %}
+            </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;">
+            <div style="background:var(--aqua-glass);border:1px solid var(--border-mid);border-radius:var(--radius-sm);padding:10px 18px;display:flex;align-items:center;gap:10px;">
+                <i class="fa-solid fa-users" style="color:var(--aqua-deep);"></i>
+                <span style="font-weight:800;font-size:18px;color:var(--text);">{{ emp_count }}</span>
+                <span style="font-size:12px;color:var(--text-muted);font-weight:600;">Employee{{ emp_count|pluralize }}</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Employees Table -->
+<div class="table-container animate-in delay-1">
+    <div class="table-header">
+        <span class="table-title">
+            <i class="fa-solid fa-users" style="color:var(--aqua);margin-right:8px;"></i>
+            Employees in {{ dept.name }}
+        </span>
+    </div>
+
+    {% if employees %}
+    <table>
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Employee</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Phone</th>
+                <th>Joined</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for emp in employees %}
+            <tr>
+                <td style="color:var(--text-faint);font-size:12px;">{{ forloop.counter }}</td>
+                <td>
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <div class="avatar" style="width:32px;height:32px;font-size:11px;flex-shrink:0;">
+                            {{ emp.first_name|first|upper }}{{ emp.last_name|first|upper }}
+                        </div>
+                        <strong>{{ emp.get_full_name|default:emp.username }}</strong>
+                    </div>
+                </td>
+                <td>{{ emp.email }}</td>
+                <td>
+                    {% if emp.role %}
+                    <span class="badge badge-info">{{ emp.role.name }}</span>
+                    {% else %}
+                    <span style="color:var(--text-faint);">—</span>
+                    {% endif %}
+                </td>
+                <td>{{ emp.phone|default:"—" }}</td>
+                <td>{{ emp.date_of_joining|date:"d M Y"|default:"—" }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-icon"><i class="fa-solid fa-users"></i></div>
+        <div class="empty-title">No Employees</div>
+        <p>No employees are assigned to {{ dept.name }} yet.</p>
+    </div>
+    {% endif %}
+</div>
+
+{% endblock %}

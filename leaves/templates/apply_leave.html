@@ -1,0 +1,291 @@
+{% extends "base.html" %}
+{% block title %}Apply Leave — LeaveOS{% endblock %}
+{% block page_title %}Apply for Leave{% endblock %}
+{% block nav_apply %}active{% endblock %}
+
+{% block extra_head %}
+<style>
+  .apply-grid {
+    display: grid;
+    grid-template-columns: 1fr 360px;
+    gap: 24px;
+    align-items: start;
+  }
+
+  .leave-type-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-top: 8px;
+  }
+
+  .type-card {
+    position: relative;
+  }
+
+  .type-card input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    width: 0; height: 0;
+  }
+
+  .type-card label {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 18px 12px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-muted);
+    text-align: center;
+  }
+
+  .type-card label i {
+    font-size: 20px;
+  }
+
+  .type-card input:checked + label {
+    background: rgba(108,99,255,0.15);
+    border-color: var(--accent);
+    color: var(--text);
+    box-shadow: 0 0 0 3px rgba(108,99,255,0.1);
+  }
+
+  .type-card label:hover {
+    background: var(--surface3);
+    color: var(--text);
+  }
+
+  .duration-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-top: 8px;
+  }
+
+  .info-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    position: sticky;
+    top: 80px;
+  }
+
+  .info-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .balance-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .balance-row:last-child { border-bottom: none; }
+
+  .balance-label { font-size: 13px; color: var(--text-muted); }
+
+  .balance-value {
+    font-family: 'Syne', sans-serif;
+    font-size: 20px;
+    font-weight: 700;
+  }
+
+  .short-leave-fields { display: none; }
+  .short-leave-fields.show { display: block; }
+
+  .date-range { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  @media (max-width: 900px) {
+    .apply-grid { grid-template-columns: 1fr; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header animate-in">
+  <h1 class="page-title">Apply for Leave</h1>
+  <p class="page-subtitle">Fill in the details below to submit your leave request.</p>
+</div>
+
+<div class="apply-grid">
+  <!-- Form -->
+  <div class="card animate-in delay-1">
+    <form method="POST" action="{% url 'apply_leave' %}">
+      {% csrf_token %}
+
+      <!-- Leave Type -->
+      <div class="form-group">
+        <label class="form-label">Leave Type</label>
+        <div class="leave-type-grid">
+          <div class="type-card">
+            <input type="radio" name="leave_type" id="lt-casual" value="CASUAL" checked>
+            <label for="lt-casual">
+              <i class="fa-solid fa-umbrella-beach" style="color:#6c63ff;"></i>
+              Casual Leave
+            </label>
+          </div>
+          <div class="type-card">
+            <input type="radio" name="leave_type" id="lt-sick" value="SICK">
+            <label for="lt-sick">
+              <i class="fa-solid fa-kit-medical" style="color:#ff6b9d;"></i>
+              Sick Leave
+            </label>
+          </div>
+          <div class="type-card">
+            <input type="radio" name="leave_type" id="lt-short" value="SHORT">
+            <label for="lt-short">
+              <i class="fa-solid fa-hourglass-half" style="color:#ffb347;"></i>
+              Short Leave
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Duration -->
+      <div class="form-group">
+        <label class="form-label">Duration</label>
+        <div class="duration-grid">
+          <div class="type-card">
+            <input type="radio" name="duration" id="dur-full" value="FULL" checked onchange="toggleShort(false)">
+            <label for="dur-full">
+              <i class="fa-solid fa-sun" style="color:#ffb347;"></i>
+              Full Day
+            </label>
+          </div>
+          <div class="type-card">
+            <input type="radio" name="duration" id="dur-half" value="HALF" onchange="toggleShort(false)">
+            <label for="dur-half">
+              <i class="fa-solid fa-circle-half-stroke" style="color:#00d9b1;"></i>
+              Half Day
+            </label>
+          </div>
+          <div class="type-card">
+            <input type="radio" name="duration" id="dur-short" value="SHORT" onchange="toggleShort(true)">
+            <label for="dur-short">
+              <i class="fa-solid fa-clock" style="color:#6c63ff;"></i>
+              Short Leave
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Date Range -->
+      <div class="form-group">
+        <label class="form-label">Date Range</label>
+        <div class="date-range">
+          <div>
+            <label class="form-label" style="font-size:11px;margin-bottom:4px;">Start Date</label>
+            <input type="date" name="start_date" class="form-control" required>
+          </div>
+          <div id="end-date-wrap">
+            <label class="form-label" style="font-size:11px;margin-bottom:4px;">End Date</label>
+            <input type="date" name="end_date" class="form-control">
+          </div>
+        </div>
+      </div>
+
+      <!-- Short Leave Fields -->
+      <div class="short-leave-fields" id="short-fields">
+        <div class="date-range">
+          <div class="form-group">
+            <label class="form-label">Session</label>
+            <select name="short_session" class="form-control">
+              <option value="AM">Morning (AM)</option>
+              <option value="PM">Afternoon (PM)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Hours</label>
+            <input type="number" name="short_hours" class="form-control" value="4" min="1" max="8" placeholder="Hours">
+          </div>
+        </div>
+      </div>
+
+      <!-- Reason -->
+      <div class="form-group">
+        <label class="form-label">Reason</label>
+        <textarea name="reason" class="form-control" rows="4" placeholder="Briefly describe the reason for your leave..." style="resize:vertical;"></textarea>
+      </div>
+
+      <div style="display:flex;gap:12px;margin-top:8px;">
+        <button type="submit" class="btn btn-primary">
+          <i class="fa-solid fa-paper-plane"></i> Submit Request
+        </button>
+        <a href="javascript:history.back()" class="btn btn-ghost">Cancel</a>
+      </div>
+    </form>
+  </div>
+
+  <!-- Info Sidebar -->
+  <div class="info-card animate-in delay-2">
+    <div class="info-title">
+      <i class="fa-solid fa-wallet" style="color:var(--accent);"></i>
+      Leave Balance
+    </div>
+    {% if balance %}
+    <div class="balance-row">
+      <span class="balance-label"><i class="fa-solid fa-umbrella-beach" style="color:#6c63ff;margin-right:6px;"></i>Casual Leave</span>
+      <span class="balance-value" style="color:#6c63ff;">{{ balance.casual_leave }}</span>
+    </div>
+    <div class="balance-row">
+      <span class="balance-label"><i class="fa-solid fa-kit-medical" style="color:#ff6b9d;margin-right:6px;"></i>Sick Leave</span>
+      <span class="balance-value" style="color:#ff6b9d;">{{ balance.sick_leave }}</span>
+    </div>
+    {% endif %}
+
+    <div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--border);">
+      <div class="info-title" style="font-size:13px;">
+        <i class="fa-solid fa-circle-info" style="color:var(--accent3);"></i>
+        Approval Flow
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px;">
+        <div style="display:flex;align-items:center;gap:10px;font-size:12px;color:var(--text-muted);">
+          <div style="width:24px;height:24px;border-radius:50%;background:rgba(108,99,255,0.2);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--accent);">1</div>
+          Team Leader Review
+        </div>
+        <div style="width:1px;height:12px;background:var(--border);margin-left:11px;"></div>
+        <div style="display:flex;align-items:center;gap:10px;font-size:12px;color:var(--text-muted);">
+          <div style="width:24px;height:24px;border-radius:50%;background:rgba(0,217,177,0.12);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--accent3);">2</div>
+          HR Approval
+        </div>
+        <div style="width:1px;height:12px;background:var(--border);margin-left:11px;"></div>
+        <div style="display:flex;align-items:center;gap:10px;font-size:12px;color:var(--text-muted);">
+          <div style="width:24px;height:24px;border-radius:50%;background:rgba(255,107,157,0.12);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--accent2);">3</div>
+          Manager Final Approval
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function toggleShort(show) {
+  const fields = document.getElementById('short-fields');
+  const endWrap = document.getElementById('end-date-wrap');
+  if (show) {
+    fields.classList.add('show');
+    endWrap.style.display = 'none';
+  } else {
+    fields.classList.remove('show');
+    endWrap.style.display = '';
+  }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,414 @@
+{% extends 'base.html' %}
+{% block title %}Employees — LeaveSetu{% endblock %}
+{% block page_title %}Employee Directory{% endblock %}
+
+{% block extra_head %}
+<style>
+/* ═══════════════════════════════════════════════
+   HR EMPLOYEE LIST
+═══════════════════════════════════════════════ */
+
+/* Stat chips */
+.emp-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 14px; margin-bottom: 24px;
+}
+.emp-stat {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px; padding: 18px 20px;
+    display: flex; align-items: center; gap: 14px;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.05);
+    transition: all 0.2s;
+}
+.emp-stat:hover { transform: translateY(-2px); box-shadow: 0 4px 18px rgba(0,0,0,0.09); border-color: var(--border-mid); }
+.stat-icon {
+    width: 42px; height: 42px; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; flex-shrink: 0;
+}
+.si-total    { background: var(--aqua-glass);             color: var(--aqua-deep); }
+.si-active   { background: rgba(22,163,74,0.12);          color: #16a34a; }
+.si-inactive { background: rgba(148,163,184,0.15);        color: #64748b; }
+.si-leave    { background: rgba(245,158,11,0.12);         color: #d97706; }
+.stat-val    { font-size: 24px; font-weight: 800; color: var(--text); letter-spacing: -1px; line-height: 1; }
+.stat-label  { font-size: 11.5px; color: var(--text-muted); font-weight: 600; margin-top: 3px; }
+
+/* Search & filter bar */
+.emp-toolbar {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px; padding: 16px 20px;
+    margin-bottom: 20px;
+    display: flex; align-items: center; gap: 12px;
+    flex-wrap: wrap;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.05);
+}
+.search-box {
+    flex: 1; min-width: 220px;
+    position: relative;
+}
+.search-box i {
+    position: absolute; left: 13px; top: 50%; transform: translateY(-50%);
+    color: var(--text-faint); font-size: 13px; pointer-events: none;
+}
+.search-input {
+    width: 100%; padding: 10px 14px 10px 36px;
+    border: 1.5px solid var(--border);
+    border-radius: 10px; font-size: 13px;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    background: var(--surface); color: var(--text);
+    transition: border-color 0.2s, box-shadow 0.2s;
+    outline: none;
+}
+.search-input:focus {
+    border-color: var(--aqua);
+    box-shadow: 0 0 0 3px rgba(0,198,212,0.12);
+}
+.filter-select {
+    padding: 10px 14px; border: 1.5px solid var(--border);
+    border-radius: 10px; font-size: 13px;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    background: var(--surface); color: var(--text);
+    cursor: pointer; outline: none; min-width: 140px;
+    transition: border-color 0.2s;
+}
+.filter-select:focus { border-color: var(--aqua); }
+
+.btn-search {
+    background: linear-gradient(135deg, var(--aqua-deep), var(--aqua));
+    color: #fff; border: none; padding: 10px 20px; border-radius: 10px;
+    font-size: 13px; font-weight: 700; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    box-shadow: 0 3px 12px rgba(0,198,212,0.3);
+    transition: all 0.2s; white-space: nowrap;
+}
+.btn-search:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(0,198,212,0.45); }
+
+.btn-clear {
+    background: var(--surface2); color: var(--text-muted);
+    border: 1.5px solid var(--border);
+    padding: 10px 16px; border-radius: 10px;
+    font-size: 13px; font-weight: 600; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 7px;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    text-decoration: none; transition: all 0.18s; white-space: nowrap;
+}
+.btn-clear:hover { border-color: var(--border-mid); color: var(--text); }
+
+/* Result count bar */
+.result-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 14px; flex-wrap: wrap; gap: 8px;
+}
+.result-count {
+    font-size: 13px; font-weight: 700; color: var(--text-muted);
+}
+.result-count span { color: var(--aqua-deep); }
+
+/* Employee table card */
+.emp-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px; overflow: hidden;
+    box-shadow: 0 2px 16px rgba(0,0,0,0.06);
+}
+
+.emp-table { width: 100%; border-collapse: collapse; min-width: 700px; }
+.emp-table-wrap { overflow-x: auto; }
+
+.emp-table thead th {
+    background: #f8fafc;
+    padding: 13px 20px;
+    font-size: 10.5px; font-weight: 800;
+    text-transform: uppercase; letter-spacing: 0.7px;
+    color: #64748b; border-bottom: 2px solid #e2e8f0;
+    text-align: left; white-space: nowrap;
+}
+
+.emp-table tbody tr {
+    border-bottom: 1px solid #f1f5f9;
+    transition: background 0.15s;
+    cursor: pointer;
+}
+.emp-table tbody tr:last-child { border-bottom: none; }
+.emp-table tbody tr:hover { background: #f8faff; }
+
+.emp-table tbody td {
+    padding: 14px 20px;
+    font-size: 13px; color: var(--text);
+    vertical-align: middle;
+}
+
+/* Avatar + name cell */
+.emp-cell { display: flex; align-items: center; gap: 13px; }
+.emp-avatar {
+    width: 40px; height: 40px; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px; font-weight: 800; flex-shrink: 0;
+    color: #fff; text-transform: uppercase;
+}
+.av-0 { background: linear-gradient(135deg,#0891b2,#22d3ee); }
+.av-1 { background: linear-gradient(135deg,#7c3aed,#a78bfa); }
+.av-2 { background: linear-gradient(135deg,#15803d,#4ade80); }
+.av-3 { background: linear-gradient(135deg,#b45309,#fbbf24); }
+.av-4 { background: linear-gradient(135deg,#be123c,#fb7185); }
+
+.emp-name  { font-size: 13.5px; font-weight: 700; color: #1e293b; }
+.emp-email { font-size: 11.5px; color: #94a3b8; margin-top: 2px; }
+
+/* Role badge */
+.role-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 10px; border-radius: 20px;
+    font-size: 11px; font-weight: 700;
+}
+.rb-hr      { background: rgba(139,92,246,0.12); color: #7c3aed; border: 1px solid rgba(139,92,246,0.2); }
+.rb-manager { background: rgba(59,130,246,0.12); color: #2563eb; border: 1px solid rgba(59,130,246,0.2); }
+.rb-tl      { background: rgba(20,184,166,0.12); color: #0d9488; border: 1px solid rgba(20,184,166,0.2); }
+.rb-employee{ background: rgba(0,198,212,0.10);  color: #0891b2; border: 1px solid rgba(0,198,212,0.2); }
+.rb-default { background: #f1f5f9; color: #64748b; border: 1px solid #e2e8f0; }
+
+/* Status badge */
+.status-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 5px 11px; border-radius: 20px;
+    font-size: 11px; font-weight: 700;
+}
+.sb-active   { background: rgba(22,163,74,0.10);  color: #16a34a; border: 1px solid rgba(22,163,74,0.2); }
+.sb-inactive { background: rgba(148,163,184,0.12);color: #64748b; border: 1px solid #e2e8f0; }
+.sb-leave    { background: rgba(245,158,11,0.12); color: #d97706; border: 1px solid rgba(245,158,11,0.2); }
+.sb-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+/* Action cell */
+.act-cell { display: flex; align-items: center; gap: 8px; }
+.tbl-btn {
+    width: 32px; height: 32px; border-radius: 9px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; text-decoration: none;
+    border: 1px solid var(--border); background: var(--surface);
+    color: var(--text-muted); cursor: pointer; transition: all 0.18s;
+}
+.tbl-btn:hover { background: var(--surface2); border-color: var(--border-mid); color: var(--text); }
+.tbl-btn.view:hover  { color: #0891b2; border-color: #bae6fd; background: rgba(8,145,178,0.06); }
+.tbl-btn.edit:hover  { color: #d97706; border-color: #fde68a; background: rgba(217,119,6,0.06); }
+
+/* Empty state */
+.emp-empty {
+    padding: 70px 40px; text-align: center;
+}
+.emp-empty-icon {
+    width: 64px; height: 64px; border-radius: 18px;
+    background: linear-gradient(135deg, #0d1117, #1e293b);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 26px; color: #22d3ee; margin: 0 auto 18px;
+}
+.emp-empty-title { font-size: 17px; font-weight: 800; color: var(--text); margin-bottom: 8px; }
+.emp-empty-sub   { font-size: 13px; color: var(--text-muted); }
+</style>
+{% endblock %}
+
+
+{% block content %}
+
+<!-- ── Stat chips ── -->
+<div class="emp-stats animate-in">
+    <div class="emp-stat">
+        <div class="stat-icon si-total"><i class="fa-solid fa-users"></i></div>
+        <div>
+            <div class="stat-val">{{ total_count }}</div>
+            <div class="stat-label">Total Employees</div>
+        </div>
+    </div>
+    <div class="emp-stat">
+        <div class="stat-icon si-active"><i class="fa-solid fa-circle-check"></i></div>
+        <div>
+            <div class="stat-val">{{ active_count }}</div>
+            <div class="stat-label">Active</div>
+        </div>
+    </div>
+    <div class="emp-stat">
+        <div class="stat-icon si-inactive"><i class="fa-solid fa-circle-xmark"></i></div>
+        <div>
+            <div class="stat-val">{{ inactive_count }}</div>
+            <div class="stat-label">Inactive</div>
+        </div>
+    </div>
+    <div class="emp-stat">
+        <div class="stat-icon si-leave"><i class="fa-solid fa-plane-departure"></i></div>
+        <div>
+            <div class="stat-val">{{ on_leave_count }}</div>
+            <div class="stat-label">On Leave Today</div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Search & filter bar ── -->
+<form method="get" class="emp-toolbar animate-in delay-1">
+    <div class="search-box">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input type="text" name="search" class="search-input"
+               placeholder="Search name, email, role, department…"
+               value="{{ search_query }}"
+               autocomplete="off">
+    </div>
+
+    <select name="department" class="filter-select">
+        <option value="">All Departments</option>
+        {% for dept in departments %}
+        <option value="{{ dept.pk }}" {% if dept_filter == dept.pk|stringformat:"s" %}selected{% endif %}>
+            {{ dept.name }}
+        </option>
+        {% endfor %}
+    </select>
+
+    <select name="role" class="filter-select">
+        <option value="">All Roles</option>
+        {% for role in roles %}
+        <option value="{{ role.pk }}" {% if role_filter == role.pk|stringformat:"s" %}selected{% endif %}>
+            {{ role.name }}
+        </option>
+        {% endfor %}
+    </select>
+
+    <select name="status" class="filter-select" style="min-width:130px;">
+        <option value=""           {% if not status_filter %}selected{% endif %}>All Status</option>
+        <option value="active"     {% if status_filter == 'active' %}selected{% endif %}>Active</option>
+        <option value="inactive"   {% if status_filter == 'inactive' %}selected{% endif %}>Inactive</option>
+        <option value="on_leave"   {% if status_filter == 'on_leave' %}selected{% endif %}>On Leave</option>
+    </select>
+
+    <button type="submit" class="btn-search">
+        <i class="fa-solid fa-magnifying-glass"></i> Search
+    </button>
+
+    {% if search_query or dept_filter or role_filter or status_filter %}
+    <a href="{% url 'hr_employee_list' %}" class="btn-clear">
+        <i class="fa-solid fa-xmark"></i> Clear
+    </a>
+    {% endif %}
+</form>
+
+<!-- ── Result count ── -->
+<div class="result-bar animate-in delay-1">
+    <div class="result-count">
+        Showing <span>{{ result_count }}</span> employee{{ result_count|pluralize }}
+        {% if search_query %}for "<span>{{ search_query }}</span>"{% endif %}
+    </div>
+    {% if search_query or dept_filter or role_filter or status_filter %}
+    <div style="font-size:12px; color:var(--text-faint);">
+        <i class="fa-solid fa-filter" style="margin-right:5px;"></i>Filters active
+    </div>
+    {% endif %}
+</div>
+
+<!-- ── Employee table ── -->
+<div class="emp-card animate-in delay-2">
+    <div class="emp-table-wrap">
+        <table class="emp-table">
+            <thead>
+                <tr>
+                    <th>Employee</th>
+                    <th>Role</th>
+                    <th>Department</th>
+                    <th>Joined</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in employee_data %}
+                {% with emp=item.emp %}
+                <tr onclick="window.location='{% url 'hr_employee_detail' emp.pk %}'">
+                    <td>
+                        <div class="emp-cell">
+                            <div class="emp-avatar av-{{ forloop.counter0|divisibleby:5|yesno:'0,1,2,3,4'|default:forloop.counter0 }}">
+                                {{ emp.first_name|slice:":1"|upper|default:emp.username|slice:":1"|upper }}
+                            </div>
+                            <div>
+                                <div class="emp-name">{{ emp.get_full_name|default:emp.username }}</div>
+                                <div class="emp-email">{{ emp.email }}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        {% if item.role == 'HR' %}
+                            <span class="role-badge rb-hr"><i class="fa-solid fa-users-gear"></i> {{ item.role }}</span>
+                        {% elif item.role == 'Manager' %}
+                            <span class="role-badge rb-manager"><i class="fa-solid fa-briefcase"></i> {{ item.role }}</span>
+                        {% elif item.role == 'TL' %}
+                            <span class="role-badge rb-tl"><i class="fa-solid fa-code-branch"></i> {{ item.role }}</span>
+                        {% elif item.role == 'Employee' %}
+                            <span class="role-badge rb-employee"><i class="fa-solid fa-user-tie"></i> {{ item.role }}</span>
+                        {% else %}
+                            <span class="role-badge rb-default">{{ item.role }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span style="font-size:13px; color:var(--text-muted);">
+                            {{ item.department }}
+                        </span>
+                    </td>
+                    <td>
+                        <span style="font-size:12.5px; color:var(--text-muted);">
+                            {{ emp.date_joined|date:"d M Y" }}
+                        </span>
+                    </td>
+                    <td>
+                        {% if item.on_leave %}
+                            <span class="status-badge sb-leave">
+                                <span class="sb-dot"></span> On Leave
+                            </span>
+                        {% elif emp.is_active %}
+                            <span class="status-badge sb-active">
+                                <span class="sb-dot"></span> Active
+                            </span>
+                        {% else %}
+                            <span class="status-badge sb-inactive">
+                                <span class="sb-dot"></span> Inactive
+                            </span>
+                        {% endif %}
+                    </td>
+                    <td onclick="event.stopPropagation()">
+                        <div class="act-cell">
+                            <a href="{% url 'hr_employee_detail' emp.pk %}"
+                               class="tbl-btn view" title="View Profile">
+                                <i class="fa-solid fa-eye"></i>
+                            </a>
+                            {% if viewer_role == 'HR' or viewer_role == 'Admin' or request.user.is_superuser %}
+                            <a href="{% url 'hr_employee_edit' emp.pk %}"
+                               class="tbl-btn edit" title="Edit Employee">
+                                <i class="fa-solid fa-pen"></i>
+                            </a>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endwith %}
+                {% empty %}
+                <tr>
+                    <td colspan="6">
+                        <div class="emp-empty">
+                            <div class="emp-empty-icon">
+                                <i class="fa-solid fa-users-slash"></i>
+                            </div>
+                            <div class="emp-empty-title">No employees found</div>
+                            <div class="emp-empty-sub">
+                                {% if search_query %}
+                                    No results for "{{ search_query }}". Try a different search.
+                                {% else %}
+                                    No employees match the selected filters.
+                                {% endif %}
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}
