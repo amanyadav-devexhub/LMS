@@ -60,6 +60,8 @@ class User(AbstractUser):
 
     phone = models.CharField(max_length=15, blank=True, null=True)
 
+    designation = models.CharField(max_length=150, blank=True, null=True)
+
     date_of_joining = models.DateField(null=True, blank=True)
 
     is_senior = models.BooleanField(default=False)

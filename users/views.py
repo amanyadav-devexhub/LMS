@@ -285,11 +285,15 @@ def update_profile(request):
         elif section == 'basic_hr':
 
             # Only HR, Admin, Manager can use this section
-            role_name = getattr(user.role, 'name', '')
+            role_name = getattr(request.user.role, 'name', '')
             if role_name not in ('HR', 'Admin', 'Manager'):
                 messages.error(request, 'Access denied.')
                 return redirect('dashboard')
 
+            # target_user = User.objects.get(pk=...) # Wait, the current logic uses 'user = request.user'
+            # The section is for HR/Admin to edit THEIR OWN profile or others?
+            # In dashboard context, it is usually editing their own.
+            
             user.first_name = _str('first_name') or user.first_name
             user.last_name  = _str('last_name')  or user.last_name
 
@@ -299,21 +303,30 @@ def update_profile(request):
                     messages.error(request, 'That email is already in use.')
                     return redirect('dashboard')
                 user.email = new_email
+            
+            # Update Designation (Added field)
+            user.designation = _str('designation') or user.designation
+            
+            # Update Department
             dept_id = _str('department')
-
             if dept_id:
                 try:
                     user.department = Department.objects.get(pk=dept_id)
-                except Department.DoesNotExist:
-                    user.department = None
+                except (Department.DoesNotExist, ValueError):
+                    pass
 
-            additional.phone = _str('phone') or additional.phone
+            # Update Phone (Sync both models)
+            p_val = _str('phone')
+            if p_val:
+                user.phone = p_val
+                additional.phone = p_val
 
             doj = _date('date_of_joining')
             if doj:
                 user.date_of_joining = doj
 
-            user.save(update_fields=['first_name', 'last_name', 'email', 'phone', 'date_of_joining'])
+            user.save()
+            additional.save()
             messages.success(request, 'HR basic details updated successfully!')
 
         # ── SALARY ──────────────────────────────────────────

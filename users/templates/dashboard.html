@@ -1036,7 +1036,8 @@
   function toggleHrEdit(section) {
     hrEditState[section] = !hrEditState[section];
     const view = document.getElementById('view-' + section);
-    const form = document.getElementById('edit-' + section);
+    const formId = section === 'basic' ? 'edit-basic-hr' : 'edit-' + section;
+    const form = document.getElementById(formId);
     const btnId = 'hrEdit' + section.charAt(0).toUpperCase() + section.slice(1) + 'Btn';
     const btn  = document.getElementById(btnId);
     if (hrEditState[section]) {

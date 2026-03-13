@@ -595,10 +595,6 @@
         <span class="nav-text">My Profile</span>
     </a>
     
-{# ── MANAGER ── #}
-{% elif request.user.role.name == "Manager" %}
-    <!-- ... rest of the code ... -->
-
         {# ── MANAGER ── #}
         {% elif request.user.role.name == "Manager" %}
             <div class="nav-label">Main</div>

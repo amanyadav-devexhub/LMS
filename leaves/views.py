@@ -142,6 +142,7 @@ def employee_dashboard(request):
         "unread_count":     unread,
         "designation":      designation,
         "role_name":        role_name,
+        "profile":          _build_profile_context(request.user),
     }
 
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
@@ -459,6 +460,7 @@ def hr_dashboard(request):
         "recent_activity":        recent_activity,
         "recent_joiners":         recent_joiners,
         "my_recent_leaves":       my_recent_leaves,
+        "profile":                _build_profile_context(request.user),
     }
     return render(request, "hr_dashboard.html", context)
 
@@ -801,19 +803,100 @@ def manager_dashboard(request):
     if get_user_role(request.user) != "Manager":
         return redirect("employee_dashboard")
 
-    leaves = LeaveRequest.objects.filter(
+    from django.core.paginator import Paginator
+    today        = date.today()
+    current_year = timezone.now().year
+
+    # ── 1. Direct Team Overview ──────────────────────────────────
+    team_members = User.objects.filter(
+        reporting_manager=request.user
+    ).select_related("role", "department")
+
+    # ── 2. Pending Approvals Queue ───────────────────────────────
+    # Managers can approve anyone, but we'll show their team first
+    team_pending = LeaveRequest.objects.filter(
+        status="PENDING",
+        employee__reporting_manager=request.user
+    ).select_related("employee", "employee__department").order_by("-created_at")
+
+    other_pending = LeaveRequest.objects.filter(
         status="PENDING"
-    ).select_related(
-        "employee", "employee__department", "employee__role"
+    ).exclude(
+        employee__reporting_manager=request.user
+    ).select_related("employee", "employee__department").order_by("-created_at")
+
+    # For the "Pending" tab, combine them or just show all with pagination
+    all_pending = LeaveRequest.objects.filter(
+        status="PENDING"
+    ).select_related("employee", "employee__department").order_by("-created_at")
+    
+    pending_page = Paginator(all_pending, 8).get_page(request.GET.get("page", 1))
+
+    # ── 3. Team On-Leave Today ────────────────────────────────────
+    team_on_leave = LeaveRequest.objects.filter(
+        status="APPROVED",
+        employee__reporting_manager=request.user,
+        start_date__lte=today,
+        end_date__gte=today
+    ).select_related("employee")
+
+    # ── 4. Team History ───────────────────────────────────────────
+    team_history_qs = LeaveRequest.objects.filter(
+        employee__reporting_manager=request.user,
+        start_date__year=current_year
+    ).select_related("employee").order_by("-created_at")
+    
+    team_history_page = Paginator(team_history_qs, 10).get_page(request.GET.get("hpage", 1))
+
+    # ── 5. My Leave History ───────────────────────────────────────
+    my_leaves_qs = LeaveRequest.objects.filter(
+        employee=request.user
     ).order_by("-created_at")
+    
+    my_leaves_page = Paginator(my_leaves_qs, 10).get_page(request.GET.get("mypage", 1))
+
+    # ── 6. Per-member balance summary ─────────────────────────────
+    team_data = []
+    for member in team_members:
+        member_leaves = LeaveRequest.objects.filter(employee=member, start_date__year=current_year)
+        bal, _ = LeaveBalance.objects.get_or_create(employee=member)
+        team_data.append({
+            "member":         member,
+            "total_leaves":   member_leaves.count(),
+            "approved":       member_leaves.filter(status="APPROVED").count(),
+            "pending":        member_leaves.filter(status="PENDING").count(),
+            "casual_balance": bal.casual_leave or 0,
+            "sick_balance":   bal.sick_leave or 0,
+            "is_on_leave":    team_on_leave.filter(employee=member).exists(),
+        })
 
     unread = Notification.objects.filter(user=request.user, read_status=False).count()
 
-    return render(request, "manager_dashboard.html", {
-        "leaves":             leaves,
-        "pending_count":      leaves.count(),
+    context = {
+        # Tab Content
+        "pending_page":      pending_page,
+        "team_pending":      team_pending,
+        "other_pending":     other_pending,
+        "pending_count":     all_pending.count(),
+        
+        "team_members":      team_members,
+        "team_data":         team_data,
+        "team_count":        team_members.count(),
+        "team_on_leave":     team_on_leave,
+        "team_on_leave_count": team_on_leave.count(),
+        
+        "team_history_page": team_history_page,
+        "my_leaves_page":    my_leaves_page,
+        
+        # Sidebar/Meta
         "notification_count": unread,
-    })
+        "unread_count":       unread, # base.html uses unread_count
+        "current_year":       current_year,
+        "profile":            _build_profile_context(request.user),
+    }
+
+    return render(request, "manager_dashboard.html", context)
+
 
 
 # ════════════════════════════════════════════════════════════════════
@@ -892,6 +975,7 @@ def admin_dashboard(request):
         "recent_approved":  LeaveRequest.objects.filter(status="APPROVED").select_related("employee").order_by("-updated_at")[:5],
         "recent_rejected":  LeaveRequest.objects.filter(status="REJECTED").select_related("employee").order_by("-updated_at")[:5],
         "top_leave_takers": top_leave_takers,
+        "profile":          _build_profile_context(request.user),
     }
     return render(request, "admin_dashboard.html", context)
 
@@ -1118,7 +1202,7 @@ def create_employee(request):
         request.user.is_superuser or get_user_role(request.user) in ("HR", "Admin")
     ):
         username = request.POST.get("username")
-        email = request.POST.get("email")
+        email    = request.POST.get("email")
         password = request.POST.get("password")
 
         # 🔹 CHECK IF USERNAME ALREADY EXISTS
@@ -1126,10 +1210,24 @@ def create_employee(request):
             messages.error(request, "Username already exists. Please choose another.")
             return redirect("admin_dashboard" if request.user.is_superuser else "hr_dashboard")
 
-        tl_id = request.POST.get("reporting_manager_id")
-        role_id = request.POST.get("role_id")
+        # 🔹 DATA EXTRACTION
+        dept_id        = request.POST.get("department_id")
+        manager_email  = request.POST.get("reporting_manager_email")
+        role_id        = request.POST.get("role_id")
 
-        tl_user = User.objects.get(id=tl_id) if tl_id else None
+        # 🔹 LOOKUP OBJECTS
+        manager_user = None
+        if manager_email:
+            manager_user = User.objects.filter(email=manager_email).first()
+            if not manager_user:
+                messages.warning(request, f"Reporting Manager with email '{manager_email}' not found.")
+
+        dept_obj = None
+        if dept_id:
+            try:
+                dept_obj = Department.objects.get(id=dept_id)
+            except Department.DoesNotExist:
+                pass
 
         try:
             employee_role = (
@@ -1139,14 +1237,16 @@ def create_employee(request):
         except Role.DoesNotExist:
             employee_role = None
 
+        # 🔹 CREATE USER
         User.objects.create_user(
             username=username,
             email=email,
             password=password,
             first_name=request.POST.get("first_name", ""),
+            last_name=request.POST.get("last_name", ""),
             role=employee_role,
-            reporting_manager=tl_user,
-            department=tl_user.department if tl_user else None,
+            reporting_manager=manager_user,
+            department=dept_obj,
         )
 
         messages.success(request, "Employee created successfully.")

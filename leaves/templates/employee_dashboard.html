@@ -202,15 +202,15 @@
             </div>
             <div class="welcome-meta">
                 <span class="welcome-meta-item"><i class="fa-regular fa-envelope"></i> {{ request.user.email }}</span>
-                <span class="welcome-meta-item"><i class="fa-regular fa-building"></i> {{ request.user.profile.department|default:"Engineering" }}</span>
+                <span class="welcome-meta-item"><i class="fa-regular fa-building"></i> {{ profile.department|default:"—" }}</span>
             </div>
 
             <!-- Designation + Role badge -->
             <div class="role-badge-wrap">
                 {% if designation %}
                     <span class="designation-badge"><i class="fa-solid fa-briefcase"></i> {{ designation }}</span>
-                {% elif request.user.profile.designation %}
-                    <span class="designation-badge"><i class="fa-solid fa-briefcase"></i> {{ request.user.profile.designation }}</span>
+                {% elif profile.designation %}
+                    <span class="designation-badge"><i class="fa-solid fa-briefcase"></i> {{ profile.designation }}</span>
                 {% endif %}
 
                 {% if role_name == 'TL' %}

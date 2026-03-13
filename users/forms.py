@@ -43,7 +43,8 @@ class HRBasicForm(forms.Form):
     first_name    = forms.CharField(max_length=150, required=False)
     last_name     = forms.CharField(max_length=150, required=False)
     email         = forms.EmailField(required=False)
-    phone         = forms.CharField(max_length=15,  required=False)
+    phone           = forms.CharField(max_length=15,  required=False)
+    designation     = forms.CharField(max_length=150, required=False)
     date_of_joining = forms.DateField(required=False, input_formats=['%Y-%m-%d'])
 
 
@@ -91,6 +92,6 @@ class ProfileUpdateForm(forms.ModelForm):
         model  = User
         fields = [
             'first_name', 'last_name', 'email', 'phone',
-            'department', 'role', 'reporting_manager',
+            'department', 'designation', 'role', 'reporting_manager',
             'date_of_joining', 'is_senior',
         ]
