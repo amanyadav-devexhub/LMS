@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+{% block title %}Holiday Calendar — LeaveSetu{% endblock %}
+{% block page_title %}Holiday Calendar {{ year }}{% endblock %}
+
+{% block extra_head %}
+<style>
+    .calendar-grid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 5px;
+        margin-bottom: 15px;
+    }
+    
+    .calendar-day {
+        aspect-ratio: 1;
+        padding: 8px;
+        background: var(--surface2);
+        border-radius: 10px;
+        position: relative;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    
+    .calendar-day:hover {
+        transform: scale(1.05);
+        box-shadow: var(--shadow);
+        z-index: 10;
+    }
+    
+    .calendar-day.holiday {
+        background: linear-gradient(135deg, rgba(0,198,212,0.2), rgba(0,198,212,0.1));
+        border: 2px solid var(--aqua);
+    }
+    
+    .calendar-day .day-number {
+        font-size: 14px;
+        font-weight: 600;
+        margin-bottom: 3px;
+    }
+    
+    .calendar-day .holiday-badge {
+        font-size: 9px;
+        background: var(--aqua);
+        color: white;
+        padding: 2px 4px;
+        border-radius: 4px;
+        position: absolute;
+        bottom: 4px;
+        left: 4px;
+        right: 4px;
+        text-align: center;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    .weekday-header {
+        text-align: center;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text-muted);
+        padding: 8px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Year Navigation -->
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+    <a href="?year={{ prev_year }}" class="btn btn-ghost">
+        <i class="fa-solid fa-chevron-left"></i> {{ prev_year }}
+    </a>
+    
+    <div style="text-align: center;">
+        <h2 style="font-size: 28px; margin-bottom: 5px;">{{ year }}</h2>
+        <div style="display: flex; gap: 10px; justify-content: center;">
+            <span class="badge badge-info">{{ total_holidays }} Holidays</span>
+            <span class="badge badge-success">{{ total_days }} Total Days Off</span>
+        </div>
+    </div>
+    
+    <a href="?year={{ next_year }}" class="btn btn-ghost">
+        {{ next_year }} <i class="fa-solid fa-chevron-right"></i>
+    </a>
+</div>
+
+<!-- Holiday Type Legend -->
+<div class="card" style="margin-bottom: 24px;">
+    <div style="padding: 15px 20px; display: flex; gap: 20px; flex-wrap: wrap;">
+        {% for type_value, type_label in holiday_types.items %}
+        <div style="display: flex; align-items: center; gap: 5px;">
+            <div style="width: 12px; height: 12px; border-radius: 3px; 
+                {% if type_value == 'NATIONAL' %}background: var(--info)
+                {% elif type_value == 'RELIGIOUS' %}background: #8b5cf6
+                {% elif type_value == 'REGIONAL' %}background: var(--warning)
+                {% elif type_value == 'COMPANY' %}background: var(--success)
+                {% else %}background: var(--aqua){% endif %}">
+            </div>
+            <span style="font-size: 12px;">{{ type_label }}</span>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Calendar Grid -->
+<div class="grid-2" style="margin-bottom: 24px;">
+    {% for month_data in calendar_data %}
+    <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <h3>{{ month_data.month_name }} {{ year }}</h3>
+            <span class="badge badge-info">{{ month_data.count }} holidays</span>
+        </div>
+        
+        <!-- Weekday Headers -->
+        <div class="calendar-grid" style="margin-bottom: 5px;">
+            <div class="weekday-header">Mon</div>
+            <div class="weekday-header">Tue</div>
+            <div class="weekday-header">Wed</div>
+            <div class="weekday-header">Thu</div>
+            <div class="weekday-header">Fri</div>
+            <div class="weekday-header">Sat</div>
+            <div class="weekday-header">Sun</div>
+        </div>
+        
+        <!-- Calendar Weeks -->
+        {% for week in month_data.weeks %}
+        <div class="calendar-grid">
+            {% for day in week %}
+                {% if day.day > 0 %}
+                <div class="calendar-day {% if day.is_holiday %}holiday{% endif %}" 
+                     onclick="showHolidayDetails({{ day.date|date:'Y-m-d' }})">
+                    <div class="day-number">{{ day.day }}</div>
+                    {% for holiday in day.holidays %}
+                    <div class="holiday-badge" title="{{ holiday.name }}">
+                        {{ holiday.name|slice:":3" }}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div style="aspect-ratio: 1;"></div>
+                {% endif %}
+            {% endfor %}
+        </div>
+        {% endfor %}
+        
+        <!-- Month Holidays List -->
+        {% if month_data.holidays %}
+        <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--border);">
+            <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px;">Holidays this month:</div>
+            {% for holiday in month_data.holidays %}
+            <div style="display: flex; align-items: center; gap: 8px; padding: 5px 0; font-size: 12px;">
+                <i class="fa-solid {{ holiday.icon }}" style="color: var(--aqua);"></i>
+                <span style="font-weight: 600;">{{ holiday.date|date:"d M" }}:</span>
+                <span>{{ holiday.name }}</span>
+                <span class="badge {{ holiday.color_class }}" style="margin-left: auto;">
+                    {{ holiday.get_holiday_type_display }}
+                </span>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Upcoming Holidays Card -->
+{% if upcoming %}
+<div class="card">
+    <div class="table-header">
+        <div class="table-title">
+            <i class="fa-solid fa-calendar-day"></i>
+            Upcoming Holidays
+        </div>
+    </div>
+    
+    <div style="padding: 15px 20px;">
+        <div style="display: grid; grid-template-columns

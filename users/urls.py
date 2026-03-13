@@ -1,6 +1,11 @@
 from django.urls import path
 from . import views
 
+from django.conf import settings
+from django.conf.urls.static import static
+
+
+
 urlpatterns = [
     path('', views.home_view, name='home'),  # Root URL
     path('login/', views.login_view, name='login'),
@@ -39,5 +44,8 @@ urlpatterns = [
     path('assign-role/',          views.assign_role,      name='assign_role'),
     path('assign-role/bulk/',     views.assign_role_bulk, name='assign_role_bulk'),
 
+ 
 
 ]
+
+urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

@@ -321,7 +321,7 @@
             <tbody>
                 {% for item in employee_data %}
                 {% with emp=item.emp %}
-                <tr onclick="window.location='{% url 'hr_employee_detail' emp.pk %}'">
+                <tr onclick="window.location='{% url 'employee_detail' emp.pk %}'">
                     <td>
                         <div class="emp-cell">
                             <div class="emp-avatar av-{{ forloop.counter0|divisibleby:5|yesno:'0,1,2,3,4'|default:forloop.counter0 }}">

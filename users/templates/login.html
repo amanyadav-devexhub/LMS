@@ -1,83 +1,122 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Login - LeaveSetu LMS</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Axios without integrity error -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.6.4/axios.min.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Login - LeaveSetu LMS</title>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.6.4/axios.min.js"></script>
+
 </head>
+
 <body class="bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center min-h-screen">
 
-  <div class="bg-white rounded-3xl shadow-2xl p-10 w-full max-w-md relative overflow-hidden">
-    
-    <!-- Animated background circles -->
-    <div class="absolute -top-20 -left-20 w-40 h-40 bg-purple-300 rounded-full opacity-30 animate-pulse"></div>
-    <div class="absolute -bottom-20 -right-20 w-60 h-60 bg-blue-300 rounded-full opacity-30 animate-pulse"></div>
+<div class="bg-white rounded-3xl shadow-2xl p-10 w-full max-w-md relative overflow-hidden">
 
-    <h1 class="text-5xl font-extrabold text-center text-gray-800 mb-4 drop-shadow-lg">LeaveSetu</h1>
-    <p class="text-center text-gray-500 mb-8">Login to manage leaves & employee data</p>
-    
-    <form id="loginForm" class="space-y-6">
-      {% csrf_token %}
-      <div class="relative">
-        <input type="email" name="email" id="email" required
-          class="peer w-full p-4 border rounded-xl focus:ring-2 focus:ring-blue-400 focus:outline-none placeholder-transparent"
-          placeholder="you@example.com">
-        <label for="email" class="absolute left-4 top-4 text-gray-400 text-sm transition-all peer-placeholder-shown:top-4 peer-placeholder-shown:text-gray-400 peer-placeholder-shown:text-base peer-focus:top-0 peer-focus:text-blue-500 peer-focus:text-sm">Email</label>
-      </div>
+<div class="absolute -top-20 -left-20 w-40 h-40 bg-purple-300 rounded-full opacity-30 animate-pulse"></div>
+<div class="absolute -bottom-20 -right-20 w-60 h-60 bg-blue-300 rounded-full opacity-30 animate-pulse"></div>
 
-      <div class="relative">
-        <input type="password" name="password" id="password" required
-          class="peer w-full p-4 border rounded-xl focus:ring-2 focus:ring-blue-400 focus:outline-none placeholder-transparent"
-          placeholder="Enter password">
-        <label for="password" class="absolute left-4 top-4 text-gray-400 text-sm transition-all peer-placeholder-shown:top-4 peer-placeholder-shown:text-gray-400 peer-placeholder-shown:text-base peer-focus:top-0 peer-focus:text-blue-500 peer-focus:text-sm">Password</label>
-      </div>
+<h1 class="text-5xl font-extrabold text-center text-gray-800 mb-4 drop-shadow-lg">LeaveSetu</h1>
+<p class="text-center text-gray-500 mb-8">Login to manage leaves & employee data</p>
 
-      <button type="submit"
-        class="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white p-4 rounded-xl font-semibold shadow-lg hover:from-blue-600 hover:to-purple-700 transition">Login</button>
-    </form>
+<form id="loginForm" class="space-y-6">
 
-    <div class="mt-6 text-center">
-      <a href="{% url 'forgot_password' %}" class="text-blue-500 hover:underline">Forgot Password?</a>
-    </div>
+{% csrf_token %}
 
-    <div id="errorMsg" class="mt-4 text-center text-red-500 hidden"></div>
-  </div>
+<div class="relative">
+<input type="email" id="email" required
+class="peer w-full p-4 border rounded-xl focus:ring-2 focus:ring-blue-400 focus:outline-none placeholder-transparent"
+placeholder="you@example.com">
 
-  <script>
+<label for="email"
+class="absolute left-4 top-4 text-gray-400 text-sm transition-all
+peer-placeholder-shown:top-4 peer-placeholder-shown:text-base
+peer-focus:top-0 peer-focus:text-blue-500 peer-focus:text-sm">
+Email
+</label>
+</div>
+
+<div class="relative">
+<input type="password" id="password" required
+class="peer w-full p-4 border rounded-xl focus:ring-2 focus:ring-blue-400 focus:outline-none placeholder-transparent"
+placeholder="Enter password">
+
+<label for="password"
+class="absolute left-4 top-4 text-gray-400 text-sm transition-all
+peer-placeholder-shown:top-4 peer-placeholder-shown:text-base
+peer-focus:top-0 peer-focus:text-blue-500 peer-focus:text-sm">
+Password
+</label>
+</div>
+
+<button type="submit"
+class="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white p-4 rounded-xl font-semibold shadow-lg hover:from-blue-600 hover:to-purple-700 transition">
+Login
+</button>
+
+</form>
+
+<div class="mt-6 text-center">
+<a href="{% url 'forgot_password' %}" class="text-blue-500 hover:underline">Forgot Password?</a>
+</div>
+
+<div id="errorMsg"
+class="mt-4 text-center text-red-600 bg-red-100 border border-red-300 p-3 rounded-lg hidden">
+</div>
+
+</div>
+
+<script>
+
 const loginForm = document.getElementById("loginForm");
 const errorMsg = document.getElementById("errorMsg");
 
 loginForm.addEventListener("submit", async (e) => {
-    e.preventDefault();
 
-    const data = {
-        email: document.getElementById("email").value,
-        password: document.getElementById("password").value
-    };
+e.preventDefault();
 
-    try {
-        const res = await axios.post("/login/", data, {
-            headers: { "Content-Type": "application/json" },
-            withCredentials: false  // JWT does not rely on cookies
-        });
+errorMsg.classList.add("hidden");
+errorMsg.textContent = "";
 
-        // Save tokens in localStorage (or sessionStorage)
-        localStorage.setItem("accessToken", res.data.access);
-        localStorage.setItem("refreshToken", res.data.refresh);
+const email = document.getElementById("email").value.trim();
+const password = document.getElementById("password").value.trim();
 
-        // Redirect based on role
-        if (res.data.redirect) {
-            window.location.href = res.data.redirect;
-        }
+if (!email || !password) {
+errorMsg.textContent = "Email and password are required";
+errorMsg.classList.remove("hidden");
+return;
+}
 
-    } catch (err) {
-        errorMsg.textContent = err.response?.data?.error || "Login failed";
-        errorMsg.classList.remove("hidden");
-    }
+try {
+
+const res = await axios.post("/login/", {
+email: email,
+password: password
 });
+
+localStorage.setItem("accessToken", res.data.access);
+localStorage.setItem("refreshToken", res.data.refresh);
+
+if (res.data.redirect) {
+window.location.href = res.data.redirect;
+}
+
+} catch (err) {
+
+let message = "Login failed";
+
+if (err.response && err.response.data && err.response.data.error) {
+message = err.response.data.error;
+}
+
+errorMsg.textContent = message;
+errorMsg.classList.remove("hidden");
+
+}
+
+});
+
 </script>
 
 </body>
