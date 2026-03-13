@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Pending Approvals — LeaveSetu HR{% endblock %}
+{% block page_title %}Pending Leave Approvals{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="table-header">
+        <div class="table-title">
+            <i class="fa-solid fa-file-circle-exclamation" style="margin-right: 8px;"></i>
+            Leave Requests Awaiting Your Approval
+        </div>
+        <span class="badge badge-pending">{{ pending_count }} pending</span>
+    </div>
+    
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Employee</th>
+                    <th>Department</th>
+                    <th>Leave Type</th>
+                    <th>Duration</th>
+                    <th>Dates</th>
+                    <th>Reason</th>
+                    <th>Applied On</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for leave in leaves %}
+                <tr>
+                    <td>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <div class="avatar">{{ leave.employee.first_name|first|upper }}{{ leave.employee.last_name|first|upper }}</div>
+                            <div>
+                                <div style="font-weight: 700;">{{ leave.employee.get_full_name|default:leave.employee.username }}</div>
+                                <div style="font-size: 11px; color: var(--text-muted);">{{ leave.employee.email }}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td>{{ leave.employee.department.name|default:"—" }}</td>
+                    <td><span class="badge badge-info">{{ leave.leave_type }}</span></td>
+                    <td>{{ leave.duration }}</td>
+                    <td>{{ leave.start_date|date:"d M" }}{% if leave.end_date and leave.end_date != leave.start_date %} → {{ leave.end_date|date:"d M Y" }}{% endif %}</td>
+                    <td style="max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ leave.reason|default:"—" }}</td>
+                    <td>{{ leave.created_at|date:"d M Y" }}</td>
+                    <td>
+                        <div style="display: flex; gap: 5px;">
+                            <form method="POST" action="{% url 'approve_leave' leave.id %}" style="display: inline;">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-success btn-sm"><i class="fa-solid fa-check"></i> Approve</button>
+                            </form>
+                            <form method="POST" action="{% url 'reject_leave' leave.id %}" style="display: inline;">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Reject this leave request?')"><i class="fa-solid fa-xmark"></i> Reject</button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" class="empty-state" style="padding: 40px;">
+                        <div class="empty-icon"><i class="fa-solid fa-circle-check" style="color: var(--success);"></i></div>
+                        <div class="empty-title">All Clear!</div>
+                        <p>No pending leave approvals at the moment.</p>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+
+{% block title %}My Leave Balance — LeaveSetu HR{% endblock %}
+{% block page_title %}My Leave Balance{% endblock %}
+
+{% block content %}
+
+<style>
+.dashboard-cards{
+    display:grid;
+    grid-template-columns: repeat(4,1fr);
+    gap:20px;
+}
+
+.stat-card{
+    background:#fff;
+    padding:22px;
+    border-radius:14px;
+    box-shadow:0 2px 8px rgba(0,0,0,0.05);
+}
+
+.stat-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:10px;
+}
+
+.stat-icon{
+    width:42px;
+    height:42px;
+    border-radius:10px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:#e6f6f7;
+    color:#0ea5a8;
+    font-size:18px;
+}
+
+.stat-badge{
+    background:#e6f6f7;
+    color:#0ea5a8;
+    padding:4px 10px;
+    border-radius:20px;
+    font-size:12px;
+}
+
+.stat-value{
+    font-size:32px;
+    font-weight:700;
+}
+
+.stat-label{
+    font-size:13px;
+    color:#6b7280;
+}
+
+.progress-bar{
+    height:6px;
+    background:#e5e7eb;
+    border-radius:20px;
+    margin-top:12px;
+}
+
+.progress-fill{
+    height:6px;
+    background:#0ea5a8;
+    border-radius:20px;
+}
+</style>
+
+
+<div class="dashboard-cards">
+
+<!-- Casual Leave -->
+<div class="stat-card">
+    <div class="stat-header">
+        <div class="stat-icon">
+            <i class="fa-solid fa-hourglass-half"></i>
+        </div>
+        <div class="stat-badge">Remaining</div>
+    </div>
+
+    <div class="stat-value">{{ balance.casual_leave|default:"0" }}</div>
+    <div class="stat-label">CASUAL LEAVE</div>
+
+    <div class="progress-bar">
+        <div class="progress-fill" style="width:70%"></div>
+    </div>
+</div>
+
+
+<!-- Sick Leave -->
+<div class="stat-card">
+    <div class="stat-header">
+        <div class="stat-icon">
+            <i class="fa-solid fa-hourglass-half"></i>
+        </div>
+        <div class="stat-badge">Remaining</div>
+    </div>
+
+    <div class="stat-value">{{ balance.sick_leave|default:"0" }}</div>
+    <div class="stat-label">SICK LEAVE</div>
+
+    <div class="progress-bar">
+        <div class="progress-fill" style="width:80%"></div>
+    </div>
+</div>
+
+
+<!-- Total Requests -->
+<div class="stat-card">
+    <div class="stat-header">
+        <div class="stat-icon">
+            <i class="fa-solid fa-calendar-check"></i>
+        </div>
+        <div class="stat-badge">This Year</div>
+    </div>
+
+    <div class="stat-value">{{ my_leaves|length }}</div>
+    <div class="stat-label">TOTAL REQUESTS</div>
+
+    <div class="progress-bar">
+        <div class="progress-fill" style="width:65%"></div>
+    </div>
+</div>
+
+
+<!-- Pending -->
+<div class="stat-card">
+    <div class="stat-header">
+        <div class="stat-icon">
+            <i class="fa-solid fa-hourglass"></i>
+        </div>
+        <div class="stat-badge">Active</div>
+    </div>
+
+    <div class="stat-value">{{ pending_count }}</div>
+    <div class="stat-label">PENDING APPROVAL</div>
+
+    <div class="progress-bar">
+        <div class="progress-fill" style="width:35%"></div>
+    </div>
+</div>
+
+</div>
+
+
+<br><br>
+
+<!-- Leave History -->
+
+<div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:18px;border-bottom:1px solid #eee;">
+        <h3>Leave History</h3>
+        <span style="background:#e6f6f7;padding:5px 12px;border-radius:20px;font-size:12px;">
+            {{ my_leaves|length }} Records
+        </span>
+    </div>
+
+    <table style="width:100%;border-collapse:collapse;">
+        <thead style="background:#f9fafb;">
+            <tr>
+                <th>Leave Type</th>
+                <th>Duration</th>
+                <th>Start Date</th>
+                <th>End Date</th>
+                <th>Reason</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+
+        <tbody>
+
+        {% for leave in my_leaves %}
+        <tr style="border-top:1px solid #eee">
+            <td>{{ leave.leave_type }}</td>
+            <td>{{ leave.duration }}</td>
+            <td>{{ leave.start_date }}</td>
+            <td>{{ leave.end_date }}</td>
+            <td>{{ leave.reason }}</td>
+
+            <td>
+            {% if leave.status == 'APPROVED' %}
+                <span style="background:#d1fae5;padding:4px 10px;border-radius:20px;">Approved</span>
+
+            {% elif leave.status == 'REJECTED' %}
+                <span style="background:#fee2e2;padding:4px 10px;border-radius:20px;">Rejected</span>
+
+            {% else %}
+                <span style="background:#fef3c7;padding:4px 10px;border-radius:20px;">
+                    {{ leave.status }}
+                </span>
+            {% endif %}
+            </td>
+
+        </tr>
+        {% endfor %}
+
+        </tbody>
+    </table>
+</div>
+
+{% endblock %}

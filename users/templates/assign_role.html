@@ -355,24 +355,42 @@ table.assign-table tbody tr:hover td { background: var(--surface2); }
                 </td>
 
                 <!-- Assign new role -->
-                <td>
+               <td>
                     <form method="post" action="{% url 'assign_role' %}">
-                        {% csrf_token %}
-                        <input type="hidden" name="user_id" value="{{ user.pk }}">
-                        <div class="role-select-inline">
-                            <select name="role_id" required>
-                                <option value="">— Pick role —</option>
-                                {% for role in roles %}
-                                <option value="{{ role.pk }}"
-                                    {% if user.role and user.role.pk == role.pk %}selected{% endif %}>
-                                    {{ role.name }}
-                                </option>
-                                {% endfor %}
-                            </select>
-                            <button type="submit" class="btn-assign">
-                                <i class="fa-solid fa-check"></i> Assign
-                            </button>
-                        </div>
+                    {% csrf_token %}
+
+                    <input type="hidden" name="user_id" value="{{ user.pk }}">
+
+                    <div class="role-select-inline">
+
+                    <!-- Department Select -->
+                    <select name="department_id">
+                    <option value="">Department</option>
+                    {% for dept in departments %}
+                    <option value="{{ dept.pk }}"
+                    {% if user.department and user.department.pk == dept.pk %}selected{% endif %}>
+                    {{ dept.name }}
+                    </option>
+                    {% endfor %}
+                    </select>
+
+                    <!-- Role Select -->
+                    <select name="role_id" required>
+                    <option value="">— Pick role —</option>
+                    {% for role in roles %}
+                    <option value="{{ role.pk }}"
+                    {% if user.role and user.role.pk == role.pk %}selected{% endif %}>
+                    {{ role.name }}
+                    </option>
+                    {% endfor %}
+                    </select>
+
+                    <button type="submit" class="btn-assign">
+                    <i class="fa-solid fa-check"></i> Assign
+                    </button>
+
+                    </div>
+
                     </form>
                 </td>
             </tr>
