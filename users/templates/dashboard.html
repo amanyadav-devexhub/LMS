@@ -582,11 +582,11 @@
   <div class="p-banner">
     <div class="p-banner-dots"></div>
     <div class="p-role-badge">
-      {% if request.user.role %}
-        {% if request.user.role.name == "Admin" %}<i class="fa-solid fa-crown"></i> Administrator
-        {% elif request.user.role.name == "Manager" %}<i class="fa-solid fa-briefcase"></i> Manager
-        {% elif request.user.role.name == "HR" %}<i class="fa-solid fa-users-gear"></i> Human Resources
-        {% elif request.user.role.name == "TL" %}<i class="fa-solid fa-code-branch"></i> Team Lead
+      {% if profile_user.role %}
+        {% if profile_user.role.name == "Admin" %}<i class="fa-solid fa-crown"></i> Administrator
+        {% elif profile_user.role.name == "Manager" %}<i class="fa-solid fa-briefcase"></i> Manager
+        {% elif profile_user.role.name == "HR" %}<i class="fa-solid fa-users-gear"></i> Human Resources
+        {% elif profile_user.role.name == "TL" %}<i class="fa-solid fa-code-branch"></i> Team Lead
         {% else %}<i class="fa-solid fa-user-tie"></i> Employee
         {% endif %}
       {% endif %}
@@ -595,11 +595,11 @@
 
   <div class="p-avatar-row">
     <div class="p-avatar-wrap">
-      <div class="p-avatar" id="avatarCircle" onclick="document.getElementById('avatarFileInput').click()">
+      <div class="p-avatar" id="avatarCircle" {% if can_edit_profile %}onclick="document.getElementById('avatarFileInput').click()"{% endif %}>
         {% if profile.avatar %}
           <img src="{{ profile.avatar.url }}" alt="Avatar" id="avatarImg">
         {% else %}
-          <span id="avatarInitials">{{ request.user.first_name|first|upper }}{{ request.user.last_name|first|upper }}</span>
+          <span id="avatarInitials">{{ profile_user.first_name|first|upper }}{{ profile_user.last_name|first|upper }}</span>
         {% endif %}
         <div class="p-avatar-overlay">
           <i class="fa-solid fa-camera"></i>
@@ -608,11 +608,11 @@
       </div>
       <div class="p-online"></div>
       <div class="p-role-icon">
-        {% if request.user.role %}
-          {% if request.user.role.name == "Admin" %}<i class="fa-solid fa-crown"></i>
-          {% elif request.user.role.name == "Manager" %}<i class="fa-solid fa-briefcase"></i>
-          {% elif request.user.role.name == "HR" %}<i class="fa-solid fa-users-gear"></i>
-          {% elif request.user.role.name == "TL" %}<i class="fa-solid fa-code-branch"></i>
+        {% if profile_user.role %}
+          {% if profile_user.role.name == "Admin" %}<i class="fa-solid fa-crown"></i>
+          {% elif profile_user.role.name == "Manager" %}<i class="fa-solid fa-briefcase"></i>
+          {% elif profile_user.role.name == "HR" %}<i class="fa-solid fa-users-gear"></i>
+          {% elif profile_user.role.name == "TL" %}<i class="fa-solid fa-code-branch"></i>
           {% else %}<i class="fa-solid fa-user-tie"></i>
           {% endif %}
         {% endif %}
@@ -620,12 +620,12 @@
     </div>
 
     <div class="p-info">
-      <div class="p-name">{{ request.user.get_full_name|default:request.user.username }}</div>
+      <div class="p-name">{{ profile_user.get_full_name|default:profile_user.username }}</div>
       <div class="p-meta">
-        <span class="p-meta-item"><i class="fa-solid fa-id-badge"></i> {{ request.user.username }}</span>
-        <span class="p-meta-item"><i class="fa-solid fa-envelope"></i> {{ request.user.email|default:"—" }}</span>
-        {% if request.user.date_joined %}
-        <span class="p-meta-item"><i class="fa-solid fa-calendar-check"></i> Joined {{ request.user.date_joined|date:"d M, Y" }}</span>
+        <span class="p-meta-item"><i class="fa-solid fa-id-badge"></i> {{ profile_user.username }}</span>
+        <span class="p-meta-item"><i class="fa-solid fa-envelope"></i> {{ profile_user.email|default:"—" }}</span>
+        {% if profile_user.date_joined %}
+        <span class="p-meta-item"><i class="fa-solid fa-calendar-check"></i> Joined {{ profile_user.date_joined|date:"d M, Y" }}</span>
         {% endif %}
         {% if profile.department %}
         <span class="p-meta-item"><i class="fa-solid fa-building"></i> {{ profile.department }}</span>
@@ -634,7 +634,7 @@
     </div>
 
     <div class="p-actions">
-      {% if not request.user.role or request.user.role.name == "Employee" %}
+      {% if can_edit_profile %}
       <button class="btn-primary" onclick="toggleEmpEdit()" id="empEditBtn">
         <i class="fa-solid fa-pen-to-square" id="empEditIcon"></i>
         <span id="empEditText">Edit Profile</span>
@@ -671,9 +671,9 @@
         <div class="s-card-ico"><i class="fa-solid fa-id-card"></i></div>
         Basic Details
       </div>
-      {% if request.user.role and request.user.role.name in "HR Admin Manager" %}
+      {% if can_edit_profile %}
       <button class="btn-ghost" onclick="toggleHrEdit('basic')" id="hrEditBasicBtn">
-        <i class="fa-solid fa-pen-to-square"></i> HR Edit
+        <i class="fa-solid fa-pen-to-square"></i> Edit
       </button>
       {% endif %}
     </div>
@@ -682,8 +682,8 @@
       <!-- VIEW MODE -->
       <div id="view-basic">
         <div class="f-row"><div class="f-lbl">Employee ID</div><div class="f-val {% if not profile.employee_id %}empty{% endif %}">{{ profile.employee_id|default:"—" }}</div></div>
-        <div class="f-row"><div class="f-lbl">Full Name</div><div class="f-val">{{ request.user.get_full_name|default:"—" }}</div></div>
-        <div class="f-row"><div class="f-lbl">Work Email</div><div class="f-val">{{ request.user.email|default:"—" }}</div></div>
+        <div class="f-row"><div class="f-lbl">Full Name</div><div class="f-val">{{ profile_user.get_full_name|default:"—" }}</div></div>
+        <div class="f-row"><div class="f-lbl">Work Email</div><div class="f-val">{{ profile_user.email|default:"—" }}</div></div>
         <div class="f-row"><div class="f-lbl">Personal Email</div><div class="f-val {% if not profile.personal_email %}empty{% endif %}">{{ profile.personal_email|default:"Not provided" }}</div></div>
         <div class="f-row"><div class="f-lbl">Phone</div><div class="f-val {% if not profile.phone %}empty{% endif %}">{{ profile.phone|default:"Not provided" }}</div></div>
         <div class="f-row"><div class="f-lbl">Alternate Phone</div><div class="f-val {% if not profile.alternate_phone %}empty{% endif %}">{{ profile.alternate_phone|default:"Not provided" }}</div></div>
@@ -703,13 +703,14 @@
             enctype="multipart/form-data">
         {% csrf_token %}
         <input type="hidden" name="section" value="basic_employee">
+        <input type="hidden" name="target_user_id" value="{{ profile_user.id }}">
 
         <div class="avatar-upload-zone">
           <div class="avatar-preview" id="avatarPreview">
             {% if profile.avatar %}
               <img src="{{ profile.avatar.url }}" alt="Avatar">
             {% else %}
-              {{ request.user.first_name|first|upper }}{{ request.user.last_name|first|upper }}
+              {{ profile_user.first_name|first|upper }}{{ profile_user.last_name|first|upper }}
             {% endif %}
           </div>
           <div>
@@ -726,15 +727,15 @@
         <div class="edit-grid">
           <div class="fg">
             <label class="fg-lbl">First Name <span class="req">*</span></label>
-            <input type="text" name="first_name" class="fg-input" value="{{ request.user.first_name }}" placeholder="First name" required>
+            <input type="text" name="first_name" class="fg-input" value="{{ profile_user.first_name }}" placeholder="First name" required>
           </div>
           <div class="fg">
             <label class="fg-lbl">Last Name</label>
-            <input type="text" name="last_name" class="fg-input" value="{{ request.user.last_name }}" placeholder="Last name">
+            <input type="text" name="last_name" class="fg-input" value="{{ profile_user.last_name }}" placeholder="Last name">
           </div>
           <div class="fg">
             <label class="fg-lbl">Work Email</label>
-            <input type="email" name="email" class="fg-input" value="{{ request.user.email }}" placeholder="Work email">
+            <input type="email" name="email" class="fg-input" value="{{ profile_user.email }}" placeholder="Work email">
           </div>
           <div class="fg">
             <label class="fg-lbl">Personal Email</label>
@@ -833,7 +834,7 @@
           <div class="fg"><label class="fg-lbl">Designation</label><input type="text" name="designation" class="fg-input" value="{{ profile.designation|default:'' }}" placeholder="Designation"></div>
         </div>
         <div class="form-actions">
-          <button type="submit" class="btn-save"><i class="fa-solid fa-floppy-disk"></i> Save HR Changes</button>
+          <button type="submit" class="btn-save"><i class="fa-solid fa-floppy-disk"></i> Save Changes</button>
           <button type="button" class="btn-cancel-edit" onclick="toggleHrEdit('basic')">Cancel</button>
         </div>
       </form>
@@ -844,11 +845,13 @@
 
 <!-- ═══════ TAB: SALARY ═══════ -->
 <div class="tab-panel" id="panel-salary">
-  {% if request.user.role and request.user.role.name in "Admin HR Manager" %}
+  {% if can_edit_profile or request.user.role and request.user.role.name in "Admin HR Manager" %}
   <div class="s-card">
     <div class="s-card-head">
       <div class="s-card-title"><div class="s-card-ico"><i class="fa-solid fa-indian-rupee-sign"></i></div> Salary Details</div>
+      {% if can_edit_profile %}
       <button class="btn-ghost" onclick="toggleHrEdit('salary')"><i class="fa-solid fa-pen-to-square"></i> Edit</button>
+      {% endif %}
     </div>
     <div class="s-card-body">
       <div id="view-salary">
@@ -859,6 +862,7 @@
       </div>
       <form class="edit-form" id="edit-salary" method="post" action="{% url 'update_profile' %}">
         {% csrf_token %}<input type="hidden" name="section" value="salary">
+        <input type="hidden" name="target_user_id" value="{{ profile_user.id }}">
         <div class="hr-edit-grid">
           <div class="fg"><label class="fg-lbl">Basic</label><input type="number" name="basic" class="fg-input" value="{{ profile.basic|default:'' }}" placeholder="Basic salary"></div>
           <div class="fg"><label class="fg-lbl">HRA</label><input type="number" name="hra" class="fg-input" value="{{ profile.hra|default:'' }}" placeholder="HRA"></div>
@@ -888,7 +892,7 @@
   <div class="s-card">
     <div class="s-card-head">
       <div class="s-card-title"><div class="s-card-ico"><i class="fa-solid fa-building-columns"></i></div> Bank Details</div>
-      {% if request.user.role and request.user.role.name in "HR Admin Manager" %}
+      {% if can_edit_profile %}
       <button class="btn-ghost" onclick="toggleHrEdit('bank')"><i class="fa-solid fa-pen-to-square"></i> Edit</button>
       {% endif %}
     </div>
@@ -921,7 +925,7 @@
   <div class="s-card">
     <div class="s-card-head">
       <div class="s-card-title"><div class="s-card-ico"><i class="fa-solid fa-shield-halved"></i></div> Verification Details</div>
-      {% if request.user.role and request.user.role.name in "HR Admin Manager" %}
+      {% if can_edit_profile %}
       <button class="btn-ghost" onclick="toggleHrEdit('verification')"><i class="fa-solid fa-pen-to-square"></i> Edit</button>
       {% endif %}
     </div>
@@ -930,9 +934,10 @@
         <div class="f-row"><div class="f-lbl">Aadhaar</div><div class="f-val {% if not profile.aadhaar %}empty{% endif %}">{% if profile.aadhaar %}****-****-{{ profile.aadhaar|slice:"-4:" }}{% else %}Not provided{% endif %}</div></div>
         <div class="f-row"><div class="f-lbl">PAN Number</div><div class="f-val {% if not profile.pan %}empty{% endif %}">{{ profile.pan|default:"Not provided" }}</div></div>
       </div>
-      {% if request.user.role and request.user.role.name in "HR Admin Manager" %}
+      {% if can_edit_profile %}
       <form class="edit-form" id="edit-verification" method="post" action="{% url 'update_profile' %}">
         {% csrf_token %}<input type="hidden" name="section" value="verification">
+        <input type="hidden" name="target_user_id" value="{{ profile_user.id }}">
         <div class="hr-edit-grid">
           <div class="fg"><label class="fg-lbl">Aadhaar Number</label><input type="text" name="aadhaar" class="fg-input" value="{{ profile.aadhaar|default:'' }}" placeholder="12-digit Aadhaar"></div>
           <div class="fg"><label class="fg-lbl">PAN Number</label><input type="text" name="pan" class="fg-input" value="{{ profile.pan|default:'' }}" placeholder="PAN card number"></div>
@@ -952,7 +957,7 @@
   <div class="s-card">
     <div class="s-card-head">
       <div class="s-card-title"><div class="s-card-ico"><i class="fa-solid fa-circle-info"></i></div> Additional Details</div>
-      {% if request.user.role and request.user.role.name in "HR Admin Manager" %}
+      {% if can_edit_profile %}
       <button class="btn-ghost" onclick="toggleHrEdit('additional')"><i class="fa-solid fa-pen-to-square"></i> Edit</button>
       {% endif %}
     </div>
@@ -961,9 +966,10 @@
         <div class="f-row"><div class="f-lbl">Blood Group</div><div class="f-val {% if not profile.blood_group %}empty{% endif %}">{{ profile.blood_group|default:"Not provided" }}</div></div>
         <div class="f-row"><div class="f-lbl">Notes</div><div class="f-val {% if not profile.notes %}empty{% endif %}">{{ profile.notes|default:"No notes" }}</div></div>
       </div>
-      {% if request.user.role and request.user.role.name in "HR Admin Manager" %}
+      {% if can_edit_profile %}
       <form class="edit-form" id="edit-additional" method="post" action="{% url 'update_profile' %}">
         {% csrf_token %}<input type="hidden" name="section" value="additional">
+        <input type="hidden" name="target_user_id" value="{{ profile_user.id }}">
         <div class="hr-edit-grid">
           <div class="fg">
             <label class="fg-lbl">Blood Group</label>

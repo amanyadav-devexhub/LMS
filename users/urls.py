@@ -17,6 +17,7 @@ urlpatterns = [
     path('reset-password/<uidb64>/<token>/', views.ResetPasswordAPIView.as_view(), name='reset_password'),
     # ── Dashboard / Profile page (renders dashboard.html) ──
     path('dashboard/',         views.dashboard_template_view, name='dashboard'),
+    path('profile/<int:user_id>/', views.dashboard_template_view, name='profile_detail'),
 
     # ── Profile form POST handler ──
     path('dashboard/update/',  views.update_profile,          name='update_profile'),

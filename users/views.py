@@ -1,10 +1,11 @@
 from django.db import models as django_models
-from django.shortcuts import render, redirect
-from django.contrib.auth import authenticate, login, logout
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth import authenticate, login as auth_login, logout
 from django.contrib.auth.tokens import default_token_generator
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str
 from django.core.mail import send_mail
+from django.db.models import Q, Count
 
 from rest_framework.decorators import api_view, permission_classes, authentication_classes
 from rest_framework.views import APIView
@@ -70,7 +71,7 @@ def login_view(request):
     if user is None:
         return Response({"error": "Password is incorrect"}, status=status.HTTP_401_UNAUTHORIZED)
 
-    login(request, user)
+    auth_login(request, user)
     refresh = RefreshToken.for_user(user)
 
     role_redirect_map = {
@@ -176,14 +177,26 @@ def _build_profile_context(user):
 # ══════════════════════════════════════════════════════════════
 
 @login_required
-def dashboard_template_view(request):
-    user    = request.user
-    profile = _build_profile_context(user)
+def dashboard_template_view(request, user_id=None):
+    if user_id:
+        profile_user = get_object_or_404(User, pk=user_id)
+    else:
+        profile_user = request.user
+        
+    profile = _build_profile_context(profile_user)
+
+    can_edit_profile = False
+    if request.user == profile_user:
+        can_edit_profile = True
+    elif request.user.role and request.user.role.name == 'Admin':
+        can_edit_profile = True
+    elif request.user.role and request.user.role.name == 'HR' and (not profile_user.role or profile_user.role.name != 'Admin'):
+        can_edit_profile = True
 
     total_leaves = approved_leaves = pending_leaves = 0
     try:
         from leaves.models import LeaveRequest
-        qs              = LeaveRequest.objects.filter(user=user)
+        qs              = LeaveRequest.objects.filter(user=profile_user)
         total_leaves    = qs.count()
         approved_leaves = qs.filter(status='Approved').count()
         pending_leaves  = qs.filter(status='Pending').count()
@@ -192,6 +205,8 @@ def dashboard_template_view(request):
 
     return render(request, 'dashboard.html', {
         'profile':         profile,
+        'profile_user':    profile_user,
+        'can_edit_profile': can_edit_profile,
         'total_leaves':    total_leaves,
         'approved_leaves': approved_leaves,
         'pending_leaves':  pending_leaves,
@@ -207,20 +222,32 @@ def dashboard_template_view(request):
 def update_profile(request):
     """
     Handles POST from every edit form in dashboard.html.
-    Hidden field  name="section"  identifies which form was submitted:
-
-      basic_employee  → employee editing their own basic details
-      basic_hr        → HR/Admin editing employee identity / HR fields
-      salary          → HR/Admin editing salary
-      bank            → HR/Admin editing bank details
-      verification    → HR/Admin editing Aadhaar / PAN
-      additional      → HR/Admin editing blood group / notes
+    Hidden field  name="section"  identifies which form was submitted.
+    Hidden field  name="target_user_id" identifies whose profile is being edited.
     """
     if request.method != 'POST':
         return redirect('dashboard')
 
-    user    = request.user
     section = request.POST.get('section', '').strip()
+    target_user_id = request.POST.get('target_user_id')
+
+    if target_user_id:
+        user = get_object_or_404(User, pk=target_user_id)
+    else:
+        user = request.user
+
+    # Compute authorization
+    can_edit_profile = False
+    if request.user == user:
+        can_edit_profile = True
+    elif request.user.role and request.user.role.name == 'Admin':
+        can_edit_profile = True
+    elif request.user.role and request.user.role.name == 'HR' and (not user.role or user.role.name != 'Admin'):
+        can_edit_profile = True
+
+    if not can_edit_profile:
+        messages.error(request, 'You do not have permission to edit this profile.')
+        return redirect('profile_detail', user_id=user.pk) if target_user_id else redirect('dashboard')
 
     # pre-fetch related models
     additional,   _ = AdditionalDetails.objects.get_or_create(user=user)
@@ -255,7 +282,7 @@ def update_profile(request):
             if new_email and new_email != user.email:
                 if User.objects.filter(email=new_email).exclude(pk=user.pk).exists():
                     messages.error(request, 'That email address is already in use.')
-                    return redirect('dashboard')
+                    return redirect('profile_detail', user_id=user.pk) if target_user_id else redirect('dashboard')
                 user.email = new_email
 
             user.save(update_fields=['first_name', 'last_name', 'email'])
@@ -284,11 +311,11 @@ def update_profile(request):
         # ── HR/ADMIN: basic details (HR-controlled fields) ───
         elif section == 'basic_hr':
 
-            # Only HR, Admin, Manager can use this section
-            role_name = getattr(request.user.role, 'name', '')
-            if role_name not in ('HR', 'Admin', 'Manager'):
+            # Only HR, Admin, Manager can use this section (handled by global can_edit_profile? Actually, basic_hr is specifically for HR/Admin fields like Designation/Dept).
+            # Wait, an Employee editing their own profile should NOT use basic_hr.
+            if request.user.role and request.user.role.name not in ('HR', 'Admin', 'Manager') and not request.user.is_superuser:
                 messages.error(request, 'Access denied.')
-                return redirect('dashboard')
+                return redirect('profile_detail', user_id=user.pk) if target_user_id else redirect('dashboard')
 
             # target_user = User.objects.get(pk=...) # Wait, the current logic uses 'user = request.user'
             # The section is for HR/Admin to edit THEIR OWN profile or others?
@@ -301,7 +328,7 @@ def update_profile(request):
             if new_email and new_email != user.email:
                 if User.objects.filter(email=new_email).exclude(pk=user.pk).exists():
                     messages.error(request, 'That email is already in use.')
-                    return redirect('dashboard')
+                    return redirect('profile_detail', user_id=user.pk) if target_user_id else redirect('dashboard')
                 user.email = new_email
             
             # Update Designation (Added field)
@@ -331,12 +358,6 @@ def update_profile(request):
 
         # ── SALARY ──────────────────────────────────────────
         elif section == 'salary':
-
-            role_name = getattr(user.role, 'name', '')
-            if role_name not in ('HR', 'Admin', 'Manager'):
-                messages.error(request, 'Access denied.')
-                return redirect('dashboard')
-
             salary.basic_salary    = _decimal('basic')
             salary.hra             = _decimal('hra')
             salary.bonus           = _decimal('other_allowances')
@@ -346,12 +367,6 @@ def update_profile(request):
 
         # ── BANK ────────────────────────────────────────────
         elif section == 'bank':
-
-            role_name = getattr(user.role, 'name', '')
-            if role_name not in ('HR', 'Admin', 'Manager'):
-                messages.error(request, 'Access denied.')
-                return redirect('dashboard')
-
             bank.account_number = _str('account_number') or None
             bank.ifsc_code      = _str('ifsc')           or None
             bank.bank_name      = _str('bank_name')      or None
@@ -360,12 +375,6 @@ def update_profile(request):
 
         # ── VERIFICATION ────────────────────────────────────
         elif section == 'verification':
-
-            role_name = getattr(user.role, 'name', '')
-            if role_name not in ('HR', 'Admin', 'Manager'):
-                messages.error(request, 'Access denied.')
-                return redirect('dashboard')
-
             verification.aadhar_number = _str('aadhaar') or None
             verification.pan_number    = _str('pan')     or None
             verification.save()
@@ -373,12 +382,6 @@ def update_profile(request):
 
         # ── ADDITIONAL ──────────────────────────────────────
         elif section == 'additional':
-
-            role_name = getattr(user.role, 'name', '')
-            if role_name not in ('HR', 'Admin', 'Manager'):
-                messages.error(request, 'Access denied.')
-                return redirect('dashboard')
-
             additional.blood_group = _str('blood_group') or None
             additional.notes       = _str('notes')       or None
             additional.save()
@@ -390,7 +393,7 @@ def update_profile(request):
     except Exception as e:
         messages.error(request, f'Error saving data: {str(e)}')
 
-    return redirect('dashboard')
+    return redirect('profile_detail', user_id=user.pk) if target_user_id else redirect('dashboard')
 
 
 # ══════════════════════════════════════════════════════════════
@@ -598,7 +601,7 @@ def register_view(request):
 
 def home_view(request):
     if request.user.is_authenticated:
-        role_name = getattr(request.user.role, "name", None)
+        role_name = getattr(request.user.role, "name", "")
         redirect_map = {
             "Admin":    "admin_dashboard",
             "HR":       "hr_dashboard",
@@ -614,9 +617,7 @@ def home_view(request):
 #  DEPARTMENT VIEWS  (unchanged from original)
 # ══════════════════════════════════════════════════════════════
 
-from django.shortcuts import get_object_or_404
-from django.db.models import Q, Count
-
+# ══════════════════════════════════════════════════════════════
 
 def _is_admin(request):
     role = getattr(request.user, 'role', None)
