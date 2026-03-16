@@ -58,6 +58,11 @@ class LeaveRequest(models.Model):
                         on_delete=models.CASCADE,
                         related_name="leaves"
                     )
+    approvers = models.ManyToManyField(
+    settings.AUTH_USER_MODEL,
+    blank=True,
+    related_name="leave_approvals"
+)
     leave_type    = models.CharField(max_length=20, choices=LEAVE_TYPE_CHOICES)
     duration      = models.CharField(max_length=10, choices=DURATION_CHOICES, default="FULL")
     start_date    = models.DateField()

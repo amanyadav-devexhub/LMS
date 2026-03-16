@@ -5,7 +5,7 @@
 #    • TL notified (their team only), HR notified (all), Manager notified (all)
 #    • All three dashboards show the leave simultaneously
 #    • TL can approve/reject own team only
-#    • HR and Manager can approve/reject anyone
+#    • HR and Manager can approve/reject anyone (except their own requests)
 #    • First to act closes the request
 # ═══════════════════════════════════════════════════════════════════
 
@@ -14,6 +14,7 @@ from datetime import date, datetime, timedelta
 from calendar import month_name
 import calendar
 from users.views import _build_profile_context
+
 # ── Django ───────────────────────────────────────────────────────────
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
@@ -80,9 +81,11 @@ def _hr_base_context(request):
     current_year  = timezone.now().year
     current_month = timezone.now().month
 
-    # All PENDING leaves (not filtered by department — HR sees everything)
+    # All PENDING leaves (excluding HR's own)
     pending_hr_count = LeaveRequest.objects.filter(
         status="PENDING"
+    ).exclude(
+        employee=request.user
     ).count()
 
     unread_count = Notification.objects.filter(
@@ -156,25 +159,23 @@ def employee_dashboard(request):
 #  APPLY LEAVE
 #  → status = PENDING on submit
 #  → TL (employee's reporting manager) notified
-#  → ALL HR users notified
-#  → ALL Manager users notified
+#  → ALL HR users notified (excluding self)
+#  → ALL Manager users notified (excluding self)
 #  → All three dashboards show the leave simultaneously
 # ════════════════════════════════════════════════════════════════════
-
 @login_required
 def apply_leave(request):
-
     if request.method == "POST":
         leave_type     = request.POST.get("leave_type")
         duration       = request.POST.get("duration")
         start_date_str = request.POST.get("start_date", "").strip()
-        end_date_str   = request.POST.get("end_date",   "").strip()
+        end_date_str   = request.POST.get("end_date", "").strip()
         reason         = request.POST.get("reason", "").strip()
         short_session  = request.POST.get("short_session")
         short_hours    = request.POST.get("short_hours")
         attachment     = request.FILES.get("attachment")
 
-        # ── Parse start_date ──────────────────────────────────────
+        # ── Parse start_date ────────────────────────────────
         try:
             start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date()
         except (ValueError, TypeError):
@@ -182,16 +183,19 @@ def apply_leave(request):
             return redirect("apply_leave")
 
         today = date.today()
-
         if start_date < today:
             messages.error(request, "Start date cannot be in the past.")
             return redirect("apply_leave")
 
-        # ── Set end_date based on duration ────────────────────────
+        # ── Set end_date based on duration ─────────────────
         if duration in ("HALF", "SHORT"):
-            end_date      = start_date
-            short_session = (short_session or "AM") if duration == "SHORT" else None
-            short_hours   = int(short_hours or 4)   if duration == "SHORT" else None
+            end_date = start_date
+            if duration == "SHORT":
+                short_session = short_session or "AM"
+                short_hours   = int(short_hours or 4)
+            else:
+                short_session = None
+                short_hours   = None
         else:
             short_session = None
             short_hours   = None
@@ -205,12 +209,12 @@ def apply_leave(request):
             if end_date < start_date:
                 end_date = start_date
 
-        # ── Validations ───────────────────────────────────────────
-        delta = (end_date - start_date).days + 1
-        if delta > 5:
+        # ── Validations ───────────────────────────────────
+        total_days = (end_date - start_date).days + 1
+        if total_days > 5:
             messages.error(
                 request,
-                f"Maximum 5 days allowed per application. You selected {delta} days."
+                f"Maximum 5 days allowed per application. You selected {total_days} days."
             )
             return redirect("apply_leave")
 
@@ -218,7 +222,7 @@ def apply_leave(request):
             messages.error(request, "Attachment exceeds 5 MB. Please upload a smaller file.")
             return redirect("apply_leave")
 
-        # ── Create leave with universal PENDING status ────────────
+        # ── Create LeaveRequest object ────────────────────
         leave_obj = LeaveRequest.objects.create(
             employee      = request.user,
             leave_type    = leave_type,
@@ -229,16 +233,10 @@ def apply_leave(request):
             short_session = short_session if duration == "SHORT" else None,
             short_hours   = short_hours   if duration == "SHORT" else None,
             status        = "PENDING",
+            attachment    = attachment
         )
 
-        if attachment:
-            try:
-                leave_obj.attachment = attachment
-                leave_obj.save(update_fields=["attachment"])
-            except Exception:
-                pass
-
-        # ── Notify all approvers simultaneously ───────────────────
+        # ── Notify all approvers (excluding the applicant) ─────────
         applicant_name = request.user.get_full_name() or request.user.username
         notify_message = (
             f"New leave request from {applicant_name} "
@@ -246,29 +244,27 @@ def apply_leave(request):
             f"Awaiting your approval."
         )
 
-        # 1. Employee's direct TL (reporting manager) only
+        # TL / Reporting manager
         if getattr(request.user, 'reporting_manager', None):
             send_notification([request.user.reporting_manager], notify_message)
 
-        # 2. All HR users
-        try:
-            hr_role  = Role.objects.get(name="HR")
-            hr_users = User.objects.filter(role=hr_role)
-            send_notification(hr_users, notify_message)
-        except Role.DoesNotExist:
-            pass
+        # HR users (excluding self)
+        hr_role = Role.objects.filter(name="HR").first()
+        if hr_role:
+            hr_users = User.objects.filter(role=hr_role).exclude(id=request.user.id)
+            if hr_users.exists():
+                send_notification(hr_users, notify_message)
 
-        # 3. All Manager users
-        try:
-            mgr_role  = Role.objects.get(name="Manager")
-            mgr_users = User.objects.filter(role=mgr_role)
-            send_notification(mgr_users, notify_message)
-        except Role.DoesNotExist:
-            pass
+        # Manager users (excluding self)
+        mgr_role = Role.objects.filter(name="Manager").first()
+        if mgr_role:
+            mgr_users = User.objects.filter(role=mgr_role).exclude(id=request.user.id)
+            if mgr_users.exists():
+                send_notification(mgr_users, notify_message)
 
         messages.success(request, "Leave request submitted successfully!")
 
-        # ── Redirect based on applicant's own role ────────────────
+        # ── Redirect applicant to their dashboard ────────
         applicant_role = get_user_role(request.user)
         redirect_map = {
             "Employee": "employee_dashboard",
@@ -278,13 +274,8 @@ def apply_leave(request):
         }
         return redirect(redirect_map.get(applicant_role, "employee_dashboard"))
 
-    # ── GET ───────────────────────────────────────────────────────
-    balance = None
-    try:
-        balance, _ = LeaveBalance.objects.get_or_create(employee=request.user)
-    except Exception:
-        pass
-
+    # ── GET: show form with leave balance ─────────────
+    balance, _ = LeaveBalance.objects.get_or_create(employee=request.user)
     return render(request, "apply_leave.html", {"balance": balance})
 
 
@@ -392,7 +383,11 @@ def tl_dashboard(request):
  
     return render(request, "tl_dashboard.html", context)
 
-#  hr_dashboard
+
+# ════════════════════════════════════════════════════════════════════
+#  HR DASHBOARD
+#  Shows all employees' data, but excludes HR's own leaves from pending
+# ════════════════════════════════════════════════════════════════════
 
 @login_required
 def hr_dashboard(request):
@@ -407,9 +402,11 @@ def hr_dashboard(request):
     total_employees = all_emps.count()
     active_count    = all_emps.filter(is_active=True).count()
 
-    # HR sees ALL pending leaves across all departments
+    # HR sees ALL pending leaves EXCEPT their own
     pending_leaves = LeaveRequest.objects.filter(
         status="PENDING"
+    ).exclude(
+        employee=request.user  # Don't show HR's own leaves
     ).select_related("employee", "employee__department").order_by("-created_at")
 
     pending_count = pending_leaves.count()
@@ -456,7 +453,7 @@ def hr_dashboard(request):
         "on_leave_today_count":   on_leave_today_count,
         "on_leave_today_preview": on_leave_today_preview,
         "my_balance":             my_balance,
-        "recent_pending":         pending_leaves[:5],
+        "recent_pending":         pending_leaves[:5],  # Now excludes HR's own
         "recent_activity":        recent_activity,
         "recent_joiners":         recent_joiners,
         "my_recent_leaves":       my_recent_leaves,
@@ -466,7 +463,7 @@ def hr_dashboard(request):
 
 
 # ════════════════════════════════════════════════════════════════════
-#  HR — PENDING APPROVALS  (full list, all departments)
+#  HR — PENDING APPROVALS  (full list, all departments, excluding HR's own)
 # ════════════════════════════════════════════════════════════════════
 
 @login_required
@@ -474,8 +471,11 @@ def hr_pending_leaves(request):
     if get_user_role(request.user) != "HR":
         return redirect("employee_dashboard")
 
+    # Exclude the current HR user's own leave requests
     leaves = LeaveRequest.objects.filter(
         status="PENDING"
+    ).exclude(
+        employee=request.user  # Don't show HR's own leaves
     ).select_related("employee", "employee__department").order_by("-created_at")
 
     context = {
@@ -795,7 +795,7 @@ def hr_employee_list(request):
 
 # ════════════════════════════════════════════════════════════════════
 #  MANAGER DASHBOARD
-#  Shows ALL employees' PENDING leave requests
+#  Shows ALL employees' PENDING leave requests (excluding manager's own)
 # ════════════════════════════════════════════════════════════════════
 
 @login_required
@@ -804,7 +804,7 @@ def manager_dashboard(request):
         return redirect("employee_dashboard")
 
     from django.core.paginator import Paginator
-    today        = date.today()
+    today = date.today()
     current_year = timezone.now().year
 
     # ── 1. Direct Team Overview ──────────────────────────────────
@@ -813,22 +813,22 @@ def manager_dashboard(request):
     ).select_related("role", "department")
 
     # ── 2. Pending Approvals Queue ───────────────────────────────
-    # Managers can approve anyone, but we'll show their team first
+    # Exclude manager's own leaves from approval
     team_pending = LeaveRequest.objects.filter(
         status="PENDING",
         employee__reporting_manager=request.user
-    ).select_related("employee", "employee__department").order_by("-created_at")
+    ).exclude(employee=request.user).select_related("employee", "employee__department").order_by("-created_at")
 
     other_pending = LeaveRequest.objects.filter(
         status="PENDING"
     ).exclude(
         employee__reporting_manager=request.user
-    ).select_related("employee", "employee__department").order_by("-created_at")
+    ).exclude(employee=request.user).select_related("employee", "employee__department").order_by("-created_at")
 
-    # For the "Pending" tab, combine them or just show all with pagination
+    # For the "Pending" tab, combine all approvals excluding manager's own
     all_pending = LeaveRequest.objects.filter(
         status="PENDING"
-    ).select_related("employee", "employee__department").order_by("-created_at")
+    ).exclude(employee=request.user).select_related("employee", "employee__department").order_by("-created_at")
     
     pending_page = Paginator(all_pending, 8).get_page(request.GET.get("page", 1))
 
@@ -848,7 +848,7 @@ def manager_dashboard(request):
     
     team_history_page = Paginator(team_history_qs, 10).get_page(request.GET.get("hpage", 1))
 
-    # ── 5. My Leave History ───────────────────────────────────────
+    # ── 5. Manager's Own Leave History ───────────────────────────
     my_leaves_qs = LeaveRequest.objects.filter(
         employee=request.user
     ).order_by("-created_at")
@@ -886,17 +886,16 @@ def manager_dashboard(request):
         "team_on_leave_count": team_on_leave.count(),
         
         "team_history_page": team_history_page,
-        "my_leaves_page":    my_leaves_page,
+        "my_leaves_page":    my_leaves_page,  # Manager's own leaves
         
         # Sidebar/Meta
         "notification_count": unread,
-        "unread_count":       unread, # base.html uses unread_count
+        "unread_count":       unread,
         "current_year":       current_year,
         "profile":            _build_profile_context(request.user),
     }
 
     return render(request, "manager_dashboard.html", context)
-
 
 
 # ════════════════════════════════════════════════════════════════════
@@ -1085,8 +1084,8 @@ def employee_search_json(request):
 # ════════════════════════════════════════════════════════════════════
 #  APPROVE LEAVE
 #  • TL  → can approve only their direct team (reporting_manager=request.user)
-#  • HR  → can approve anyone
-#  • Manager → can approve anyone
+#  • HR  → can approve anyone (except their own requests)
+#  • Manager → can approve anyone (except their own requests)
 #  • Admin/superuser → can approve anyone
 #  • First to act wins — leave.status must be PENDING
 # ════════════════════════════════════════════════════════════════════
@@ -1099,6 +1098,16 @@ def approve_leave(request, leave_id):
     leave     = get_object_or_404(LeaveRequest, id=leave_id)
     role_name = get_user_role(request.user)
     is_admin  = request.user.is_superuser or role_name == "Admin"
+
+    # ── Prevent HR from approving their own leave ─────────────
+    if role_name == "HR" and leave.employee == request.user:
+        messages.error(request, "You cannot approve your own leave request.")
+        return redirect(request.META.get("HTTP_REFERER", "/"))
+
+    # ── Prevent Manager from approving their own leave ─────────────
+    if role_name == "Manager" and leave.employee == request.user:
+        messages.error(request, "You cannot approve your own leave request.")
+        return redirect(request.META.get("HTTP_REFERER", "/"))
 
     # ── Authorization check ───────────────────────────────────────
     if role_name == "TL":
@@ -1149,6 +1158,16 @@ def reject_leave(request, leave_id):
     leave     = get_object_or_404(LeaveRequest, id=leave_id)
     role_name = get_user_role(request.user)
     is_admin  = request.user.is_superuser or role_name == "Admin"
+
+    # ── Prevent HR from rejecting their own leave ─────────────
+    if role_name == "HR" and leave.employee == request.user:
+        messages.error(request, "You cannot reject your own leave request.")
+        return redirect(request.META.get("HTTP_REFERER", "/"))
+
+    # ── Prevent Manager from rejecting their own leave ─────────────
+    if role_name == "Manager" and leave.employee == request.user:
+        messages.error(request, "You cannot reject your own leave request.")
+        return redirect(request.META.get("HTTP_REFERER", "/"))
 
     if role_name == "TL":
         if leave.employee.reporting_manager != request.user:
@@ -1252,6 +1271,7 @@ def create_employee(request):
         messages.success(request, "Employee created successfully.")
 
     return redirect("admin_dashboard" if request.user.is_superuser else "hr_dashboard")
+
 
 @login_required
 def toggle_employee_status(request, user_id):
