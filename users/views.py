@@ -499,7 +499,9 @@ def dashboard_update_api(request):
 # ══════════════════════════════════════════════════════════════
 
 @api_view(['GET', 'POST'])
+@permission_classes([AllowAny])
 def forgot_password(request):
+    
     if request.method == 'GET':
         return render(request, 'forgot_password.html')
 
@@ -524,7 +526,7 @@ def forgot_password(request):
 
 
 class ResetPasswordAPIView(APIView):
-
+    permission_classes = [AllowAny] 
     def get(self, request, uidb64, token):
         try:
             uid  = force_str(urlsafe_base64_decode(uidb64))

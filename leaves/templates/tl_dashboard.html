@@ -922,7 +922,10 @@
         <div class="pgn">
             <span class="pgn-info">{{ history_page.start_index }}–{{ history_page.end_index }} of {{ history_page.paginator.count }}</span>
             <div class="pgn-btns">
-                <a href="?hpage={{ history_page.previous_page_number }}&tab=teamhistory" class="pb {% if not history_page.has_previous %}off{% endif %}"><i class="fa-solid fa-chevron-left"></i></a>
+                <a href="?hpage={% if history_page.has_previous %}{{ history_page.previous_page_number }}{% else %}1{% endif %}&tab=teamhistory" 
+                class="pb {% if not history_page.has_previous %}off{% endif %}">
+                <i class="fa-solid fa-chevron-left"></i>
+                </a><i class="fa-solid fa-chevron-left"></i></a>
                 {% for n in history_page.paginator.page_range %}
                     {% if history_page.number == n %}<span class="pb on">{{ n }}</span>
                     {% elif n >= history_page.number|add:"-2" and n <= history_page.number|add:"2" %}<a href="?hpage={{ n }}&tab=teamhistory" class="pb">{{ n }}</a>{% endif %}

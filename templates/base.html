@@ -514,6 +514,10 @@
                 <span class="nav-icon"><i class="fa-solid fa-wallet"></i></span>
                 <span class="nav-text">My Leave Balance</span>
             </a>
+            <a href="{% url 'apply_leave' %}" class="nav-item {% if request.resolver_match.url_name == 'apply_leave' %}active{% endif %}">
+            <span class="nav-icon"><i class="fa-solid fa-paper-plane"></i></span>
+            <span class="nav-text">Apply Leave</span>
+            </a>
             <a href="{% url 'notifications' %}" class="nav-item {% if request.resolver_match.url_name == 'notifications' %}active{% endif %}">
                 <span class="nav-icon"><i class="fa-solid fa-bell"></i></span>
                 <span class="nav-text">Notifications</span>
@@ -601,10 +605,6 @@
             <a href="{% url 'manager_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'manager_dashboard' %}active{% endif %}">
                 <span class="nav-icon"><i class="fa-solid fa-gauge-high"></i></span>
                 <span class="nav-text">Dashboard</span>
-            </a>
-            <a href="{% url 'apply_leave' %}" class="nav-item {% if request.resolver_match.url_name == 'apply_leave' %}active{% endif %}">
-                <span class="nav-icon"><i class="fa-solid fa-paper-plane"></i></span>
-                <span class="nav-text">Apply Leave</span>
             </a>
             <a href="{% url 'hr_employee_list' %}" class="nav-item {% if request.resolver_match.url_name == 'hr_employee_list' %}active{% endif %}">
                 <span class="nav-icon"><i class="fa-solid fa-users"></i></span>
