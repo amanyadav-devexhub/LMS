@@ -295,7 +295,7 @@ table.assign-table tbody tr:hover td { background: var(--surface2); }
                 <th>Employee</th>
                 <th>Department</th>
                 <th>Current Role</th>
-                <th>Assign New Role</th>
+                <th>Management (Role, Dept, TL)</th>
             </tr>
         </thead>
         <tbody>
@@ -376,11 +376,22 @@ table.assign-table tbody tr:hover td { background: var(--surface2); }
 
                     <!-- Role Select -->
                     <select name="role_id" required>
-                    <option value="">— Pick role —</option>
+                    <option value="">— Role —</option>
                     {% for role in roles %}
                     <option value="{{ role.pk }}"
                     {% if user.role and user.role.pk == role.pk %}selected{% endif %}>
                     {{ role.name }}
+                    </option>
+                    {% endfor %}
+                    </select>
+
+                    <!-- Reporting TL Select -->
+                    <select name="reporting_manager_id">
+                    <option value="">— Reporting TL —</option>
+                    {% for tl in tl_users %}
+                    <option value="{{ tl.pk }}"
+                    {% if user.reporting_manager and user.reporting_manager.pk == tl.pk %}selected{% endif %}>
+                    {{ tl.get_full_name|default:tl.username }}
                     </option>
                     {% endfor %}
                     </select>

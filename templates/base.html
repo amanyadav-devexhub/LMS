@@ -418,7 +418,7 @@
         {% if request.user.role %}
 
         {# ── ADMIN ── #}
-        {% if request.user.role.name == "Admin" %}
+        {% if request.user.is_superuser %}
 
             <div class="nav-label">Main</div>
             <a href="{% url 'admin_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'admin_dashboard' %}active{% endif %}">

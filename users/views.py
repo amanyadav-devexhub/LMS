@@ -626,6 +626,11 @@ def _is_admin(request):
     return role and role.name == 'Admin'
 
 
+def _is_hr_or_admin(request):
+    role = getattr(request.user, 'role', None)
+    return role and role.name in ['Admin', 'HR']
+
+
 @login_required
 def department_list(request):
     if not _is_admin(request):
@@ -891,12 +896,13 @@ def role_permission_save(request):
 
 @login_required
 def assign_role(request):
-    if not _is_admin(request):
-        messages.error(request, "Access denied. Admins only.")
+    if not _is_hr_or_admin(request):
+        messages.error(request, "Access denied. Admins or HR only.")
         return redirect('admin_dashboard')
 
     roles = Role.objects.all().order_by('name')
     departments = Department.objects.all().order_by('name')
+    tl_users = User.objects.filter(role__name='TL').order_by('first_name')
 
     # Filters
     dept_filter = request.GET.get('dept', '').strip()
@@ -924,6 +930,7 @@ def assign_role(request):
         user_id = request.POST.get('user_id', '').strip()
         role_id = request.POST.get('role_id', '').strip()
         department_id = request.POST.get('department_id', '').strip()
+        reporting_manager_id = request.POST.get('reporting_manager_id', '').strip()
 
         if not user_id or not role_id:
             messages.error(request, "User and role are required.")
@@ -956,6 +963,15 @@ def assign_role(request):
             else:
                 target.department = None
 
+            # Update reporting manager
+            if reporting_manager_id:
+                try:
+                    target.reporting_manager = User.objects.get(pk=reporting_manager_id)
+                except User.DoesNotExist:
+                    target.reporting_manager = None
+            else:
+                target.reporting_manager = None
+
             target.save()
 
             messages.success(
@@ -979,6 +995,7 @@ def assign_role(request):
         'users': users,
         'roles': roles,
         'departments': departments,
+        'tl_users': tl_users,
         'dept_id': dept_filter,
         'filter_role': filter_role,
         'search': search,
@@ -987,7 +1004,7 @@ def assign_role(request):
 
 @login_required
 def assign_role_bulk(request):
-    if not _is_admin(request):
+    if not _is_hr_or_admin(request):
         messages.error(request, "Access denied.")
         return redirect('admin_dashboard')
 
