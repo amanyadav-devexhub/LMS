@@ -972,6 +972,71 @@ def assign_role(request):
             else:
                 target.reporting_manager = None
 
+            # ===== NEW: Auto-assign manager for TL if not specified =====
+            if new_role.name == "TL" and not reporting_manager_id:
+                # Try to find a Manager in the same department
+                if target.department:
+                    manager = User.objects.filter(
+                        department=target.department,
+                        role__name='Manager'
+                    ).first()
+                    
+                    if manager:
+                        target.reporting_manager = manager
+                        messages.info(
+                            request,
+                            f"Auto-assigned {manager.get_full_name() or manager.email} as manager for {target.get_full_name() or target.email}"
+                        )
+                    else:
+                        # Try to find any Manager in the company
+                        default_manager = User.objects.filter(role__name='Manager').first()
+                        if default_manager:
+                            target.reporting_manager = default_manager
+                            messages.warning(
+                                request,
+                                f"No Manager found in {target.department.name}. Assigned default manager {default_manager.get_full_name() or default_manager.email}"
+                            )
+                        else:
+                            messages.warning(
+                                request,
+                                f"No Manager found in the system. Please create a Manager user first."
+                            )
+                else:
+                    # No department assigned
+                    default_manager = User.objects.filter(role__name='Manager').first()
+                    if default_manager:
+                        target.reporting_manager = default_manager
+                        messages.warning(
+                            request,
+                            f"User has no department. Assigned default manager {default_manager.get_full_name() or default_manager.email}"
+                        )
+                    else:
+                        messages.warning(
+                            request,
+                            f"No Manager found in the system. Please create a Manager user first."
+                        )
+
+            # ===== Also auto-assign TL to Employee if missing =====
+            if new_role.name == "Employee" and not reporting_manager_id:
+                # Try to find a TL in the same department
+                if target.department:
+                    tl = User.objects.filter(
+                        department=target.department,
+                        role__name='TL'
+                    ).first()
+                    
+                    if tl:
+                        target.reporting_manager = tl
+                        messages.info(
+                            request,
+                            f"Auto-assigned TL {tl.get_full_name() or tl.email} for {target.get_full_name() or target.email}"
+                        )
+                    else:
+                        messages.warning(
+                            request,
+                            f"No TL found in {target.department.name}. Please assign manually."
+                        )
+
             target.save()
 
             messages.success(

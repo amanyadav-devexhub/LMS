@@ -312,59 +312,169 @@
 </div>
 
 
+
 <!-- ════════════════════════════════
      TWO PANELS: Pending + On Leave
 ════════════════════════════════ -->
 <div class="grid-2 animate-in delay-2">
 
-  <!-- Pending Approvals -->
-  <div class="panel">
-    <div class="ph">
-      <div class="ph-title">
-        <div class="ph-icon"><i class="fa-solid fa-file-circle-exclamation"></i></div>
-        Pending Approvals
-      </div>
-      {% if pending_count > 0 %}
-      <span class="badge badge-pending">{{ pending_count }} waiting</span>
-      {% else %}
-      <span class="badge badge-approved">All clear</span>
-      {% endif %}
+<!-- ════════════════════════════════
+     PENDING APPROVALS SECTION
+════════════════════════════════ -->
+<div class="panel">
+  <div class="ph">
+    <div class="ph-title">
+      <div class="ph-icon"><i class="fa-solid fa-file-circle-exclamation"></i></div>
+      Pending Approvals
     </div>
-
-    <div class="scroll-3">
-      {% for leave in recent_pending %}
-      <div class="pr">
-        <div class="pr-av">{{ leave.employee.first_name|first|upper }}{{ leave.employee.last_name|first|upper }}</div>
-        <div class="pr-info">
-          <div class="pr-name">{{ leave.employee.get_full_name|default:leave.employee.username }}</div>
-          <div class="pr-meta">{{ leave.leave_type }} · {{ leave.duration }} · {{ leave.start_date }}</div>
-        </div>
-        <div class="pr-acts">
-          <form method="POST" action="{% url 'approve_leave' leave.id %}" style="margin:0;">
-            {% csrf_token %}
-            <button type="submit" class="btn btn-success btn-sm" title="Approve"><i class="fa-solid fa-check"></i></button>
-          </form>
-          <form method="POST" action="{% url 'reject_leave' leave.id %}" style="margin:0;">
-            {% csrf_token %}
-            <button type="submit" class="btn btn-danger btn-sm" title="Reject" onclick="return confirm('Reject?')"><i class="fa-solid fa-xmark"></i></button>
-          </form>
-        </div>
-      </div>
-      {% empty %}
-      <div class="empty-state" style="padding:40px 20px;">
-        <div class="empty-icon"><i class="fa-solid fa-inbox"></i></div>
-        <div class="empty-title">All Clear!</div>
-        <p style="font-size:12px;color:var(--text-muted);margin-top:4px;">No pending approvals.</p>
-      </div>
-      {% endfor %}
-    </div>
-
-    <div class="pf">
-      <a href="{% url 'hr_pending_leaves' %}">View all requests <i class="fa-solid fa-arrow-right" style="font-size:10px;"></i></a>
-    </div>
+    {% if pending_count > 0 %}
+    <span class="badge badge-pending">{{ pending_count }} waiting</span>
+    {% else %}
+    <span class="badge badge-approved">All clear</span>
+    {% endif %}
   </div>
 
-  <!-- On Leave Today -->
+  <div class="scroll-3">
+    {% for leave in recent_pending %}
+    <div class="pr">
+      <div class="pr-av">{{ leave.employee.first_name|first|upper }}{{ leave.employee.last_name|first|upper }}</div>
+      <div class="pr-info">
+        <div class="pr-name">{{ leave.employee.get_full_name|default:leave.employee.username }}</div>
+        <div class="pr-meta">{{ leave.leave_type }} · {{ leave.duration }} · {{ leave.start_date }}{% if leave.start_date != leave.end_date %} → {{ leave.end_date }}{% endif %}</div>
+        
+        <!-- Vote Status Display -->
+        <div style="margin-top: 8px; padding: 8px; background: #f8f9fa; border-radius: 6px; border-left: 3px solid #00c6d4;">
+          <!-- Progress Bar -->
+          <div style="margin-bottom: 8px;">
+            <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 3px;">
+              <span style="color: #28a745;">✅ Approvals: {{ leave.approval_count }}/2</span>
+              <span style="color: #dc3545;">❌ Rejections: {{ leave.rejection_count }}/2</span>
+            </div>
+            <div style="height: 6px; background: #e9ecef; border-radius: 3px; overflow: hidden;">
+              <div style="width: {% widthratio leave.approval_count 2 100 %}%; background: #28a745; height: 100%; float: left;"></div>
+              <div style="width: {% widthratio leave.rejection_count 2 100 %}%; background: #dc3545; height: 100%; float: left;"></div>
+            </div>
+          </div>
+          
+          <!-- Individual Votes -->
+          <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 8px;">
+            <div>
+              <strong>TL:</strong>
+              {% if leave.tl_approved %}
+                <span style="color: #28a745;">✅ Approved</span>
+                <span style="font-size: 9px; color: #6c757d;">({{ leave.tl_acted_at|date:"d M H:i" }})</span>
+              {% elif leave.tl_rejected %}
+                <span style="color: #dc3545;">❌ Rejected</span>
+              {% else %}
+                <span style="color: #ffc107;">⏳ Pending</span>
+              {% endif %}
+            </div>
+            <div>
+              <strong>HR:</strong>
+              {% if leave.hr_approved %}
+                <span style="color: #28a745;">✅ Approved</span>
+                <span style="font-size: 9px; color: #6c757d;">({{ leave.hr_acted_at|date:"d M H:i" }})</span>
+              {% elif leave.hr_rejected %}
+                <span style="color: #dc3545;">❌ Rejected</span>
+              {% else %}
+                <span style="color: #ffc107;">⏳ Pending</span>
+              {% endif %}
+            </div>
+            <div>
+              <strong>Mgr:</strong>
+              {% if leave.manager_approved %}
+                <span style="color: #28a745;">✅ Approved</span>
+                <span style="font-size: 9px; color: #6c757d;">({{ leave.manager_acted_at|date:"d M H:i" }})</span>
+              {% elif leave.manager_rejected %}
+                <span style="color: #dc3545;">❌ Rejected</span>
+              {% else %}
+                <span style="color: #ffc107;">⏳ Pending</span>
+              {% endif %}
+            </div>
+          </div>
+          
+          <!-- Final Status -->
+          {% if leave.final_status != 'PENDING' %}
+            <div style="margin-top: 6px; padding: 6px; text-align: center; border-radius: 4px; 
+              {% if leave.final_status == 'APPROVED' %}background: #28a74520; color: #28a745; border: 1px solid #28a745;
+              {% else %}background: #dc354520; color: #dc3545; border: 1px solid #dc3545;{% endif %}">
+              <strong>
+                {% if leave.final_status == 'APPROVED' %}
+                  ✅ APPROVED by {{ leave.approval_count }} voters
+                {% else %}
+                  ❌ REJECTED by {{ leave.rejection_count }} voters
+                {% endif %}
+              </strong>
+            </div>
+          {% else %}
+            <div style="margin-top: 4px; font-size: 10px; color: #6c757d; text-align: center;">
+              Need {{ need_count }} more approval{% if need_count > 1 %}s{% endif %}
+            </div>
+          {% endif %}
+          
+          <!-- Paid/Unpaid Info -->
+          {% if leave.paid_days > 0 or leave.unpaid_days > 0 %}
+          <div style="font-size: 10px; margin-top: 6px;">
+            {% if leave.paid_days > 0 %}
+            <span style="color: #28a745;">💰 {{ leave.paid_days }} paid</span>
+            {% endif %}
+            {% if leave.unpaid_days > 0 %}
+            <span style="color: #dc3545;">⚠️ {{ leave.unpaid_days }} unpaid</span>
+            {% endif %}
+          </div>
+          {% endif %}
+        </div>
+      </div>
+      
+      <!-- Action Buttons -->
+      <div class="pr-acts">
+        {% if leave.final_status == 'PENDING' %}
+          {% if request.user.role.name == 'HR' %}
+            {% if not leave.hr_voted %}
+              <form method="POST" action="{% url 'approve_leave' leave.id %}" style="display:inline;">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-success btn-sm" title="Approve" style="padding: 6px 12px;">
+                  <i class="fa-solid fa-check"></i> Approve
+                </button>
+              </form>
+              <form method="POST" action="{% url 'reject_leave' leave.id %}" style="display:inline;">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-danger btn-sm" title="Reject" 
+                        onclick="return confirm('Reject this leave request?')"
+                        style="padding: 6px 12px;">
+                  <i class="fa-solid fa-xmark"></i> Reject
+                </button>
+              </form>
+            {% else %}
+              <span class="badge badge-secondary">✓ You voted</span>
+            {% endif %}
+          {% else %}
+            <span class="badge badge-secondary">Observer</span>
+          {% endif %}
+        {% else %}
+          {% if leave.final_status == 'APPROVED' %}
+            <span class="badge badge-approved">Approved</span>
+          {% else %}
+            <span class="badge badge-rejected">Rejected</span>
+          {% endif %}
+        {% endif %}
+      </div>
+    </div>
+    {% empty %}
+    <div class="empty-state" style="padding:40px 20px;">
+      <div class="empty-icon"><i class="fa-solid fa-inbox"></i></div>
+      <div class="empty-title">All Clear!</div>
+      <p style="font-size:12px;color:var(--text-muted);margin-top:4px;">No pending approvals.</p>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="pf">
+    <a href="{% url 'hr_pending_leaves' %}">View all requests <i class="fa-solid fa-arrow-right" style="font-size:10px;"></i></a>
+  </div>
+</div>
+
+  <!-- On Leave Today (keep as is) -->
   <div class="panel">
     <div class="ph">
       <div class="ph-title">
@@ -399,5 +509,15 @@
   </div>
 
 </div>
+
+{% block extra_scripts %}
+<script>
+
+// Add this at the end
+setTimeout(function() {
+    location.reload();
+}, 20000);
+</script>
+{% endblock %}
 
 {% endblock %}

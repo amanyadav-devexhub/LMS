@@ -1,0 +1,71 @@
+{% comment %}
+Vote Display Component - Shows current voting status
+Expected context: leave (LeaveRequest object)
+{% endcomment %}
+
+<div class="vote-container" style="margin-top: 8px; padding: 8px; background: #f8f9fa; border-radius: 6px; border: 1px solid #e9ecef;">
+    
+    <!-- Vote Progress Bar -->
+    <div style="margin-bottom: 6px;">
+        <div style="display: flex; justify-content: space-between; font-size: 10px; margin-bottom: 2px;">
+            <span style="color: #28a745;">✅ {{ leave.approval_count }}/2</span>
+            <span style="color: #dc3545;">❌ {{ leave.rejection_count }}/2</span>
+        </div>
+        <div style="height: 4px; background: #e9ecef; border-radius: 2px; overflow: hidden; display: flex;">
+            <div style="width: {% widthratio leave.approval_count 2 100 %}%; background: #28a745; height: 100%;"></div>
+            <div style="width: {% widthratio leave.rejection_count 2 100 %}%; background: #dc3545; height: 100%;"></div>
+        </div>
+    </div>
+    
+    <!-- Individual Votes - Simple Icons -->
+    <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px;">
+        <div style="display: flex; align-items: center; gap: 2px;">
+            <span style="font-weight: 600;">TL:</span>
+            {% if leave.tl_approved %}
+                <span style="color: #28a745;">✅</span>
+            {% elif leave.tl_rejected %}
+                <span style="color: #dc3545;">❌</span>
+            {% else %}
+                <span style="color: #ffc107;">⏳</span>
+            {% endif %}
+        </div>
+        
+        <div style="display: flex; align-items: center; gap: 2px;">
+            <span style="font-weight: 600;">HR:</span>
+            {% if leave.hr_approved %}
+                <span style="color: #28a745;">✅</span>
+            {% elif leave.hr_rejected %}
+                <span style="color: #dc3545;">❌</span>
+            {% else %}
+                <span style="color: #ffc107;">⏳</span>
+            {% endif %}
+        </div>
+        
+        <div style="display: flex; align-items: center; gap: 2px;">
+            <span style="font-weight: 600;">Mgr:</span>
+            {% if leave.manager_approved %}
+                <span style="color: #28a745;">✅</span>
+            {% elif leave.manager_rejected %}
+                <span style="color: #dc3545;">❌</span>
+            {% else %}
+                <span style="color: #ffc107;">⏳</span>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Final Status Badge -->
+    <div style="margin-top: 6px; text-align: center; font-size: 10px; font-weight: 600; padding: 2px; border-radius: 3px;
+        {% if leave.final_status == 'APPROVED' %}background: #28a745; color: white;
+        {% elif leave.final_status == 'REJECTED' %}background: #dc3545; color: white;
+        {% else %}background: #ffc107; color: black;{% endif %}">
+        
+        {% if leave.final_status == 'APPROVED' %}
+            ✅ APPROVED
+        {% elif leave.final_status == 'REJECTED' %}
+            ❌ REJECTED
+        {% else %}
+            ⏳ {{ leave.approval_count }}/2 approvals
+        {% endif %}
+    </div>
+    
+</div>
