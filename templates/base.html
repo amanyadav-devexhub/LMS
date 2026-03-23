@@ -445,6 +445,7 @@
             </a>
 
             <div class="nav-label">Access Control</div>
+
             <a href="{% url 'role_list' %}" class="nav-item {% if request.resolver_match.url_name == 'role_list' %}active{% endif %}">
                 <span class="nav-icon"><i class="fa-solid fa-shield-halved"></i></span>
                 <span class="nav-text">Roles</span>
@@ -457,7 +458,27 @@
                 <span class="nav-icon"><i class="fa-solid fa-user-shield"></i></span>
                 <span class="nav-text">Assign Roles</span>
             </a>
-
+            
+            <div class="nav-label">Leave Management</div>
+ 
+            <a href="{% url 'admin_leave_policy' %}"
+            class="nav-item {% if request.resolver_match.url_name == 'admin_leave_policy' %}active{% endif %}">
+                <span class="nav-icon"><i class="fa-solid fa-sliders"></i></span>
+                <span class="nav-text">Leave Types & Policy</span>
+            </a>
+            
+            <a href="{% url 'holiday_list' %}"
+            class="nav-item {% if request.resolver_match.url_name == 'holiday_list' %}active{% endif %}">
+                <span class="nav-icon"><i class="fa-solid fa-calendar-days"></i></span>
+                <span class="nav-text">Holidays</span>
+            </a>
+            
+            <a href="{% url 'hr_leave_analytics' %}"
+            class="nav-item {% if request.resolver_match.url_name == 'hr_leave_analytics' %}active{% endif %}">
+                <span class="nav-icon"><i class="fa-solid fa-chart-pie"></i></span>
+                <span class="nav-text">Leave Analytics</span>
+            </a>
+ 
             <div class="nav-label">Account</div>
             <a href="{% url 'notifications' %}" class="nav-item {% if request.resolver_match.url_name == 'notifications' %}active{% endif %}">
                 <span class="nav-icon"><i class="fa-solid fa-bell"></i></span>

@@ -411,3 +411,185 @@ class Holiday(models.Model):
 
     def __str__(self):
         return f"{self.name} - {self.display_date}"
+
+
+
+
+
+from django.db import models
+from django.conf import settings
+
+
+
+# ======================
+# LEAVE TYPE CONFIG
+# Admin creates/edits these. Each is one type of leave.
+# ======================
+class LeaveTypeConfig(models.Model):
+
+    APPLICABLE_CHOICES = [
+        ('ALL',         'All Employees'),
+        ('ROLES',       'Specific Roles'),
+        ('DEPARTMENTS', 'Specific Departments'),
+    ]
+
+    # Identity
+    name        = models.CharField(max_length=100)          # "Casual Leave"
+    code        = models.CharField(max_length=30, unique=True)  # "CASUAL"
+    description = models.TextField(blank=True)
+    color       = models.CharField(max_length=7, default='#00c6d4',
+                    help_text="Hex color used in UI badges")
+
+    # Quota
+    days_per_year     = models.FloatField(default=12,
+                            help_text="Total days allowed per calendar year")
+    is_accrual_based  = models.BooleanField(default=False,
+                            help_text="True = accrues monthly | False = full quota on Jan 1")
+    monthly_accrual   = models.FloatField(default=1.0,
+                            help_text="Days earned per month (used only if is_accrual_based=True)")
+
+    # Pay type
+    is_paid = models.BooleanField(default=True,
+                help_text="False = unpaid leave, salary will be deducted")
+
+    # Rules
+    max_consecutive_days    = models.IntegerField(default=0,
+                                help_text="Max days in a single request. 0 = no limit")
+    advance_notice_days     = models.IntegerField(default=0,
+                                help_text="Employee must apply N days in advance. 0 = same day allowed")
+    document_required_after = models.IntegerField(default=0,
+                                help_text="Require document if leave exceeds N days. 0 = never required")
+
+    # Carry forward
+    carry_forward       = models.BooleanField(default=False)
+    carry_forward_limit = models.FloatField(default=0,
+                            help_text="Max days to carry to next year. 0 = carry all remaining")
+
+    # Applicability
+    applicable_to          = models.CharField(max_length=20,
+                                choices=APPLICABLE_CHOICES, default='ALL')
+    applicable_roles       = models.ManyToManyField('users.Role',     blank=True)
+    applicable_departments = models.ManyToManyField(Department, blank=True)
+
+    # Meta
+    is_active  = models.BooleanField(default=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL,
+                    on_delete=models.SET_NULL, null=True,
+                    related_name='created_leave_types')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['name']
+        verbose_name        = "Leave Type Config"
+        verbose_name_plural = "Leave Type Configs"
+
+    def __str__(self):
+        paid_label = "Paid" if self.is_paid else "Unpaid"
+        return f"{self.name} — {self.days_per_year} days/yr ({paid_label})"
+
+
+# ======================
+# LEAVE POLICY
+# High-level rules that govern HOW leave is applied company-wide
+# ======================
+class LeavePolicy(models.Model):
+
+    name        = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+
+    # Global rules
+    max_days_per_request      = models.IntegerField(default=5,
+                                    help_text="Max days an employee can request at once")
+    min_advance_days          = models.IntegerField(default=1,
+                                    help_text="Must apply at least N days before leave starts")
+    weekend_counts_as_leave   = models.BooleanField(default=False,
+                                    help_text="If True, Sat/Sun between leave days are counted")
+    holiday_counts_as_leave   = models.BooleanField(default=False,
+                                    help_text="If True, public holidays in leave range are counted")
+    allow_half_day            = models.BooleanField(default=True)
+    allow_short_leave         = models.BooleanField(default=True)
+    approval_threshold        = models.IntegerField(default=2,
+                                    help_text="Votes needed to approve a leave (your voting system uses 2)")
+
+    # Scope
+    is_default              = models.BooleanField(default=False,
+                                help_text="Only one policy can be default. All employees use this unless overridden.")
+    applicable_departments  = models.ManyToManyField(Department, blank=True,
+                                help_text="Leave blank if this policy applies to all")
+
+    # Meta
+    is_active  = models.BooleanField(default=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL,
+                    on_delete=models.SET_NULL, null=True,
+                    related_name='created_leave_policies')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering        = ['-is_default', 'name']
+        verbose_name    = "Leave Policy"
+        verbose_name_plural = "Leave Policies"
+
+    def save(self, *args, **kwargs):
+        # Only one policy can be default at a time
+        if self.is_default:
+            LeavePolicy.objects.filter(is_default=True).exclude(pk=self.pk).update(is_default=False)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.name}{' ✓ Default' if self.is_default else ''}"
+
+
+# ======================
+# EMPLOYEE LEAVE ALLOCATION
+# Per employee × per leave type × per year.
+# This is what drives the balance on every dashboard.
+# When admin changes LeaveTypeConfig and clicks "Apply to All",
+# this table gets updated for all employees automatically.
+# ======================
+class EmployeeLeaveAllocation(models.Model):
+
+    employee   = models.ForeignKey(settings.AUTH_USER_MODEL,
+                    on_delete=models.CASCADE,
+                    related_name='leave_allocations')
+    leave_type = models.ForeignKey(LeaveTypeConfig,
+                    on_delete=models.CASCADE,
+                    related_name='allocations')
+    year       = models.IntegerField()
+
+    allocated_days   = models.FloatField(default=0,
+                        help_text="Days given to this employee for this leave type this year")
+    used_days        = models.FloatField(default=0,
+                        help_text="Days actually consumed (approved leaves)")
+    carried_forward  = models.FloatField(default=0,
+                        help_text="Days carried over from previous year")
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ['employee', 'leave_type', 'year']
+        ordering = ['-year', 'leave_type__name']
+        indexes = [
+            models.Index(fields=['employee', 'year']),
+            models.Index(fields=['leave_type', 'year']),
+        ]
+
+    @property
+    def remaining_days(self):
+        """Live remaining balance for this leave type"""
+        return max(0.0, self.allocated_days + self.carried_forward - self.used_days)
+
+    @property
+    def used_percent(self):
+        total = self.allocated_days + self.carried_forward
+        if total <= 0:
+            return 0
+        return min(100, round((self.used_days / total) * 100))
+
+    def __str__(self):
+        return (
+            f"{self.employee.email} | {self.leave_type.name} | "
+            f"{self.year} | {self.remaining_days} remaining"
+        )

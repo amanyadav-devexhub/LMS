@@ -7,361 +7,184 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 .al-page-wrap, .al-page-wrap * { box-sizing: border-box; }
-
 .al-page-wrap {
-  --aqua:        #00c6d4;
-  --aqua-deep:   #0097a7;
-  --aqua-darker: #006d7a;
-  --aqua-lt:     #e0f7fa;
-  --aqua-glass:  rgba(0,198,212,0.08);
-  --aqua-glow:   rgba(0,198,212,0.2);
-  --bg-page:     #eaf6f8;
-  --bg-card:     #ffffff;
-  --bg-input:    #f4fbfc;
-  --bg-hover:    #e8f8fa;
-  --bd:          #c8edf1;
-  --bd-focus:    #00c6d4;
-  --bd-strong:   #80cdd4;
-  --text:        #0d2b30;
-  --text-mid:    #2a5f68;
-  --text-muted:  #5a8a92;
-  --text-faint:  #a8c8cc;
-  --text-label:  #007a8a;
-  --violet:      #6366f1;
-  --pink:        #ec4899;
-  --teal:        #0d9488;
-  --amber:       #d97706;
-  --green:       #059669;
-  --red:         #dc2626;
-  --r:      12px;
-  --r-lg:   18px;
-  --r-pill: 999px;
-  --shadow:    0 2px 16px rgba(0,150,170,0.1);
-  --shadow-md: 0 4px 24px rgba(0,150,170,0.14);
-
-  background: var(--bg-page);
-  min-height: 100vh;
-  padding: 1.5rem 1.5rem 4rem;
-  border-radius: 12px;
-  font-family: 'Plus Jakarta Sans', sans-serif;
-  color: var(--text);
+  --aqua:#00c6d4; --aqua-deep:#0097a7; --aqua-darker:#006d7a;
+  --aqua-lt:#e0f7fa; --aqua-glass:rgba(0,198,212,0.08); --aqua-glow:rgba(0,198,212,0.2);
+  --bg-page:#eaf6f8; --bg-card:#ffffff; --bg-input:#f4fbfc; --bg-hover:#e8f8fa;
+  --bd:#c8edf1; --bd-focus:#00c6d4; --bd-strong:#80cdd4;
+  --text:#0d2b30; --text-mid:#2a5f68; --text-muted:#5a8a92;
+  --text-faint:#a8c8cc; --text-label:#007a8a;
+  --violet:#6366f1; --pink:#ec4899; --teal:#0d9488; --amber:#d97706;
+  --green:#059669; --red:#dc2626;
+  --r:12px; --r-lg:18px; --r-pill:999px;
+  --shadow:0 2px 16px rgba(0,150,170,0.1); --shadow-md:0 4px 24px rgba(0,150,170,0.14);
+  background:var(--bg-page); min-height:100vh;
+  padding:1.5rem 1.5rem 4rem; border-radius:12px;
+  font-family:'Plus Jakarta Sans',sans-serif; color:var(--text);
 }
 
-/* ─── Header ─── */
-.al-header {
-  display: flex; align-items: flex-start;
-  justify-content: space-between; flex-wrap: wrap;
-  gap: 1rem; margin-bottom: 1.8rem;
-  padding-bottom: 1.3rem; border-bottom: 1px solid var(--bd);
-}
-.al-eyebrow {
-  font-size: .67rem; font-weight: 700; letter-spacing: .13em;
-  text-transform: uppercase; color: var(--aqua-deep);
-  margin-bottom: .3rem;
-  display: flex; align-items: center; gap: .42rem;
-}
+/* Header */
+.al-header { display:flex; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; gap:1rem; margin-bottom:1.8rem; padding-bottom:1.3rem; border-bottom:1px solid var(--bd); }
+.al-eyebrow { font-size:.67rem; font-weight:700; letter-spacing:.13em; text-transform:uppercase; color:var(--aqua-deep); margin-bottom:.3rem; display:flex; align-items:center; gap:.42rem; }
 .al-eyebrow::before { content:''; width:13px; height:2px; background:var(--aqua-deep); border-radius:2px; }
 .al-page-title { font-size:1.6rem; font-weight:800; color:var(--text); letter-spacing:-.03em; line-height:1.1; }
 .al-page-sub { margin-top:.32rem; font-size:.85rem; color:var(--text-muted); font-weight:500; }
-.al-back-btn {
-  display:inline-flex; align-items:center; gap:.4rem;
-  font-size:.81rem; font-weight:600; color:var(--text-muted);
-  text-decoration:none; padding:.5rem 1.05rem;
-  border-radius:var(--r-pill); border:1.5px solid var(--bd-strong);
-  background:var(--bg-card); transition:all .18s; white-space:nowrap;
-}
+.al-back-btn { display:inline-flex; align-items:center; gap:.4rem; font-size:.81rem; font-weight:600; color:var(--text-muted); text-decoration:none; padding:.5rem 1.05rem; border-radius:var(--r-pill); border:1.5px solid var(--bd-strong); background:var(--bg-card); transition:all .18s; white-space:nowrap; }
 .al-back-btn:hover { color:var(--aqua-deep); border-color:var(--aqua); background:var(--aqua-glass); }
 
-/* ─── Grid ─── */
-.al-grid { display:grid; grid-template-columns:1fr 282px; gap:1.3rem; align-items:start; }
+/* Grid */
+.al-grid { display:grid; grid-template-columns:1fr 300px; gap:1.3rem; align-items:start; }
 @media(max-width:860px){ .al-grid{ grid-template-columns:1fr; } }
 
-/* ─── Card ─── */
-.al-card {
-  background:var(--bg-card); border:1px solid var(--bd);
-  border-radius:var(--r-lg); overflow:hidden; box-shadow:var(--shadow);
-}
-.al-card-head {
-  display:flex; align-items:center; gap:.58rem;
-  padding:.88rem 1.35rem;
-  background:linear-gradient(90deg, rgba(0,198,212,0.06), transparent);
-  border-bottom:1px solid var(--bd);
-}
-.al-card-icon {
-  width:30px; height:30px; border-radius:9px;
-  background:linear-gradient(135deg, var(--aqua-deep), var(--aqua));
-  display:flex; align-items:center; justify-content:center;
-  font-size:.75rem; color:#fff; flex-shrink:0;
-  box-shadow:0 3px 10px rgba(0,198,212,.22);
-}
+/* Card */
+.al-card { background:var(--bg-card); border:1px solid var(--bd); border-radius:var(--r-lg); overflow:hidden; box-shadow:var(--shadow); }
+.al-card-head { display:flex; align-items:center; gap:.58rem; padding:.88rem 1.35rem; background:linear-gradient(90deg,rgba(0,198,212,0.06),transparent); border-bottom:1px solid var(--bd); }
+.al-card-icon { width:30px; height:30px; border-radius:9px; background:linear-gradient(135deg,var(--aqua-deep),var(--aqua)); display:flex; align-items:center; justify-content:center; font-size:.75rem; color:#fff; flex-shrink:0; box-shadow:0 3px 10px rgba(0,198,212,.22); }
 .al-card-icon.v { background:linear-gradient(135deg,#4f46e5,#6366f1); box-shadow:0 3px 10px rgba(99,102,241,.22); }
 .al-card-icon.a { background:linear-gradient(135deg,#b45309,#d97706); box-shadow:0 3px 10px rgba(217,119,6,.22); }
 .al-card-title { font-size:.87rem; font-weight:800; color:var(--text); }
 .al-card-body { padding:1.35rem; }
 
-/* ─── Section label ─── */
-.sec-lbl {
-  display:flex; align-items:center; gap:.42rem;
-  font-size:.66rem; font-weight:700; text-transform:uppercase;
-  letter-spacing:.11em; color:var(--text-label); margin-bottom:.75rem;
-}
+/* Section label */
+.sec-lbl { display:flex; align-items:center; gap:.42rem; font-size:.66rem; font-weight:700; text-transform:uppercase; letter-spacing:.11em; color:var(--text-label); margin-bottom:.75rem; }
 .sec-lbl i { color:var(--aqua-deep); font-size:.63rem; }
 .sec-lbl::after { content:''; flex:1; height:1px; background:var(--bd); margin-left:.28rem; }
 
-/* ─── Leave type cards ─── */
-.lt-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:.65rem; margin-bottom:.75rem; }
-@media(max-width:580px){ .lt-grid{ grid-template-columns:1fr 1fr; } }
+/* ★ DYNAMIC leave type grid */
+.lt-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(120px,1fr)); gap:.65rem; margin-bottom:.75rem; }
 .lt-card { position:relative; }
 .lt-card input[type="radio"] { position:absolute; opacity:0; width:0; height:0; }
 .lt-lbl {
-  display:flex; flex-direction:column; align-items:center;
-  justify-content:center; gap:.48rem; padding:1.05rem .45rem .9rem;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:.48rem; padding:1.05rem .45rem .9rem;
   border-radius:var(--r); border:1.5px solid var(--bd);
   background:var(--bg-input); color:var(--text-muted);
   font-size:.75rem; font-weight:600; text-align:center;
   cursor:pointer; transition:all .2s; user-select:none; line-height:1.35;
 }
 .lt-lbl:hover { border-color:var(--aqua); background:var(--aqua-glass); color:var(--text-mid); }
-.lt-ico {
-  width:36px; height:36px; border-radius:10px;
-  background:var(--aqua-lt); display:flex; align-items:center; justify-content:center;
-  font-size:.95rem; color:var(--aqua-deep); transition:all .2s;
-}
-.lt-card:nth-child(1) input:checked + .lt-lbl { border-color:var(--violet); background:rgba(99,102,241,0.07); color:var(--violet); }
-.lt-card:nth-child(1) input:checked + .lt-lbl .lt-ico { background:rgba(99,102,241,0.12); color:var(--violet); }
-.lt-card:nth-child(2) input:checked + .lt-lbl { border-color:var(--pink); background:rgba(236,72,153,0.07); color:var(--pink); }
-.lt-card:nth-child(2) input:checked + .lt-lbl .lt-ico { background:rgba(236,72,153,0.1); color:var(--pink); }
-.lt-card:nth-child(3) input:checked + .lt-lbl { border-color:var(--amber); background:rgba(217,119,6,0.07); color:var(--amber); }
-.lt-card:nth-child(3) input:checked + .lt-lbl .lt-ico { background:rgba(217,119,6,0.1); color:var(--amber); }
-.lt-card:nth-child(4) input:checked + .lt-lbl { border-color:var(--teal); background:rgba(13,148,136,0.07); color:var(--teal); }
-.lt-card:nth-child(4) input:checked + .lt-lbl .lt-ico { background:rgba(13,148,136,0.1); color:var(--teal); }
+.lt-ico { width:36px; height:36px; border-radius:10px; background:var(--aqua-lt); display:flex; align-items:center; justify-content:center; font-size:.95rem; color:var(--aqua-deep); transition:all .2s; }
+/* checked state — uses CSS var injected inline per card */
+.lt-card input:checked + .lt-lbl { border-color:var(--lt-color,var(--aqua-deep)); background:var(--lt-bg,var(--aqua-glass)); color:var(--lt-color,var(--aqua-deep)); }
+.lt-card input:checked + .lt-lbl .lt-ico { background:var(--lt-ico-bg,var(--aqua-lt)); color:var(--lt-color,var(--aqua-deep)); }
 
-/* ─── Married banner ─── */
-.married-banner {
-  display:none; gap:.65rem; padding:.9rem 1.05rem;
-  background:rgba(13,148,136,0.07); border:1px solid rgba(13,148,136,0.22);
-  border-radius:var(--r); margin-bottom:1.2rem;
-  animation:slideDown .22s ease both;
+/* ★ Remaining badge on leave type card */
+.lt-remaining {
+  font-size:.65rem; font-weight:700;
+  padding:.15rem .5rem; border-radius:30px;
+  background:rgba(0,0,0,0.05); color:var(--text-muted);
+  border:1px solid rgba(0,0,0,0.08);
+  line-height:1.4;
 }
-.married-banner.show { display:flex; }
-@keyframes slideDown { from{opacity:0;transform:translateY(-7px)} to{opacity:1;transform:translateY(0)} }
-.mb-icon { font-size:1.15rem; color:var(--teal); flex-shrink:0; padding-top:2px; }
-.mb-title { font-size:.81rem; font-weight:800; color:var(--teal); margin-bottom:.28rem; display:flex; align-items:center; gap:.35rem; }
-.mb-desc { font-size:.79rem; color:var(--text-mid); line-height:1.65; }
-.mb-desc strong { color:var(--teal); }
-.mb-tags { display:flex; gap:.42rem; flex-wrap:wrap; margin-top:.55rem; }
-.mb-tag {
-  font-size:.67rem; font-weight:700; padding:.21rem .62rem;
-  border-radius:var(--r-pill); display:inline-flex; align-items:center; gap:.26rem;
-}
-.mb-tag.paid   { background:rgba(5,150,105,.1);  color:var(--green); border:1px solid rgba(5,150,105,.22); }
-.mb-tag.unpaid { background:rgba(220,38,38,.07); color:var(--red);   border:1px solid rgba(220,38,38,.18); }
+.lt-remaining.zero { background:rgba(220,38,38,.08); color:var(--red); border-color:rgba(220,38,38,.2); }
 
-/* ─── Duration pills ─── */
+/* Duration pills */
 .dur-pills { display:flex; gap:.5rem; flex-wrap:wrap; margin-bottom:1.35rem; }
 .dp { position:relative; }
 .dp input[type="radio"] { position:absolute; opacity:0; width:0; height:0; }
-.dp-lbl {
-  display:inline-flex; align-items:center; gap:.42rem; padding:.56rem 1.05rem;
-  border-radius:var(--r-pill); border:1.5px solid var(--bd); background:var(--bg-input);
-  color:var(--text-muted); font-size:.82rem; font-weight:600;
-  cursor:pointer; transition:all .18s; user-select:none; white-space:nowrap;
-}
+.dp-lbl { display:inline-flex; align-items:center; gap:.42rem; padding:.56rem 1.05rem; border-radius:var(--r-pill); border:1.5px solid var(--bd); background:var(--bg-input); color:var(--text-muted); font-size:.82rem; font-weight:600; cursor:pointer; transition:all .18s; user-select:none; white-space:nowrap; }
 .dp-lbl:hover { border-color:var(--aqua); background:var(--aqua-glass); color:var(--aqua-deep); }
-.dp input:checked + .dp-lbl {
-  border-color:var(--aqua-deep); background:var(--aqua-lt);
-  color:var(--aqua-darker); box-shadow:0 0 0 3px var(--aqua-glow);
-}
+.dp input:checked + .dp-lbl { border-color:var(--aqua-deep); background:var(--aqua-lt); color:var(--aqua-darker); box-shadow:0 0 0 3px var(--aqua-glow); }
 
-/* ─── Date row ─── */
+/* Date row */
 .date-row { display:grid; grid-template-columns:1fr 1fr; gap:.95rem; margin-bottom:1.35rem; }
 @media(max-width:480px){ .date-row{ grid-template-columns:1fr; } }
 .fgroup { display:flex; flex-direction:column; gap:.32rem; }
 .flbl { font-size:.67rem; font-weight:700; text-transform:uppercase; letter-spacing:.09em; color:var(--text-label); }
 .flbl .req { color:var(--red); margin-left:2px; }
-
-.finput {
-  width:100%; background:var(--bg-input); border:1.5px solid var(--bd);
-  border-radius:var(--r); padding:.68rem .92rem; color:var(--text);
-  font-family:'Plus Jakarta Sans',sans-serif; font-size:.87rem; font-weight:500;
-  outline:none; transition:border .18s, box-shadow .18s; -webkit-appearance:none;
-}
+.finput { width:100%; background:var(--bg-input); border:1.5px solid var(--bd); border-radius:var(--r); padding:.68rem .92rem; color:var(--text); font-family:'Plus Jakarta Sans',sans-serif; font-size:.87rem; font-weight:500; outline:none; transition:border .18s,box-shadow .18s; -webkit-appearance:none; }
 .finput:focus { border-color:var(--bd-focus); box-shadow:0 0 0 3px var(--aqua-glow); background:#fff; }
 .finput:disabled { opacity:.5; cursor:not-allowed; background:var(--aqua-lt); }
 .finput::placeholder { color:var(--text-faint); }
-.finput.error { border-color:var(--red) !important; box-shadow:0 0 0 3px rgba(220,38,38,.15) !important; }
-
 .lock-hint { display:none; align-items:center; gap:.32rem; font-size:.68rem; color:var(--text-muted); margin-top:.26rem; }
 .lock-hint.show { display:flex; }
 .lock-hint i { color:var(--aqua-deep); }
-
-/* ─── Date error message ─── */
-.date-err {
-  display:none;
-  align-items:center; gap:.35rem;
-  font-size:.72rem; font-weight:600; color:var(--red);
-  background:rgba(220,38,38,.07); border:1px solid rgba(220,38,38,.18);
-  border-radius:8px; padding:.5rem .75rem;
-  margin-top:.5rem;
-  animation:slideDown .2s ease both;
-}
+.date-err { display:none; align-items:center; gap:.35rem; font-size:.72rem; font-weight:600; color:var(--red); background:rgba(220,38,38,.07); border:1px solid rgba(220,38,38,.18); border-radius:8px; padding:.5rem .75rem; margin-top:.5rem; animation:slideDown .2s ease both; }
 .date-err.show { display:flex; }
-
-/* ─── Day counter badge ─── */
-.day-counter {
-  display:none;
-  align-items:center; gap:.35rem;
-  font-size:.72rem; font-weight:700; color:var(--aqua-deep);
-  background:var(--aqua-lt); border:1px solid var(--bd-strong);
-  border-radius:var(--r-pill); padding:.28rem .75rem;
-  margin-top:.4rem;
-}
+.day-counter { display:none; align-items:center; gap:.35rem; font-size:.72rem; font-weight:700; color:var(--aqua-deep); background:var(--aqua-lt); border:1px solid var(--bd-strong); border-radius:var(--r-pill); padding:.28rem .75rem; margin-top:.4rem; }
 .day-counter.show { display:inline-flex; }
 .day-counter.warn { color:var(--red); background:rgba(220,38,38,.07); border-color:rgba(220,38,38,.2); }
 
-/* ─── Short panel ─── */
-.short-panel {
-  display:none; background:rgba(0,198,212,0.06);
-  border:1px solid rgba(0,198,212,0.22); border-radius:var(--r);
-  padding:.95rem 1.05rem; margin-bottom:1.35rem;
-  animation:slideDown .22s ease both;
-}
+/* Short leave panel */
+.short-panel { display:none; background:rgba(0,198,212,0.06); border:1px solid rgba(0,198,212,0.22); border-radius:var(--r); padding:.95rem 1.05rem; margin-bottom:1.35rem; animation:slideDown .22s ease both; }
 .short-panel.show { display:block; }
-.sp-head {
-  font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.1em;
-  color:var(--aqua-deep); display:flex; align-items:center; gap:.4rem; margin-bottom:.85rem;
-}
+.sp-head { font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.1em; color:var(--aqua-deep); display:flex; align-items:center; gap:.4rem; margin-bottom:.85rem; }
 .sp-inner { display:grid; grid-template-columns:1fr 1fr; gap:.85rem; }
 @media(max-width:480px){ .sp-inner{ grid-template-columns:1fr; } }
-.sess-row { display:flex; gap:.42rem; margin-top:.32rem; }
-.srp { position:relative; }
-.srp input[type="radio"] { position:absolute; opacity:0; width:0; height:0; }
-.srp-lbl {
-  display:inline-flex; align-items:center; gap:.36rem; padding:.46rem .85rem;
-  border-radius:var(--r-pill); border:1.5px solid var(--bd); background:var(--bg-input);
-  color:var(--text-muted); font-size:.8rem; font-weight:600; cursor:pointer; transition:all .16s; user-select:none;
-}
+.sess-row,.hr-row { display:flex; gap:.42rem; margin-top:.32rem; }
+.srp,.hrp { position:relative; }
+.srp input[type="radio"],.hrp input[type="radio"] { position:absolute; opacity:0; width:0; height:0; }
+.srp-lbl { display:inline-flex; align-items:center; gap:.36rem; padding:.46rem .85rem; border-radius:var(--r-pill); border:1.5px solid var(--bd); background:var(--bg-input); color:var(--text-muted); font-size:.8rem; font-weight:600; cursor:pointer; transition:all .16s; user-select:none; }
 .srp input:checked + .srp-lbl { border-color:var(--aqua-deep); background:var(--aqua-lt); color:var(--aqua-darker); }
-.srp-lbl:hover { border-color:var(--aqua); color:var(--text-mid); }
-.hr-row { display:flex; gap:.42rem; margin-top:.32rem; }
-.hrp { position:relative; }
-.hrp input[type="radio"] { position:absolute; opacity:0; width:0; height:0; }
-.hrp-lbl {
-  display:flex; align-items:center; justify-content:center;
-  width:50px; height:36px; border-radius:9px;
-  border:1.5px solid var(--bd); background:var(--bg-input);
-  color:var(--text-muted); font-size:.8rem; font-weight:700;
-  cursor:pointer; transition:all .16s; user-select:none;
-}
-.hrp input:checked + .hrp-lbl {
-  border-color:var(--aqua-deep); background:var(--aqua-lt);
-  color:var(--aqua-darker); box-shadow:0 0 0 2px var(--aqua-glow);
-}
-.hrp-lbl:hover { border-color:var(--aqua); color:var(--text-mid); }
+.hrp-lbl { display:flex; align-items:center; justify-content:center; width:50px; height:36px; border-radius:9px; border:1.5px solid var(--bd); background:var(--bg-input); color:var(--text-muted); font-size:.8rem; font-weight:700; cursor:pointer; transition:all .16s; user-select:none; }
+.hrp input:checked + .hrp-lbl { border-color:var(--aqua-deep); background:var(--aqua-lt); color:var(--aqua-darker); box-shadow:0 0 0 2px var(--aqua-glow); }
 
-/* ─── Reason ─── */
-.reason-ta {
-  width:100%; background:var(--bg-input); border:1.5px solid var(--bd);
-  border-radius:var(--r); padding:.78rem .92rem; color:var(--text);
-  font-family:'Plus Jakarta Sans',sans-serif; font-size:.87rem; font-weight:400;
-  min-height:100px; resize:vertical; outline:none; transition:border .18s, box-shadow .18s;
-}
+/* Reason */
+.reason-ta { width:100%; background:var(--bg-input); border:1.5px solid var(--bd); border-radius:var(--r); padding:.78rem .92rem; color:var(--text); font-family:'Plus Jakarta Sans',sans-serif; font-size:.87rem; font-weight:400; min-height:100px; resize:vertical; outline:none; transition:border .18s,box-shadow .18s; }
 .reason-ta:focus { border-color:var(--bd-focus); box-shadow:0 0 0 3px var(--aqua-glow); background:#fff; }
 .reason-ta::placeholder { color:var(--text-faint); }
 
-/* ─── Attachment upload zone ─── */
-.attach-zone {
-  display:flex; flex-direction:column; align-items:center; justify-content:center;
-  gap:.55rem; padding:1.3rem 1rem;
-  background:var(--bg-input); border:1.5px dashed var(--bd-strong);
-  border-radius:var(--r); cursor:pointer; transition:all .2s;
-  text-align:center; position:relative;
-}
-.attach-zone:hover, .attach-zone.drag { border-color:var(--aqua-deep); background:var(--aqua-glass); }
+/* Attachment */
+.attach-zone { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.55rem; padding:1.3rem 1rem; background:var(--bg-input); border:1.5px dashed var(--bd-strong); border-radius:var(--r); cursor:pointer; transition:all .2s; text-align:center; position:relative; }
+.attach-zone:hover,.attach-zone.drag { border-color:var(--aqua-deep); background:var(--aqua-glass); }
 .attach-zone input[type="file"] { position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; height:100%; }
-.attach-ico {
-  width:40px; height:40px; border-radius:11px;
-  background:var(--aqua-lt); display:flex; align-items:center; justify-content:center;
-  font-size:1.05rem; color:var(--aqua-deep);
-}
+.attach-ico { width:40px; height:40px; border-radius:11px; background:var(--aqua-lt); display:flex; align-items:center; justify-content:center; font-size:1.05rem; color:var(--aqua-deep); }
 .attach-title { font-size:.84rem; font-weight:700; color:var(--text-mid); }
 .attach-hint  { font-size:.72rem; color:var(--text-muted); }
-
-/* File preview list */
 .file-list { display:flex; flex-direction:column; gap:.45rem; margin-top:.75rem; }
-.file-item {
-  display:flex; align-items:center; gap:.6rem;
-  padding:.55rem .8rem;
-  background:var(--aqua-lt); border:1px solid var(--bd-strong);
-  border-radius:var(--r); font-size:.79rem;
-}
+.file-item { display:flex; align-items:center; gap:.6rem; padding:.55rem .8rem; background:var(--aqua-lt); border:1px solid var(--bd-strong); border-radius:var(--r); font-size:.79rem; }
 .file-item-ico { font-size:.9rem; color:var(--aqua-deep); flex-shrink:0; }
 .file-item-name { flex:1; font-weight:600; color:var(--text-mid); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .file-item-size { font-size:.7rem; color:var(--text-muted); flex-shrink:0; }
-.file-item-rm {
-  background:none; border:none; color:var(--text-muted);
-  cursor:pointer; padding:2px 4px; border-radius:5px;
-  font-size:.8rem; transition:color .15s; flex-shrink:0;
-}
+.file-item-rm { background:none; border:none; color:var(--text-muted); cursor:pointer; padding:2px 4px; border-radius:5px; font-size:.8rem; transition:color .15s; flex-shrink:0; }
 .file-item-rm:hover { color:var(--red); }
 
-/* ─── Actions ─── */
-.action-row {
-  display:flex; align-items:center; gap:.65rem;
-  margin-top:1.4rem; padding-top:1.2rem;
-  border-top:1px solid var(--bd); flex-wrap:wrap;
-}
-.btn-sub {
-  display:inline-flex; align-items:center; gap:.42rem;
-  padding:.72rem 1.75rem; border-radius:var(--r-pill);
-  background:linear-gradient(135deg, var(--aqua-darker), var(--aqua));
-  border:none; color:#fff;
-  font-family:'Plus Jakarta Sans',sans-serif; font-size:.86rem; font-weight:700;
-  cursor:pointer; box-shadow:0 4px 18px rgba(0,198,212,.3);
-  transition:transform .2s cubic-bezier(.34,1.56,.64,1), box-shadow .2s;
-}
+/* Actions */
+.action-row { display:flex; align-items:center; gap:.65rem; margin-top:1.4rem; padding-top:1.2rem; border-top:1px solid var(--bd); flex-wrap:wrap; }
+.btn-sub { display:inline-flex; align-items:center; gap:.42rem; padding:.72rem 1.75rem; border-radius:var(--r-pill); background:linear-gradient(135deg,var(--aqua-darker),var(--aqua)); border:none; color:#fff; font-family:'Plus Jakarta Sans',sans-serif; font-size:.86rem; font-weight:700; cursor:pointer; box-shadow:0 4px 18px rgba(0,198,212,.3); transition:transform .2s cubic-bezier(.34,1.56,.64,1),box-shadow .2s; }
 .btn-sub:hover { transform:translateY(-2px); box-shadow:0 8px 26px rgba(0,198,212,.46); }
 .btn-sub:disabled { opacity:.6; transform:none; cursor:not-allowed; box-shadow:none; }
-.btn-can {
-  padding:.7rem 1.3rem; border-radius:var(--r-pill);
-  background:transparent; border:1.5px solid var(--bd-strong);
-  color:var(--text-muted); font-family:'Plus Jakarta Sans',sans-serif;
-  font-size:.83rem; font-weight:600; cursor:pointer; text-decoration:none;
-  transition:all .18s; display:inline-flex; align-items:center; gap:.35rem;
-}
+.btn-can { padding:.7rem 1.3rem; border-radius:var(--r-pill); background:transparent; border:1.5px solid var(--bd-strong); color:var(--text-muted); font-family:'Plus Jakarta Sans',sans-serif; font-size:.83rem; font-weight:600; cursor:pointer; text-decoration:none; transition:all .18s; display:inline-flex; align-items:center; gap:.35rem; }
 .btn-can:hover { background:var(--bg-hover); color:var(--text); border-color:var(--aqua); }
 
-/* ─── Sidebar ─── */
+/* Sidebar */
 .sb-stack { display:flex; flex-direction:column; gap:.95rem; }
-.bal-row {
-  display:flex; align-items:center; justify-content:space-between;
-  padding:.72rem .9rem; background:var(--bg-input);
-  border:1px solid var(--bd); border-radius:var(--r); margin-bottom:.52rem;
+
+/* ★ New balance card per leave type */
+.bal-type-item {
+  padding:.72rem .9rem;
+  background:var(--bg-input); border:1px solid var(--bd);
+  border-radius:var(--r); margin-bottom:.52rem;
+  display:flex; flex-direction:column; gap:6px;
+  position:relative; overflow:hidden;
 }
-.bal-row:last-child { margin-bottom:0; }
-.bal-left { display:flex; align-items:center; gap:.48rem; font-size:.83rem; font-weight:600; color:var(--text-mid); }
-.bal-num { font-size:1.4rem; font-weight:800; color:var(--aqua-deep); line-height:1; }
+.bal-type-item:last-child { margin-bottom:0; }
+.bal-type-accent { position:absolute; left:0; top:0; bottom:0; width:3px; border-radius:var(--r) 0 0 var(--r); }
+.bal-type-top { display:flex; align-items:center; justify-content:space-between; }
+.bal-type-name { font-size:.82rem; font-weight:700; color:var(--text-mid); display:flex; align-items:center; gap:.4rem; }
+.bal-type-days { font-size:1.3rem; font-weight:800; color:var(--aqua-deep); line-height:1; }
+.bal-type-sub { font-size:.68rem; color:var(--text-faint); }
+.bal-type-bar { height:4px; background:rgba(0,0,0,0.07); border-radius:4px; overflow:hidden; }
+.bal-type-fill { height:100%; border-radius:4px; transition:width .4s ease; }
+.bal-type-paid { display:inline-flex; align-items:center; gap:3px; font-size:.63rem; font-weight:700; padding:1px 7px; border-radius:10px; }
+.bal-type-paid.paid   { background:rgba(5,150,105,.09); color:var(--green); border:1px solid rgba(5,150,105,.2); }
+.bal-type-paid.unpaid { background:rgba(220,38,38,.07); color:var(--red);   border:1px solid rgba(220,38,38,.18); }
+
+/* No allocation fallback */
+.no-alloc { padding:.8rem; background:rgba(217,119,6,.07); border:1px solid rgba(217,119,6,.2); border-radius:var(--r); font-size:.78rem; color:#92400e; display:flex; align-items:center; gap:.5rem; }
+
+/* Flow & rules */
 .flow-step { display:flex; align-items:center; gap:.62rem; font-size:.81rem; color:var(--text-mid); font-weight:600; }
-.flow-badge {
-  width:25px; height:25px; border-radius:50%;
-  display:flex; align-items:center; justify-content:center;
-  font-size:.68rem; font-weight:800; flex-shrink:0;
-}
-.flow-line { width:1px; height:11px; background:var(--bd-strong); margin-left:11px; }
+.flow-badge { width:25px; height:25px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:.68rem; font-weight:800; flex-shrink:0; }
+.flow-line  { width:1px; height:11px; background:var(--bd-strong); margin-left:11px; }
+.rule-item  { display:flex; align-items:flex-start; gap:.6rem; padding:.6rem 0; border-bottom:1px solid var(--bd); font-size:.79rem; }
+.rule-item:last-child { border-bottom:none; padding-bottom:0; }
+.rule-ico  { width:24px; height:24px; border-radius:7px; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:.68rem; }
+.rule-txt  { color:var(--text-mid); font-weight:500; line-height:1.5; }
+.rule-txt strong { color:var(--text); font-weight:700; display:block; margin-bottom:.1rem; }
 .tips-list { padding-left:1.1rem; font-size:.79rem; color:var(--text-mid); line-height:2; font-weight:500; }
 
-/* ─── Rules info card ─── */
-.rule-item {
-  display:flex; align-items:flex-start; gap:.6rem;
-  padding:.6rem 0; border-bottom:1px solid var(--bd); font-size:.79rem;
-}
-.rule-item:last-child { border-bottom:none; padding-bottom:0; }
-.rule-ico {
-  width:24px; height:24px; border-radius:7px; flex-shrink:0;
-  display:flex; align-items:center; justify-content:center; font-size:.68rem;
-}
-.rule-txt { color:var(--text-mid); font-weight:500; line-height:1.5; }
-.rule-txt strong { color:var(--text); font-weight:700; display:block; margin-bottom:.1rem; }
+@keyframes slideDown { from{opacity:0;transform:translateY(-7px)} to{opacity:1;transform:translateY(0)} }
 </style>
 {% endblock %}
 
@@ -382,7 +205,7 @@
 
   <div class="al-grid">
 
-    <!-- MAIN FORM -->
+    <!-- ══ MAIN FORM ══ -->
     <div class="al-card">
       <div class="al-card-head">
         <div class="al-card-icon"><i class="fa-solid fa-file-pen"></i></div>
@@ -393,54 +216,101 @@
               id="leaveForm" enctype="multipart/form-data">
           {% csrf_token %}
 
-          <!-- Leave Type -->
+          <!-- ★ DYNAMIC Leave Type Cards from EmployeeLeaveAllocation -->
           <div class="sec-lbl"><i class="fa-solid fa-tag"></i> Leave Type</div>
+
+          {% if active_leave_types %}
+          <div class="lt-grid" id="lt-grid">
+            {% for lt in active_leave_types %}
+            {# Find remaining balance for this type #}
+            {% with code=lt.code %}
+            <div class="lt-card" style="
+              --lt-color:{{ lt.color }};
+              --lt-bg:{{ lt.color }}18;
+              --lt-ico-bg:{{ lt.color }}22;">
+              <input type="radio"
+                     name="leave_type"
+                     id="ltype-{{ lt.code }}"
+                     value="{{ lt.code }}"
+                     {% if forloop.first %}checked{% endif %}
+                     onchange="onTypeChange('{{ lt.code }}', {{ lt.max_consecutive_days }})">
+              <label class="lt-lbl" for="ltype-{{ lt.code }}">
+                <div class="lt-ico">
+                  {% if lt.code == 'CASUAL' %}
+                    <i class="fa-solid fa-umbrella-beach"></i>
+                  {% elif lt.code == 'SICK' %}
+                    <i class="fa-solid fa-kit-medical"></i>
+                  {% elif lt.code == 'URGENT' %}
+                    <i class="fa-solid fa-bolt"></i>
+                  {% elif lt.code == 'MATERNITY' or lt.code == 'PATERNITY' %}
+                    <i class="fa-solid fa-baby"></i>
+                  {% elif lt.code == 'MARRIED' or lt.code == 'MARRIAGE' %}
+                    <i class="fa-solid fa-rings-wedding"></i>
+                  {% elif lt.code == 'COMP' or lt.code == 'COMP_OFF' %}
+                    <i class="fa-solid fa-rotate-left"></i>
+                  {% elif lt.code == 'ANNUAL' or lt.code == 'EARNED' or lt.code == 'PL' %}
+                    <i class="fa-solid fa-star"></i>
+                  {% else %}
+                    <i class="fa-solid fa-calendar-check"></i>
+                  {% endif %}
+                </div>
+                {{ lt.name }}
+                {# ★ Show remaining days from EmployeeLeaveAllocation #}
+                {% for b in leave_breakdown %}
+                  {% if b.code == lt.code %}
+                    <span class="lt-remaining {% if b.remaining == 0 %}zero{% endif %}">
+                      {{ b.remaining|floatformat:1 }}d left
+                    </span>
+                  {% endif %}
+                {% endfor %}
+              </label>
+            </div>
+            {% endwith %}
+            {% endfor %}
+          </div>
+
+          {% else %}
+          {# Fallback: hardcoded 4 types if admin hasn't configured yet #}
           <div class="lt-grid">
             <div class="lt-card">
-              <input type="radio" name="leave_type" id="ltype-casual" value="Casual" checked onchange="onType('casual')">
+              <input type="radio" name="leave_type" id="ltype-casual" value="Casual" checked>
               <label class="lt-lbl" for="ltype-casual">
                 <div class="lt-ico"><i class="fa-solid fa-umbrella-beach"></i></div>
                 Casual Leave
               </label>
             </div>
             <div class="lt-card">
-              <input type="radio" name="leave_type" id="ltype-sick" value="Sick" onchange="onType('sick')">
+              <input type="radio" name="leave_type" id="ltype-sick" value="Sick">
               <label class="lt-lbl" for="ltype-sick">
                 <div class="lt-ico"><i class="fa-solid fa-kit-medical"></i></div>
                 Sick Leave
               </label>
             </div>
             <div class="lt-card">
-              <input type="radio" name="leave_type" id="ltype-urgent" value="Urgent" onchange="onType('urgent')">
+              <input type="radio" name="leave_type" id="ltype-urgent" value="Urgent">
               <label class="lt-lbl" for="ltype-urgent">
                 <div class="lt-ico"><i class="fa-solid fa-bolt"></i></div>
                 Urgent Leave
               </label>
             </div>
             <div class="lt-card">
-              <input type="radio" name="leave_type" id="ltype-married" value="Married" onchange="onType('married')">
+              <input type="radio" name="leave_type" id="ltype-married" value="Married">
               <label class="lt-lbl" for="ltype-married">
                 <div class="lt-ico"><i class="fa-solid fa-rings-wedding"></i></div>
                 Married Leave
               </label>
             </div>
           </div>
+          {% endif %}
 
-          <!-- Married banner -->
-          <div class="married-banner" id="married-banner">
-            <div class="mb-icon"><i class="fa-solid fa-circle-info"></i></div>
-            <div>
-              <div class="mb-title"><i class="fa-solid fa-rings-wedding"></i> Married Leave Policy</div>
-              <div class="mb-desc">First <strong>7 days are paid</strong>, remaining <strong>7 days are unpaid</strong>.</div>
-              <div class="mb-tags">
-                <span class="mb-tag paid"><i class="fa-solid fa-check"></i> Days 1–7 · Paid</span>
-                <span class="mb-tag unpaid"><i class="fa-solid fa-xmark"></i> Days 8–14 · Unpaid</span>
-              </div>
-            </div>
+          <!-- ★ Dynamic info banner — shows when selected leave type has 0 remaining -->
+          <div id="zero-balance-banner" style="display:none; margin-bottom:1rem; padding:.85rem 1rem; background:rgba(220,38,38,.07); border:1px solid rgba(220,38,38,.22); border-radius:var(--r); font-size:.82rem; color:var(--red); display:none; align-items:center; gap:.5rem; animation:slideDown .2s ease both;">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <span id="zero-balance-text">No balance remaining for this leave type — leave will be unpaid.</span>
           </div>
 
           <!-- Duration -->
-          <div class="sec-lbl"><i class="fa-solid fa-clock"></i> Duration</div>
+          <div class="sec-lbl" style="margin-top:1rem;"><i class="fa-solid fa-clock"></i> Duration</div>
           <div class="dur-pills">
             <div class="dp">
               <input type="radio" name="duration" id="dur-full" value="FULL" checked onchange="setDur('FULL')">
@@ -460,25 +330,17 @@
           <div class="sec-lbl"><i class="fa-solid fa-calendar-days"></i> Date Range</div>
           <div class="date-row">
             <div class="fgroup">
-              <label class="flbl" for="start_date">
-                Start Date <span class="req">*</span>
-              </label>
-              <input type="date" name="start_date" id="start_date"
-                     class="finput" required onchange="onDateChange()">
+              <label class="flbl" for="start_date">Start Date <span class="req">*</span></label>
+              <input type="date" name="start_date" id="start_date" class="finput" required onchange="onDateChange()">
             </div>
             <div class="fgroup">
-              <label class="flbl" for="end_date">
-                End Date <span class="req" id="end-star">*</span>
-              </label>
-              <input type="date" name="end_date" id="end_date"
-                     class="finput" onchange="onDateChange()">
+              <label class="flbl" for="end_date">End Date <span class="req" id="end-star">*</span></label>
+              <input type="date" name="end_date" id="end_date" class="finput" onchange="onDateChange()">
               <div class="lock-hint" id="lock-hint">
                 <i class="fa-solid fa-lock"></i> Auto-set — same as start date
               </div>
             </div>
           </div>
-
-          <!-- Day counter + error -->
           <div id="day-counter" class="day-counter">
             <i class="fa-solid fa-calendar-check"></i>
             <span id="day-counter-txt">1 day selected</span>
@@ -495,14 +357,8 @@
               <div class="fgroup">
                 <label class="flbl">Session</label>
                 <div class="sess-row">
-                  <div class="srp">
-                    <input type="radio" name="short_session" id="ss-am" value="AM" checked>
-                    <label class="srp-lbl" for="ss-am">🌅 AM</label>
-                  </div>
-                  <div class="srp">
-                    <input type="radio" name="short_session" id="ss-pm" value="PM">
-                    <label class="srp-lbl" for="ss-pm">🌇 PM</label>
-                  </div>
+                  <div class="srp"><input type="radio" name="short_session" id="ss-am" value="AM" checked><label class="srp-lbl" for="ss-am">🌅 AM</label></div>
+                  <div class="srp"><input type="radio" name="short_session" id="ss-pm" value="PM"><label class="srp-lbl" for="ss-pm">🌇 PM</label></div>
                 </div>
               </div>
               <div class="fgroup">
@@ -519,8 +375,7 @@
           <!-- Reason -->
           <div class="sec-lbl" style="margin-top:1.1rem;"><i class="fa-solid fa-pen-to-square"></i> Reason for Leave</div>
           <textarea name="reason" id="reason" class="reason-ta"
-            placeholder="Briefly describe the reason for your leave request…"
-            required></textarea>
+            placeholder="Briefly describe the reason for your leave request…" required></textarea>
 
           <!-- Attachment -->
           <div class="sec-lbl" style="margin-top:1.1rem;">
@@ -550,32 +405,85 @@
       </div>
     </div>
 
-    <!-- SIDEBAR -->
+
+    <!-- ══ SIDEBAR ══ -->
     <div class="sb-stack">
 
-      <!-- Leave Balance -->
+      <!-- ★ LEAVE BALANCE — from EmployeeLeaveAllocation -->
       <div class="al-card">
         <div class="al-card-head">
           <div class="al-card-icon"><i class="fa-solid fa-wallet"></i></div>
           <div class="al-card-title">Leave Balance</div>
         </div>
         <div class="al-card-body" style="padding:.95rem 1.05rem;">
-          {% if balance %}
-          <div class="bal-row">
-            <div class="bal-left">
-              <i class="fa-solid fa-umbrella-beach" style="color:var(--violet);"></i> Casual Leave
+
+          {% if leave_breakdown %}
+            {% for b in leave_breakdown %}
+            <div class="bal-type-item">
+              <div class="bal-type-accent" style="background:{{ b.color }};"></div>
+              <div class="bal-type-top">
+                <div class="bal-type-name" style="padding-left:8px;">
+                  {% if b.code == 'CASUAL' %}
+                    <i class="fa-solid fa-umbrella-beach" style="color:{{ b.color }};font-size:.8rem;"></i>
+                  {% elif b.code == 'SICK' %}
+                    <i class="fa-solid fa-kit-medical" style="color:{{ b.color }};font-size:.8rem;"></i>
+                  {% elif b.code == 'MARRIED' or b.code == 'MARRIAGE' %}
+                    <i class="fa-solid fa-rings-wedding" style="color:{{ b.color }};font-size:.8rem;"></i>
+                  {% elif b.code == 'URGENT' %}
+                    <i class="fa-solid fa-bolt" style="color:{{ b.color }};font-size:.8rem;"></i>
+                  {% else %}
+                    <i class="fa-solid fa-calendar-check" style="color:{{ b.color }};font-size:.8rem;"></i>
+                  {% endif %}
+                  {{ b.name }}
+                </div>
+                <div class="bal-type-days" style="color:{{ b.color }};">
+                  {{ b.remaining|floatformat:1 }}
+                  <span style="font-size:.65rem;font-weight:500;color:var(--text-faint);">/ {{ b.allocated|floatformat:0 }}d</span>
+                </div>
+              </div>
+              <div class="bal-type-bar">
+                <div class="bal-type-fill" style="width:{{ b.used_percent }}%;background:{{ b.color }};"></div>
+              </div>
+              <div style="display:flex;align-items:center;justify-content:space-between;padding-left:8px;">
+                <span class="bal-type-paid {% if b.is_paid %}paid{% else %}unpaid{% endif %}">
+                  {% if b.is_paid %}Paid{% else %}Unpaid{% endif %}
+                </span>
+                <span style="font-size:.67rem;color:var(--text-faint);">{{ b.used|floatformat:1 }}d used</span>
+              </div>
             </div>
-            <div class="bal-num">{{ balance.casual_leave }}</div>
-          </div>
-          <div class="bal-row">
-            <div class="bal-left">
-              <i class="fa-solid fa-kit-medical" style="color:var(--pink);"></i> Sick Leave
+            {% endfor %}
+
+            <!-- Total -->
+            <div style="margin-top:.5rem;padding:.6rem .9rem;background:var(--aqua-glass);border:1px solid var(--bd-strong);border-radius:var(--r);display:flex;justify-content:space-between;align-items:center;">
+              <span style="font-size:.75rem;font-weight:700;color:var(--text-mid);">Total Available</span>
+              <span style="font-size:1.2rem;font-weight:800;color:var(--aqua-deep);">{{ available_balance|default:"0"|floatformat:1 }} days</span>
             </div>
-            <div class="bal-num">{{ balance.sick_leave }}</div>
-          </div>
+
           {% else %}
-          <p style="font-size:.81rem;color:var(--text-muted);text-align:center;padding:.4rem 0;">Balance unavailable</p>
+          {# Fallback to old LeaveBalance #}
+          {% if balance %}
+            <div class="bal-type-item">
+              <div class="bal-type-accent" style="background:#6366f1;"></div>
+              <div class="bal-type-top">
+                <div class="bal-type-name" style="padding-left:8px;"><i class="fa-solid fa-umbrella-beach" style="color:#6366f1;font-size:.8rem;"></i> Casual Leave</div>
+                <div class="bal-type-days" style="color:#6366f1;">{{ balance.casual_leave }}</div>
+              </div>
+            </div>
+            <div class="bal-type-item">
+              <div class="bal-type-accent" style="background:#ec4899;"></div>
+              <div class="bal-type-top">
+                <div class="bal-type-name" style="padding-left:8px;"><i class="fa-solid fa-kit-medical" style="color:#ec4899;font-size:.8rem;"></i> Sick Leave</div>
+                <div class="bal-type-days" style="color:#ec4899;">{{ balance.sick_leave }}</div>
+              </div>
+            </div>
+          {% else %}
+            <div class="no-alloc">
+              <i class="fa-solid fa-triangle-exclamation"></i>
+              Ask your admin to configure leave types.
+            </div>
           {% endif %}
+          {% endif %}
+
         </div>
       </div>
 
@@ -587,32 +495,36 @@
         </div>
         <div class="al-card-body" style="padding:.95rem 1.05rem;">
           <div class="rule-item">
-            <div class="rule-ico" style="background:rgba(0,198,212,.1);color:var(--aqua-deep);">
-              <i class="fa-solid fa-calendar-day"></i>
-            </div>
+            <div class="rule-ico" style="background:rgba(0,198,212,.1);color:var(--aqua-deep);"><i class="fa-solid fa-calendar-day"></i></div>
             <div class="rule-txt">
               <strong>Start from today only</strong>
               Cannot apply for past dates
             </div>
           </div>
           <div class="rule-item">
-            <div class="rule-ico" style="background:rgba(217,119,6,.1);color:var(--amber);">
-              <i class="fa-solid fa-stopwatch"></i>
-            </div>
+            <div class="rule-ico" style="background:rgba(217,119,6,.1);color:var(--amber);"><i class="fa-solid fa-stopwatch"></i></div>
             <div class="rule-txt">
-              <strong>Maximum 5 days</strong>
+              {# ★ Show admin-configured max days from active policy #}
+              <strong>Maximum {{ max_days|default:"5" }} days</strong>
               Per single leave application
             </div>
           </div>
           <div class="rule-item">
-            <div class="rule-ico" style="background:rgba(13,148,136,.1);color:var(--teal);">
-              <i class="fa-solid fa-paperclip"></i>
-            </div>
+            <div class="rule-ico" style="background:rgba(13,148,136,.1);color:var(--teal);"><i class="fa-solid fa-paperclip"></i></div>
             <div class="rule-txt">
               <strong>Attach documents</strong>
               Medical / marriage proof accepted
             </div>
           </div>
+          {% if active_policy and active_policy.min_advance_days > 0 %}
+          <div class="rule-item">
+            <div class="rule-ico" style="background:rgba(99,102,241,.1);color:#6366f1;"><i class="fa-solid fa-clock-rotate-left"></i></div>
+            <div class="rule-txt">
+              <strong>{{ active_policy.min_advance_days }} day advance notice</strong>
+              Apply before your leave starts
+            </div>
+          </div>
+          {% endif %}
         </div>
       </div>
 
@@ -623,19 +535,14 @@
           <div class="al-card-title">Approval Flow</div>
         </div>
         <div class="al-card-body" style="padding:.95rem 1.05rem;">
-          <div class="flow-step">
-            <div class="flow-badge" style="background:rgba(99,102,241,.1);color:var(--violet);">1</div>
-            Team Leader Review
-          </div>
+          <div class="flow-step"><div class="flow-badge" style="background:rgba(99,102,241,.1);color:var(--violet);">1</div>Team Leader Review</div>
           <div class="flow-line"></div>
-          <div class="flow-step">
-            <div class="flow-badge" style="background:rgba(0,198,212,.1);color:var(--aqua-deep);">2</div>
-            HR Approval
-          </div>
+          <div class="flow-step"><div class="flow-badge" style="background:rgba(0,198,212,.1);color:var(--aqua-deep);">2</div>HR Approval</div>
           <div class="flow-line"></div>
-          <div class="flow-step">
-            <div class="flow-badge" style="background:rgba(5,150,105,.1);color:var(--green);">3</div>
-            Manager Final Approval
+          <div class="flow-step"><div class="flow-badge" style="background:rgba(5,150,105,.1);color:var(--green);">3</div>Manager Final Approval</div>
+          <div style="margin-top:.8rem;font-size:.73rem;color:var(--text-muted);background:var(--bg-input);border-radius:var(--r);padding:.55rem .8rem;">
+            <i class="fa-solid fa-circle-check" style="color:var(--green);"></i>
+            <strong>{{ active_policy.approval_threshold|default:"2" }} approvals</strong> needed to confirm
           </div>
         </div>
       </div>
@@ -649,205 +556,187 @@
         <div class="al-card-body" style="padding:.95rem 1.05rem;">
           <ul class="tips-list">
             <li>Short leave is same-day only (2–4 hrs)</li>
-            <li>Half day locks the end date</li>
-            <li>Married leave: 7 paid + 7 unpaid days</li>
+            <li>Half day locks the end date automatically</li>
+            <li>Zero balance = leave will be unpaid</li>
             <li>Approval takes 1–2 business days</li>
           </ul>
         </div>
       </div>
 
-    </div>
-  </div>
+    </div><!-- end sidebar -->
+  </div><!-- end al-grid -->
 </div>
 
 <script>
-  /* ── Today's date string YYYY-MM-DD ── */
-  const TODAY = new Date().toISOString().split('T')[0];
-  const MAX_DAYS = 5;
+/* ── Leave balance data from Django (JSON for JS use) ── */
+const LEAVE_BALANCE = {
+  {% for b in leave_breakdown %}
+  "{{ b.code }}": { remaining: {{ b.remaining }}, allocated: {{ b.allocated }}, used: {{ b.used }}, isPaid: {{ b.is_paid|yesno:'true,false' }} },
+  {% endfor %}
+};
+const MAX_DAYS = {{ max_days|default:5 }};
+const TODAY = new Date().toISOString().split('T')[0];
 
-  /* Set min dates on load */
-  document.addEventListener('DOMContentLoaded', function () {
-    const sd = document.getElementById('start_date');
-    const ed = document.getElementById('end_date');
-    sd.min = TODAY;
-    sd.value = TODAY;   // default to today
-    ed.min = TODAY;
-    ed.value = TODAY;
-    updateDayCounter();
-  });
+/* ── Init ── */
+document.addEventListener('DOMContentLoaded', function () {
+  const sd = document.getElementById('start_date');
+  const ed = document.getElementById('end_date');
+  if (sd) { sd.min = TODAY; sd.value = TODAY; }
+  if (ed) { ed.min = TODAY; ed.value = TODAY; }
+  updateDayCounter();
+  // Trigger balance check for the first selected type
+  const first = document.querySelector('input[name="leave_type"]:checked');
+  if (first) onTypeChange(first.value, 0);
+});
 
-  /* ── Leave type toggle ── */
-  function onType(t) {
-    document.getElementById('married-banner').classList.toggle('show', t === 'married');
+/* ── Leave type selected → show remaining balance warning ── */
+function onTypeChange(code, maxConsec) {
+  const banner = document.getElementById('zero-balance-banner');
+  const txt    = document.getElementById('zero-balance-text');
+  if (!banner) return;
+
+  const bal = LEAVE_BALANCE[code];
+  if (bal && bal.remaining === 0) {
+    txt.textContent = 'No balance remaining for this leave type — leave will be unpaid and salary will be deducted.';
+    banner.style.display = 'flex';
+  } else if (bal && bal.remaining > 0 && !bal.isPaid) {
+    txt.textContent = 'This is an unpaid leave type — salary will be deducted.';
+    banner.style.display = 'flex';
+  } else {
+    banner.style.display = 'none';
   }
 
-  /* ── Duration toggle ── */
-  function setDur(v) {
-    const end   = document.getElementById('end_date');
-    const hint  = document.getElementById('lock-hint');
-    const star  = document.getElementById('end-star');
-    const panel = document.getElementById('short-panel');
-    const sv    = document.getElementById('start_date').value;
-
-    if (v === 'HALF' || v === 'SHORT') {
-      end.readOnly = true;          // readonly submits, disabled does NOT
-      end.style.opacity = '0.5';
-      end.style.cursor  = 'not-allowed';
-      end.value = sv;
-      hint.classList.add('show');
-      star.style.display = 'none';
-    } else {
-      end.readOnly = false;
-      end.style.opacity = '1';
-      end.style.cursor  = '';
-      hint.classList.remove('show');
-      star.style.display = 'inline';
-    }
-    panel.classList.toggle('show', v === 'SHORT');
-    updateDayCounter();
+  // Update max days if this type has a consecutive limit
+  if (maxConsec > 0) {
+    window._typeMaxDays = maxConsec;
+  } else {
+    window._typeMaxDays = null;
   }
-
-  /* ── On any date change ── */
-// NEW — fixed version
-function onDateChange() {
-    const dur = document.querySelector('input[name="duration"]:checked').value;
-    const sd  = document.getElementById('start_date');
-    const ed  = document.getElementById('end_date');
-
-    ed.min = sd.value;  // ← always update min
-
-    if (dur === 'HALF' || dur === 'SHORT') {
-      ed.value = sd.value;
-    } else {
-      // FULL: push end forward if it's behind start
-      if (!ed.value || ed.value < sd.value) {
-        ed.value = sd.value;
-      }
-    }
-    updateDayCounter();
+  updateDayCounter();
 }
 
-  /* ── Day counter + validation ── */
-  function updateDayCounter() {
-    const sd     = document.getElementById('start_date').value;
-    const ed     = document.getElementById('end_date').value;
-    const ctr    = document.getElementById('day-counter');
-    const ctrTxt = document.getElementById('day-counter-txt');
-    const err    = document.getElementById('date-err');
-    const errTxt = document.getElementById('date-err-txt');
-    const btn    = document.getElementById('submitBtn');
+/* ── Duration toggle ── */
+function setDur(v) {
+  const end  = document.getElementById('end_date');
+  const hint = document.getElementById('lock-hint');
+  const star = document.getElementById('end-star');
+  const panel = document.getElementById('short-panel');
+  const sv   = document.getElementById('start_date').value;
 
-    err.classList.remove('show');
-    ctr.classList.remove('show', 'warn');
-    btn.disabled = false;
-
-    if (!sd) return;
-
-    const start = new Date(sd);
-    const end   = ed ? new Date(ed) : start;
-    const diffMs = end - start;
-    const days   = Math.round(diffMs / (1000*60*60*24)) + 1;
-
-    ctr.classList.add('show');
-    ctrTxt.textContent = days === 1 ? '1 day selected' : days + ' days selected';
-
-    if (days > MAX_DAYS) {
-      ctr.classList.add('warn');
-      err.classList.add('show');
-      errTxt.textContent = 'Maximum ' + MAX_DAYS + ' days allowed per application.';
-      btn.disabled = true;
-    }
+  if (v === 'HALF' || v === 'SHORT') {
+    end.readOnly = true;
+    end.style.opacity = '0.5';
+    end.style.cursor  = 'not-allowed';
+    end.value = sv;
+    hint.classList.add('show');
+    star.style.display = 'none';
+  } else {
+    end.readOnly = false;
+    end.style.opacity = '1';
+    end.style.cursor  = '';
+    hint.classList.remove('show');
+    star.style.display = 'inline';
   }
+  panel.classList.toggle('show', v === 'SHORT');
+  updateDayCounter();
+}
 
-  /* ── File attachment ── */
-  let selectedFiles = [];
-
-  function onFileSelect(input) {
-    const files = Array.from(input.files);
-    // Reset input so same file can be re-selected
-    const dt = new DataTransfer();
-
-    files.forEach(f => {
-      // Max 5MB per file
-      if (f.size > 5 * 1024 * 1024) {
-        alert(f.name + ' exceeds 5MB limit and was skipped.');
-        return;
-      }
-      if (!selectedFiles.find(x => x.name === f.name)) {
-        selectedFiles.push(f);
-      }
-    });
-
-    // Rebuild the FileList on the input
-    selectedFiles.forEach(f => dt.items.add(f));
-    input.files = dt.files;
-
-    renderFileList();
+/* ── Date change ── */
+function onDateChange() {
+  const dur = document.querySelector('input[name="duration"]:checked').value;
+  const sd  = document.getElementById('start_date');
+  const ed  = document.getElementById('end_date');
+  ed.min = sd.value;
+  if (dur === 'HALF' || dur === 'SHORT') {
+    ed.value = sd.value;
+  } else {
+    if (!ed.value || ed.value < sd.value) ed.value = sd.value;
   }
+  updateDayCounter();
+}
 
-  function removeFile(name) {
-    selectedFiles = selectedFiles.filter(f => f.name !== name);
-    const dt = new DataTransfer();
-    selectedFiles.forEach(f => dt.items.add(f));
-    document.getElementById('attachInput').files = dt.files;
-    renderFileList();
+/* ── Day counter + validation ── */
+function updateDayCounter() {
+  const sd     = document.getElementById('start_date').value;
+  const ed     = document.getElementById('end_date').value;
+  const ctr    = document.getElementById('day-counter');
+  const ctrTxt = document.getElementById('day-counter-txt');
+  const err    = document.getElementById('date-err');
+  const errTxt = document.getElementById('date-err-txt');
+  const btn    = document.getElementById('submitBtn');
+
+  err.classList.remove('show');
+  ctr.classList.remove('show', 'warn');
+  btn.disabled = false;
+  if (!sd) return;
+
+  const start = new Date(sd);
+  const end   = ed ? new Date(ed) : start;
+  const days  = Math.round((end - start) / (1000*60*60*24)) + 1;
+  const effectiveMax = window._typeMaxDays || MAX_DAYS;
+
+  ctr.classList.add('show');
+  ctrTxt.textContent = days === 1 ? '1 day selected' : days + ' days selected';
+
+  if (days > effectiveMax) {
+    ctr.classList.add('warn');
+    err.classList.add('show');
+    errTxt.textContent = 'Maximum ' + effectiveMax + ' days allowed for this leave type.';
+    btn.disabled = true;
   }
+}
 
-  function renderFileList() {
-    const list = document.getElementById('fileList');
-    if (selectedFiles.length === 0) { list.innerHTML = ''; return; }
-
-    const icons = {
-      pdf:  'fa-file-pdf',
-      doc:  'fa-file-word',
-      docx: 'fa-file-word',
-      jpg:  'fa-file-image',
-      jpeg: 'fa-file-image',
-      png:  'fa-file-image',
-    };
-
-    list.innerHTML = selectedFiles.map(f => {
-      const ext  = f.name.split('.').pop().toLowerCase();
-      const ico  = icons[ext] || 'fa-file';
-      const size = f.size > 1024*1024
-        ? (f.size / (1024*1024)).toFixed(1) + ' MB'
-        : Math.round(f.size / 1024) + ' KB';
-      return `
-        <div class="file-item">
-          <i class="fa-solid ${ico} file-item-ico"></i>
-          <span class="file-item-name">${f.name}</span>
-          <span class="file-item-size">${size}</span>
-          <button type="button" class="file-item-rm"
-                  onclick="removeFile('${f.name}')"
-                  title="Remove">
-            <i class="fa-solid fa-xmark"></i>
-          </button>
-        </div>`;
-    }).join('');
-  }
-
-  /* Drag-over styling */
-  const zone = document.getElementById('attachZone');
-  zone.addEventListener('dragover',  () => zone.classList.add('drag'));
-  zone.addEventListener('dragleave', () => zone.classList.remove('drag'));
-  zone.addEventListener('drop',      () => zone.classList.remove('drag'));
-
-  /* ── Form submit ── */
-  document.getElementById('leaveForm').addEventListener('submit', function (e) {
-    const dur = document.querySelector('input[name="duration"]:checked').value;
-    const sd  = document.getElementById('start_date').value;
-    const ed  = document.getElementById('end_date');
-
-    // Force end_date for HALF/SHORT — readOnly fields DO submit, disabled ones DON'T
-    if (dur === 'HALF' || dur === 'SHORT') {
-      ed.readOnly = false;   // briefly unlock so value submits
-      ed.value    = sd;
-    }
-
-    // Block if submit button disabled (>5 days)
-    if (document.getElementById('submitBtn').disabled) {
-      e.preventDefault();
-    }
+/* ── File attachment ── */
+let selectedFiles = [];
+function onFileSelect(input) {
+  const files = Array.from(input.files);
+  const dt = new DataTransfer();
+  files.forEach(f => {
+    if (f.size > 5*1024*1024) { alert(f.name + ' exceeds 5MB and was skipped.'); return; }
+    if (!selectedFiles.find(x => x.name === f.name)) selectedFiles.push(f);
   });
+  selectedFiles.forEach(f => dt.items.add(f));
+  input.files = dt.files;
+  renderFileList();
+}
+function removeFile(name) {
+  selectedFiles = selectedFiles.filter(f => f.name !== name);
+  const dt = new DataTransfer();
+  selectedFiles.forEach(f => dt.items.add(f));
+  document.getElementById('attachInput').files = dt.files;
+  renderFileList();
+}
+function renderFileList() {
+  const list = document.getElementById('fileList');
+  if (!selectedFiles.length) { list.innerHTML = ''; return; }
+  const icons = { pdf:'fa-file-pdf', doc:'fa-file-word', docx:'fa-file-word', jpg:'fa-file-image', jpeg:'fa-file-image', png:'fa-file-image' };
+  list.innerHTML = selectedFiles.map(f => {
+    const ext  = f.name.split('.').pop().toLowerCase();
+    const ico  = icons[ext] || 'fa-file';
+    const size = f.size > 1024*1024 ? (f.size/(1024*1024)).toFixed(1)+' MB' : Math.round(f.size/1024)+' KB';
+    return `<div class="file-item">
+      <i class="fa-solid ${ico} file-item-ico"></i>
+      <span class="file-item-name">${f.name}</span>
+      <span class="file-item-size">${size}</span>
+      <button type="button" class="file-item-rm" onclick="removeFile('${f.name}')"><i class="fa-solid fa-xmark"></i></button>
+    </div>`;
+  }).join('');
+}
+const zone = document.getElementById('attachZone');
+zone.addEventListener('dragover',  () => zone.classList.add('drag'));
+zone.addEventListener('dragleave', () => zone.classList.remove('drag'));
+zone.addEventListener('drop',      () => zone.classList.remove('drag'));
+
+/* ── Form submit ── */
+document.getElementById('leaveForm').addEventListener('submit', function(e) {
+  const dur = document.querySelector('input[name="duration"]:checked').value;
+  const sd  = document.getElementById('start_date').value;
+  const ed  = document.getElementById('end_date');
+  if (dur === 'HALF' || dur === 'SHORT') {
+    ed.readOnly = false;
+    ed.value = sd;
+  }
+  if (document.getElementById('submitBtn').disabled) e.preventDefault();
+});
 </script>
 {% endblock %}

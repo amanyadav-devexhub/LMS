@@ -1,0 +1,890 @@
+{% extends "base.html" %}
+{% block title %}Leave Policy Management — LeaveSetu{% endblock %}
+{% block page_title %}Leave Policy Management{% endblock %}
+
+{% block extra_head %}
+<style>
+/* ══════════════════════════════════════════════════════
+   LEAVE POLICY PAGE
+══════════════════════════════════════════════════════ */
+.policy-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin-top: 24px;
+}
+@media (max-width: 1100px) { .policy-grid { grid-template-columns: 1fr; } }
+
+.stat-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 26px;
+}
+@media (max-width: 700px) { .stat-row { grid-template-columns: 1fr; } }
+
+.p-stat {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 22px;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.28s ease;
+  box-shadow: var(--shadow-xs);
+}
+.p-stat::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: var(--ps-gradient);
+}
+.p-stat:hover { transform: translateY(-3px); box-shadow: var(--shadow); }
+.p-stat-icon {
+  width: 46px; height: 46px; border-radius: 13px;
+  background: var(--ps-icon-bg); border: 1px solid var(--ps-icon-border);
+  color: var(--ps-icon-color);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; margin-bottom: 16px;
+}
+.p-stat-val   { font-size: 36px; font-weight: 800; letter-spacing: -2px; color: var(--text); }
+.p-stat-label { font-size: 12px; font-weight: 600; color: var(--text-muted); margin-top: 4px; }
+
+/* Table wrapper */
+.policy-table-wrap {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: var(--shadow-xs);
+}
+.policy-table-header {
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  flex-wrap: wrap;
+  background: linear-gradient(90deg, rgba(0,198,212,0.04), transparent);
+}
+.policy-table-title {
+  font-size: 14px; font-weight: 800; color: var(--text);
+  display: flex; align-items: center; gap: 10px;
+}
+.ptt-icon {
+  width: 32px; height: 32px; border-radius: 9px;
+  background: var(--aqua-glass);
+  border: 1px solid var(--border-mid);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; color: var(--aqua-deep);
+}
+
+.lt-table { width: 100%; border-collapse: collapse; }
+.lt-table thead th {
+  padding: 10px 16px;
+  font-size: 10px; font-weight: 700; letter-spacing: 1.3px; text-transform: uppercase;
+  color: var(--aqua-deep);
+  background: linear-gradient(90deg, rgba(0,198,212,0.05), transparent);
+  border-bottom: 1px solid var(--border-mid);
+  text-align: left;
+}
+.lt-table tbody tr { border-bottom: 1px solid var(--border); transition: background 0.14s; }
+.lt-table tbody tr:last-child { border-bottom: none; }
+.lt-table tbody tr:hover { background: rgba(0,198,212,0.03); }
+.lt-table tbody td { padding: 12px 16px; font-size: 13px; color: var(--text-mid); vertical-align: middle; }
+
+.lt-name-cell { display: flex; align-items: center; gap: 11px; }
+.lt-color-dot {
+  width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+}
+.lt-name   { font-weight: 700; color: var(--text); font-size: 13.5px; }
+.lt-code   { font-size: 10.5px; color: var(--text-faint); font-family: monospace; margin-top: 2px; }
+
+.tag {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 10.5px; font-weight: 700; padding: 2px 9px; border-radius: 20px;
+}
+.tag-paid   { background: rgba(5,201,138,0.09);  color: #047a52; border: 1px solid rgba(5,201,138,0.22); }
+.tag-unpaid { background: rgba(240,64,88,0.09);  color: #b01530; border: 1px solid rgba(240,64,88,0.22); }
+.tag-accrual{ background: rgba(108,99,255,0.09); color: #5a52cc; border: 1px solid rgba(108,99,255,0.22); }
+.tag-lump   { background: rgba(0,198,212,0.09);  color: var(--aqua-deep); border: 1px solid rgba(0,198,212,0.22); }
+.tag-on     { background: rgba(5,201,138,0.09);  color: #047a52; border: 1px solid rgba(5,201,138,0.22); }
+.tag-off    { background: rgba(200,200,200,0.3);  color: var(--text-muted); border: 1px solid var(--border); }
+
+/* Rule chips */
+.rule-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 10.5px; color: var(--text-muted);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  padding: 2px 8px; border-radius: 6px; margin: 2px;
+}
+.rule-chip i { color: var(--aqua-deep); font-size: 9px; }
+
+/* Policy card */
+.policy-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 18px;
+  transition: all 0.22s ease;
+  position: relative; overflow: hidden;
+}
+.policy-card:hover { border-color: var(--border-mid); box-shadow: var(--shadow-sm); }
+.policy-card.is-default::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: linear-gradient(90deg, var(--aqua-deep), var(--aqua));
+}
+.pc-name  { font-size: 14px; font-weight: 800; color: var(--text); margin-bottom: 6px; }
+.pc-desc  { font-size: 12px; color: var(--text-muted); margin-bottom: 12px; line-height: 1.5; min-height: 32px; }
+.pc-rules { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.pc-rule  {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 11px; font-weight: 600; color: var(--text-mid);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px; padding: 4px 9px;
+}
+.pc-rule i { color: var(--aqua-deep); font-size: 10px; }
+.pc-actions { display: flex; gap: 7px; }
+
+/* Sync banner */
+.sync-banner {
+  background: linear-gradient(135deg, var(--ink), var(--ink-soft));
+  border-radius: 18px; padding: 22px 28px;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px; flex-wrap: wrap; margin-bottom: 26px;
+  position: relative; overflow: hidden;
+}
+.sync-banner::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse 50% 70% at 90% 50%, rgba(0,198,212,0.18) 0%, transparent 65%);
+  pointer-events: none;
+}
+.sb-left { position: relative; z-index: 1; }
+.sb-title { font-size: 15px; font-weight: 800; color: #fff; margin-bottom: 4px; }
+.sb-sub   { font-size: 12px; color: rgba(255,255,255,0.45); }
+.sb-right { position: relative; z-index: 1; display: flex; gap: 10px; flex-wrap: wrap; }
+
+/* Modal override sizing */
+.modal-lg { max-width: 640px; }
+.form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+@media (max-width: 600px) { .form-row-2, .form-row-3 { grid-template-columns: 1fr; } }
+
+.toggle-group {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 12px;
+  background: var(--surface2);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer; transition: all 0.18s;
+}
+.toggle-group:hover { border-color: var(--aqua); background: rgba(0,198,212,0.04); }
+.toggle-group input[type=checkbox] { display: none; }
+.toggle-pill {
+  width: 34px; height: 18px;
+  background: var(--border-mid);
+  border-radius: 9px; position: relative;
+  flex-shrink: 0; transition: background 0.2s;
+}
+.toggle-pill::after {
+  content: '';
+  position: absolute; top: 2px; left: 2px;
+  width: 14px; height: 14px;
+  background: #fff; border-radius: 50%;
+  transition: transform 0.2s;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+}
+.toggle-group.checked .toggle-pill { background: var(--aqua); }
+.toggle-group.checked .toggle-pill::after { transform: translateX(16px); }
+.toggle-label { font-size: 13px; font-weight: 600; color: var(--text); flex: 1; }
+.toggle-hint  { font-size: 11px; color: var(--text-faint); }
+</style>
+{% endblock %}
+
+
+{% block content %}
+
+<!-- ══════════ SYNC BANNER ══════════ -->
+<div class="sync-banner animate-in">
+  <div class="sb-left">
+    <div class="sb-title"><i class="fa-solid fa-sliders" style="color:var(--aqua-light);margin-right:8px;"></i>Leave Policy Management</div>
+    <div class="sb-sub">Configure leave types and rules — changes reflect on all employee dashboards instantly.</div>
+  </div>
+  <div class="sb-right">
+    <!-- APPLY ALL TO EMPLOYEES -->
+    <form method="POST" action="{% url 'admin_apply_to_all_employees' %}" style="display:inline;">
+      {% csrf_token %}
+      <input type="hidden" name="force_update" value="on">
+      <button type="submit" class="btn btn-primary"
+              onclick="return confirm('This will update leave allocations for ALL active employees for {{ current_year }}. Continue?')">
+        <i class="fa-solid fa-rotate"></i> Sync All to Employees
+      </button>
+    </form>
+    <button onclick="openModal('create-lt-modal')" class="btn btn-ghost" style="color:#fff;border-color:rgba(255,255,255,0.2);">
+      <i class="fa-solid fa-plus"></i> New Leave Type
+    </button>
+    <button onclick="openModal('create-policy-modal')" class="btn btn-ghost" style="color:#fff;border-color:rgba(255,255,255,0.2);">
+      <i class="fa-solid fa-file-contract"></i> New Policy
+    </button>
+  </div>
+</div>
+
+<!-- ══════════ STAT CARDS ══════════ -->
+<div class="stat-row">
+  <div class="p-stat animate-in delay-1"
+       style="--ps-gradient:linear-gradient(90deg,#6c63ff,#9d97ff);
+              --ps-icon-bg:rgba(108,99,255,0.1);--ps-icon-border:rgba(108,99,255,0.22);--ps-icon-color:#6c63ff;">
+    <div class="p-stat-icon"><i class="fa-solid fa-list-check"></i></div>
+    <div class="p-stat-val">{{ total_leave_types }}</div>
+    <div class="p-stat-label">Active Leave Types</div>
+  </div>
+  <div class="p-stat animate-in delay-2"
+       style="--ps-gradient:linear-gradient(90deg,#00c6d4,#4de8f4);
+              --ps-icon-bg:rgba(0,198,212,0.1);--ps-icon-border:rgba(0,198,212,0.22);--ps-icon-color:var(--aqua-deep);">
+    <div class="p-stat-icon"><i class="fa-solid fa-file-contract"></i></div>
+    <div class="p-stat-val">{{ total_policies }}</div>
+    <div class="p-stat-label">Active Policies</div>
+  </div>
+  <div class="p-stat animate-in delay-3"
+       style="--ps-gradient:linear-gradient(90deg,#05c98a,#4effc3);
+              --ps-icon-bg:rgba(5,201,138,0.1);--ps-icon-border:rgba(5,201,138,0.22);--ps-icon-color:#047a52;">
+    <div class="p-stat-icon"><i class="fa-solid fa-users"></i></div>
+    <div class="p-stat-val">{{ total_employees }}</div>
+    <div class="p-stat-label">Employees Covered</div>
+  </div>
+</div>
+
+
+<!-- ══════════ MAIN GRID ══════════ -->
+<div class="policy-grid">
+
+  <!-- ── LEFT: LEAVE TYPES TABLE ── -->
+  <div class="policy-table-wrap animate-in delay-2">
+    <div class="policy-table-header">
+      <div class="policy-table-title">
+        <div class="ptt-icon"><i class="fa-solid fa-list-check"></i></div>
+        Leave Types & Quotas
+      </div>
+      <button onclick="openModal('create-lt-modal')" class="btn btn-primary btn-sm">
+        <i class="fa-solid fa-plus"></i> Add Type
+      </button>
+    </div>
+
+    <div style="overflow-x:auto;">
+      <table class="lt-table">
+        <thead>
+          <tr>
+            <th>Leave Type</th>
+            <th>Quota / Year</th>
+            <th>Type</th>
+            <th>Rules</th>
+            <th>Coverage</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in lt_stats %}
+          {% with lt=item.lt %}
+          <tr>
+            <!-- Name & Code -->
+            <td>
+              <div class="lt-name-cell">
+                <div class="lt-color-dot" style="background:{{ lt.color }};"></div>
+                <div>
+                  <div class="lt-name">{{ lt.name }}</div>
+                  <div class="lt-code">{{ lt.code }}</div>
+                </div>
+              </div>
+            </td>
+
+            <!-- Days per year -->
+            <td>
+              <strong style="font-size:16px;font-weight:800;color:var(--text);">{{ lt.days_per_year }}</strong>
+              <span style="font-size:11px;color:var(--text-faint);"> days</span>
+              {% if lt.is_accrual_based %}
+              <div style="font-size:10px;color:var(--text-faint);margin-top:2px;">
+                {{ lt.monthly_accrual }}/month
+              </div>
+              {% endif %}
+            </td>
+
+            <!-- Paid / Accrual -->
+            <td>
+              <div style="display:flex;flex-direction:column;gap:4px;">
+                {% if lt.is_paid %}
+                  <span class="tag tag-paid"><i class="fa-solid fa-circle-check" style="font-size:8px;"></i> Paid</span>
+                {% else %}
+                  <span class="tag tag-unpaid"><i class="fa-solid fa-circle-xmark" style="font-size:8px;"></i> Unpaid</span>
+                {% endif %}
+                {% if lt.is_accrual_based %}
+                  <span class="tag tag-accrual">Accrual</span>
+                {% else %}
+                  <span class="tag tag-lump">Lump Sum</span>
+                {% endif %}
+              </div>
+            </td>
+
+            <!-- Rules chips -->
+            <td>
+              <div style="display:flex;flex-wrap:wrap;gap:3px;">
+                {% if lt.max_consecutive_days > 0 %}
+                <span class="rule-chip"><i class="fa-solid fa-calendar-xmark"></i> Max {{ lt.max_consecutive_days }}d</span>
+                {% endif %}
+                {% if lt.advance_notice_days > 0 %}
+                <span class="rule-chip"><i class="fa-solid fa-clock"></i> {{ lt.advance_notice_days }}d notice</span>
+                {% endif %}
+                {% if lt.document_required_after > 0 %}
+                <span class="rule-chip"><i class="fa-solid fa-file-medical"></i> Doc &gt;{{ lt.document_required_after }}d</span>
+                {% endif %}
+                {% if lt.carry_forward %}
+                <span class="rule-chip"><i class="fa-solid fa-forward"></i> Carry fwd</span>
+                {% endif %}
+                {% if not lt.max_consecutive_days and not lt.advance_notice_days and not lt.document_required_after and not lt.carry_forward %}
+                <span style="font-size:11px;color:var(--text-faint);">—</span>
+                {% endif %}
+              </div>
+            </td>
+
+            <!-- Coverage -->
+            <td>
+              <div style="font-size:13px;font-weight:700;color:var(--text);">{{ item.employees_covered }}</div>
+              <div style="font-size:10.5px;color:var(--text-faint);">employees</div>
+              {% if item.total_used > 0 %}
+              <div style="font-size:10px;color:var(--aqua-deep);margin-top:2px;">{{ item.total_used|floatformat:1 }}d used</div>
+              {% endif %}
+            </td>
+
+            <!-- Status -->
+            <td>
+              {% if lt.is_active %}
+                <span class="tag tag-on"><i class="fa-solid fa-circle" style="font-size:6px;"></i> Active</span>
+              {% else %}
+                <span class="tag tag-off"><i class="fa-solid fa-circle" style="font-size:6px;"></i> Inactive</span>
+              {% endif %}
+            </td>
+
+            <!-- Actions -->
+            <td>
+              <div style="display:flex;gap:5px;flex-wrap:wrap;">
+                <!-- Edit -->
+                <button onclick="openEditModal({{ lt.id }}, '{{ lt.name|escapejs }}', '{{ lt.code }}', {{ lt.days_per_year }}, {{ lt.is_paid|yesno:'true,false' }}, {{ lt.is_accrual_based|yesno:'true,false' }}, {{ lt.monthly_accrual }}, {{ lt.max_consecutive_days }}, {{ lt.advance_notice_days }}, {{ lt.document_required_after }}, {{ lt.carry_forward|yesno:'true,false' }}, {{ lt.carry_forward_limit }}, '{{ lt.color }}', '{{ lt.applicable_to }}', '{{ lt.description|escapejs }}', {{ lt.is_active|yesno:'true,false' }})"
+                        class="btn btn-ghost btn-sm" title="Edit">
+                  <i class="fa-solid fa-pen-to-square"></i>
+                </button>
+                <!-- Toggle active/inactive -->
+                <form method="POST" action="{% url 'admin_leave_type_toggle' lt.id %}" style="margin:0;">
+                  {% csrf_token %}
+                  <button type="submit"
+                          class="btn btn-sm {% if lt.is_active %}btn-danger{% else %}btn-success{% endif %}"
+                          title="{% if lt.is_active %}Deactivate{% else %}Activate{% endif %}"
+                          onclick="return confirm('{% if lt.is_active %}Deactivate{% else %}Activate{% endif %} {{ lt.name }}?')">
+                    <i class="fa-solid {% if lt.is_active %}fa-toggle-on{% else %}fa-toggle-off{% endif %}"></i>
+                  </button>
+                </form>
+                <!-- ★ Delete -->
+                <form method="POST" action="{% url 'admin_leave_type_delete' lt.id %}" style="margin:0;">
+                  {% csrf_token %}
+                  <button type="submit"
+                          class="btn btn-sm btn-danger"
+                          title="Delete leave type"
+                          onclick="return confirm('DELETE {{ lt.name }}?\n\nThis cannot be undone. If employees have used this leave type, deletion will be blocked — deactivate instead.')">
+                    <i class="fa-solid fa-trash"></i>
+                  </button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          {% endwith %}
+          {% empty %}
+          <tr>
+            <td colspan="7">
+              <div class="empty-state" style="padding:40px;">
+                <div class="empty-icon"><i class="fa-solid fa-list-check"></i></div>
+                <div class="empty-title">No leave types yet</div>
+                <p style="font-size:13px;color:var(--text-muted);margin-top:6px;">
+                  Click "Add Type" to create your first leave type.
+                </p>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div><!-- end leave types table -->
+
+
+  <!-- ── RIGHT: POLICIES ── -->
+  <div>
+    <div class="policy-table-wrap animate-in delay-3" style="margin-bottom:20px;">
+      <div class="policy-table-header">
+        <div class="policy-table-title">
+          <div class="ptt-icon"><i class="fa-solid fa-file-contract"></i></div>
+          Leave Policies
+        </div>
+        <button onclick="openModal('create-policy-modal')" class="btn btn-primary btn-sm">
+          <i class="fa-solid fa-plus"></i> Add Policy
+        </button>
+      </div>
+
+      <div style="padding:16px;display:flex;flex-direction:column;gap:12px;">
+        {% for policy in policies %}
+        <div class="policy-card {% if policy.is_default %}is-default{% endif %}">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:8px;">
+            <div>
+              <div class="pc-name">{{ policy.name }}</div>
+              {% if policy.is_default %}
+              <span class="tag tag-on" style="margin-bottom:6px;">
+                <i class="fa-solid fa-star" style="font-size:8px;"></i> Default Policy
+              </span>
+              {% endif %}
+            </div>
+            {% if not policy.is_active %}
+            <span class="tag tag-off">Inactive</span>
+            {% endif %}
+          </div>
+          {% if policy.description %}
+          <div class="pc-desc">{{ policy.description }}</div>
+          {% else %}
+          <div class="pc-desc" style="color:var(--text-faint);">No description</div>
+          {% endif %}
+          <div class="pc-rules">
+            <div class="pc-rule"><i class="fa-solid fa-calendar-days"></i> Max {{ policy.max_days_per_request }}d / request</div>
+            <div class="pc-rule"><i class="fa-solid fa-clock"></i> {{ policy.min_advance_days }}d advance</div>
+            <div class="pc-rule"><i class="fa-solid fa-check-to-slot"></i> {{ policy.approval_threshold }} approvals needed</div>
+            {% if policy.allow_half_day %}<div class="pc-rule"><i class="fa-solid fa-circle-half-stroke"></i> Half day allowed</div>{% endif %}
+            {% if policy.allow_short_leave %}<div class="pc-rule"><i class="fa-solid fa-hourglass-half"></i> Short leave allowed</div>{% endif %}
+            {% if policy.weekend_counts_as_leave %}<div class="pc-rule"><i class="fa-solid fa-calendar-week"></i> Weekends counted</div>{% endif %}
+            {% if policy.holiday_counts_as_leave %}<div class="pc-rule"><i class="fa-solid fa-flag"></i> Holidays counted</div>{% endif %}
+          </div>
+          <div class="pc-actions">
+            <!-- Edit -->
+            <button onclick="openEditPolicyModal({{ policy.id }}, '{{ policy.name|escapejs }}', '{{ policy.description|escapejs }}', {{ policy.max_days_per_request }}, {{ policy.min_advance_days }}, {{ policy.approval_threshold }}, {{ policy.allow_half_day|yesno:'true,false' }}, {{ policy.allow_short_leave|yesno:'true,false' }}, {{ policy.weekend_counts_as_leave|yesno:'true,false' }}, {{ policy.holiday_counts_as_leave|yesno:'true,false' }}, {{ policy.is_default|yesno:'true,false' }}, {{ policy.is_active|yesno:'true,false' }})"
+                    class="btn btn-ghost btn-sm">
+              <i class="fa-solid fa-pen-to-square"></i> Edit
+            </button>
+            <!-- ★ Toggle active/inactive -->
+            <form method="POST" action="{% url 'admin_policy_toggle' policy.id %}" style="margin:0;display:inline;">
+              {% csrf_token %}
+              <button type="submit"
+                      class="btn btn-sm {% if policy.is_active %}btn-danger{% else %}btn-success{% endif %}"
+                      onclick="return confirm('{% if policy.is_active %}Deactivate{% else %}Activate{% endif %} policy: {{ policy.name }}?')">
+                <i class="fa-solid {% if policy.is_active %}fa-toggle-on{% else %}fa-toggle-off{% endif %}"></i>
+                {% if policy.is_active %}Deactivate{% else %}Activate{% endif %}
+              </button>
+            </form>
+            <!-- ★ Delete -->
+            <form method="POST" action="{% url 'admin_policy_delete' policy.id %}" style="margin:0;display:inline;">
+              {% csrf_token %}
+              <button type="submit"
+                      class="btn btn-sm btn-danger"
+                      onclick="return confirm('DELETE policy: {{ policy.name }}?\n\nThis cannot be undone. Default policies cannot be deleted unless another default exists.')">
+                <i class="fa-solid fa-trash"></i> Delete
+              </button>
+            </form>
+          </div>
+        </div>
+        {% empty %}
+        <div class="empty-state" style="padding:30px;">
+          <div class="empty-icon"><i class="fa-solid fa-file-contract"></i></div>
+          <div class="empty-title">No policies yet</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Info card -->
+    <div class="card animate-in delay-4" style="background:linear-gradient(135deg,rgba(0,198,212,0.05),transparent);">
+      <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px;">
+        <i class="fa-solid fa-circle-info" style="color:var(--aqua-deep);"></i>
+        How changes cascade to employees
+      </div>
+      <div style="font-size:12.5px;color:var(--text-muted);line-height:1.7;">
+        <p style="margin-bottom:8px;">1. <strong>Edit a leave type</strong> (e.g. change Casual Leave from 12 → 15 days)</p>
+        <p style="margin-bottom:8px;">2. Check <strong>"Update existing allocations"</strong> to apply the new quota to all current employees</p>
+        <p style="margin-bottom:8px;">3. Or use <strong>"Sync All to Employees"</strong> at the top to re-sync every leave type at once</p>
+        <p>Employee dashboards automatically show updated balances — no page reload needed.</p>
+      </div>
+    </div>
+  </div>
+
+</div><!-- end policy-grid -->
+
+
+<!-- ══════════════════════════════════════
+     CREATE / EDIT LEAVE TYPE MODAL
+══════════════════════════════════════ -->
+<div id="create-lt-modal"
+     style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:999;
+            align-items:center;justify-content:center;backdrop-filter:blur(6px);padding:20px;">
+  <div class="card modal-lg animate-in"
+       style="width:100%;overflow-y:auto;max-height:92vh;box-shadow:0 30px 80px rgba(0,0,0,0.5);border-color:var(--border-mid);">
+
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,var(--aqua-deep),var(--aqua));display:flex;align-items:center;justify-content:center;font-size:16px;color:#fff;box-shadow:0 4px 16px rgba(0,198,212,0.4);">
+          <i class="fa-solid fa-list-check"></i>
+        </div>
+        <div>
+          <div id="lt-modal-title" style="font-size:15px;font-weight:800;color:var(--text);">Add Leave Type</div>
+          <div style="font-size:12px;color:var(--text-muted);">Define quota, rules and pay type</div>
+        </div>
+      </div>
+      <button onclick="closeModal('create-lt-modal')" class="icon-btn"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+
+    <form method="POST" action="{% url 'admin_leave_type_save' %}">
+      {% csrf_token %}
+      <input type="hidden" name="lt_id" id="lt-id-field">
+
+      <div class="form-row-2">
+        <div class="form-group">
+          <label class="form-label">Leave Type Name <span style="color:var(--danger);">*</span></label>
+          <input type="text" name="name" id="lt-name" class="form-control" required placeholder="e.g. Casual Leave">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Code (unique) <span style="color:var(--danger);">*</span></label>
+          <input type="text" name="code" id="lt-code" class="form-control" required placeholder="e.g. CASUAL"
+                 style="text-transform:uppercase;" oninput="this.value=this.value.toUpperCase()">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Description</label>
+        <textarea name="description" id="lt-description" class="form-control" rows="2" placeholder="What is this leave type for?"></textarea>
+      </div>
+
+      <div class="form-row-2">
+        <div class="form-group">
+          <label class="form-label">Days per Year <span style="color:var(--danger);">*</span></label>
+          <input type="number" name="days_per_year" id="lt-days" class="form-control" required min="0" step="0.5" value="12">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Color (badge)</label>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <input type="color" name="color" id="lt-color" value="#00c6d4"
+                   style="width:44px;height:36px;border:1.5px solid var(--border);border-radius:var(--radius-xs);cursor:pointer;background:none;padding:2px;">
+            <input type="text" id="lt-color-text" class="form-control" value="#00c6d4" style="flex:1;"
+                   oninput="document.getElementById('lt-color').value=this.value">
+          </div>
+        </div>
+      </div>
+
+      <!-- Toggles row 1 -->
+      <div class="form-row-2" style="margin-bottom:14px;">
+        <label class="toggle-group" id="tg-paid">
+          <input type="checkbox" name="is_paid" id="lt-paid" checked onchange="syncToggle('tg-paid','lt-paid')">
+          <div class="toggle-pill"></div>
+          <div>
+            <div class="toggle-label">Paid Leave</div>
+            <div class="toggle-hint">Salary is NOT deducted</div>
+          </div>
+        </label>
+        <label class="toggle-group" id="tg-accrual">
+          <input type="checkbox" name="is_accrual_based" id="lt-accrual" onchange="syncToggle('tg-accrual','lt-accrual');toggleAccrual()">
+          <div class="toggle-pill"></div>
+          <div>
+            <div class="toggle-label">Accrual Based</div>
+            <div class="toggle-hint">Earns monthly (else lump sum)</div>
+          </div>
+        </label>
+      </div>
+
+      <!-- Monthly accrual rate (only visible if accrual based) -->
+      <div id="accrual-rate-row" class="form-group" style="display:none;">
+        <label class="form-label">Monthly Accrual Rate</label>
+        <input type="number" name="monthly_accrual" id="lt-monthly-accrual" class="form-control" min="0" step="0.25" value="1.0" placeholder="Days earned per month">
+      </div>
+
+      <div class="form-row-3">
+        <div class="form-group">
+          <label class="form-label">Max Consecutive Days</label>
+          <input type="number" name="max_consecutive_days" id="lt-max-consec" class="form-control" min="0" value="0">
+          <small style="font-size:10.5px;color:var(--text-faint);">0 = no limit</small>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Advance Notice (days)</label>
+          <input type="number" name="advance_notice_days" id="lt-advance" class="form-control" min="0" value="0">
+          <small style="font-size:10.5px;color:var(--text-faint);">0 = same day OK</small>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Doc Required After (days)</label>
+          <input type="number" name="document_required_after" id="lt-doc-after" class="form-control" min="0" value="0">
+          <small style="font-size:10.5px;color:var(--text-faint);">0 = never required</small>
+        </div>
+      </div>
+
+      <!-- Toggles row 2 -->
+      <div class="form-row-2" style="margin-bottom:14px;">
+        <label class="toggle-group" id="tg-carry">
+          <input type="checkbox" name="carry_forward" id="lt-carry" onchange="syncToggle('tg-carry','lt-carry');toggleCarry()">
+          <div class="toggle-pill"></div>
+          <div>
+            <div class="toggle-label">Carry Forward</div>
+            <div class="toggle-hint">Unused days roll to next year</div>
+          </div>
+        </label>
+        <label class="toggle-group checked" id="tg-active">
+          <input type="checkbox" name="is_active" id="lt-active" checked onchange="syncToggle('tg-active','lt-active')">
+          <div class="toggle-pill"></div>
+          <div>
+            <div class="toggle-label">Active</div>
+            <div class="toggle-hint">Employees can apply for this</div>
+          </div>
+        </label>
+      </div>
+
+      <div id="carry-limit-row" class="form-group" style="display:none;">
+        <label class="form-label">Carry Forward Limit (days)</label>
+        <input type="number" name="carry_forward_limit" id="lt-carry-limit" class="form-control" min="0" step="0.5" value="0">
+        <small style="font-size:10.5px;color:var(--text-faint);">0 = carry all remaining days</small>
+      </div>
+
+      <!-- Apply options -->
+      <div style="background:rgba(0,198,212,0.05);border:1px solid rgba(0,198,212,0.15);border-radius:var(--radius-sm);padding:14px;margin-top:6px;">
+        <div style="font-size:12px;font-weight:700;color:var(--aqua-deep);margin-bottom:10px;">
+          <i class="fa-solid fa-users"></i> Employee Allocation
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <label style="display:flex;align-items:center;gap:9px;cursor:pointer;font-size:13px;color:var(--text);">
+            <input type="checkbox" name="apply_to_all" id="lt-apply-all" checked
+                   style="width:15px;height:15px;accent-color:var(--aqua);">
+            Allocate this leave type to all active employees for {{ current_year }}
+          </label>
+          <label style="display:flex;align-items:center;gap:9px;cursor:pointer;font-size:13px;color:var(--text);" id="update-existing-row">
+            <input type="checkbox" name="update_existing" id="lt-update-existing"
+                   style="width:15px;height:15px;accent-color:var(--aqua);">
+            Also update quota on existing allocations (if editing)
+          </label>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:10px;margin-top:18px;">
+        <button type="submit" class="btn btn-primary">
+          <i class="fa-solid fa-floppy-disk"></i> <span id="lt-save-btn-text">Create Leave Type</span>
+        </button>
+        <button type="button" onclick="closeModal('create-lt-modal')" class="btn btn-ghost">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════
+     CREATE / EDIT POLICY MODAL
+══════════════════════════════════════ -->
+<div id="create-policy-modal"
+     style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:999;
+            align-items:center;justify-content:center;backdrop-filter:blur(6px);padding:20px;">
+  <div class="card modal-lg animate-in"
+       style="width:100%;overflow-y:auto;max-height:92vh;box-shadow:0 30px 80px rgba(0,0,0,0.5);border-color:var(--border-mid);">
+
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#6c63ff,#9d97ff);display:flex;align-items:center;justify-content:center;font-size:16px;color:#fff;box-shadow:0 4px 16px rgba(108,99,255,0.4);">
+          <i class="fa-solid fa-file-contract"></i>
+        </div>
+        <div>
+          <div id="policy-modal-title" style="font-size:15px;font-weight:800;color:var(--text);">Add Leave Policy</div>
+          <div style="font-size:12px;color:var(--text-muted);">Set company-wide leave rules</div>
+        </div>
+      </div>
+      <button onclick="closeModal('create-policy-modal')" class="icon-btn"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+
+    <form method="POST" action="{% url 'admin_policy_save' %}">
+      {% csrf_token %}
+      <input type="hidden" name="policy_id" id="policy-id-field">
+
+      <div class="form-group">
+        <label class="form-label">Policy Name <span style="color:var(--danger);">*</span></label>
+        <input type="text" name="name" id="policy-name" class="form-control" required placeholder="e.g. Default Company Policy">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Description</label>
+        <textarea name="description" id="policy-desc" class="form-control" rows="2"></textarea>
+      </div>
+
+      <div class="form-row-3">
+        <div class="form-group">
+          <label class="form-label">Max Days / Request</label>
+          <input type="number" name="max_days_per_request" id="policy-max-days" class="form-control" min="1" value="5">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Min Advance Days</label>
+          <input type="number" name="min_advance_days" id="policy-min-advance" class="form-control" min="0" value="1">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Approvals Needed</label>
+          <input type="number" name="approval_threshold" id="policy-threshold" class="form-control" min="1" max="3" value="2">
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+        <label class="toggle-group" id="tg-half-day">
+          <input type="checkbox" name="allow_half_day" id="policy-half-day" checked onchange="syncToggle('tg-half-day','policy-half-day')">
+          <div class="toggle-pill"></div>
+          <div><div class="toggle-label">Allow Half Day</div></div>
+        </label>
+        <label class="toggle-group" id="tg-short-leave">
+          <input type="checkbox" name="allow_short_leave" id="policy-short-leave" checked onchange="syncToggle('tg-short-leave','policy-short-leave')">
+          <div class="toggle-pill"></div>
+          <div><div class="toggle-label">Allow Short Leave</div></div>
+        </label>
+        <label class="toggle-group" id="tg-weekend">
+          <input type="checkbox" name="weekend_counts_as_leave" id="policy-weekend" onchange="syncToggle('tg-weekend','policy-weekend')">
+          <div class="toggle-pill"></div>
+          <div><div class="toggle-label">Weekends Count</div><div class="toggle-hint">Sat/Sun inside leave range counted</div></div>
+        </label>
+        <label class="toggle-group" id="tg-holiday">
+          <input type="checkbox" name="holiday_counts_as_leave" id="policy-holiday" onchange="syncToggle('tg-holiday','policy-holiday')">
+          <div class="toggle-pill"></div>
+          <div><div class="toggle-label">Holidays Count</div><div class="toggle-hint">Public holidays inside range counted</div></div>
+        </label>
+        <label class="toggle-group" id="tg-default">
+          <input type="checkbox" name="is_default" id="policy-default" onchange="syncToggle('tg-default','policy-default')">
+          <div class="toggle-pill"></div>
+          <div><div class="toggle-label">Set as Default</div><div class="toggle-hint">Applies to all employees</div></div>
+        </label>
+        <label class="toggle-group checked" id="tg-policy-active">
+          <input type="checkbox" name="is_active" id="policy-active" checked onchange="syncToggle('tg-policy-active','policy-active')">
+          <div class="toggle-pill"></div>
+          <div><div class="toggle-label">Active</div></div>
+        </label>
+      </div>
+
+      <div style="display:flex;gap:10px;margin-top:6px;">
+        <button type="submit" class="btn btn-primary">
+          <i class="fa-solid fa-floppy-disk"></i> <span id="policy-save-btn-text">Create Policy</span>
+        </button>
+        <button type="button" onclick="closeModal('create-policy-modal')" class="btn btn-ghost">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+
+{% endblock %}
+
+
+{% block extra_scripts %}
+<script>
+/* ── Modal helpers ── */
+function openModal(id) {
+  document.getElementById(id).style.display = 'flex';
+}
+function closeModal(id) {
+  document.getElementById(id).style.display = 'none';
+  // Reset LT form
+  if (id === 'create-lt-modal') {
+    document.getElementById('lt-id-field').value = '';
+    document.getElementById('lt-modal-title').textContent = 'Add Leave Type';
+    document.getElementById('lt-save-btn-text').textContent = 'Create Leave Type';
+    document.getElementById('lt-code').readOnly = false;
+  }
+  if (id === 'create-policy-modal') {
+    document.getElementById('policy-id-field').value = '';
+    document.getElementById('policy-modal-title').textContent = 'Add Leave Policy';
+    document.getElementById('policy-save-btn-text').textContent = 'Create Policy';
+  }
+}
+document.querySelectorAll('[id$="-modal"]').forEach(m => {
+  m.addEventListener('click', function(e) { if (e.target === this) closeModal(this.id); });
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    ['create-lt-modal','create-policy-modal'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el && el.style.display !== 'none') closeModal(id);
+    });
+  }
+});
+
+/* ── Toggle pill visual sync ── */
+function syncToggle(groupId, inputId) {
+  const input = document.getElementById(inputId);
+  const group = document.getElementById(groupId);
+  if (!input || !group) return;
+  group.classList.toggle('checked', input.checked);
+}
+// Init all toggles on load
+document.querySelectorAll('.toggle-group input[type=checkbox]').forEach(cb => {
+  const group = cb.closest('.toggle-group');
+  if (group && cb.checked) group.classList.add('checked');
+});
+
+/* ── Conditional fields ── */
+function toggleAccrual() {
+  const checked = document.getElementById('lt-accrual').checked;
+  document.getElementById('accrual-rate-row').style.display = checked ? 'block' : 'none';
+}
+function toggleCarry() {
+  const checked = document.getElementById('lt-carry').checked;
+  document.getElementById('carry-limit-row').style.display = checked ? 'block' : 'none';
+}
+
+/* ── Color picker sync ── */
+document.getElementById('lt-color').addEventListener('input', function() {
+  document.getElementById('lt-color-text').value = this.value;
+});
+
+/* ── Open EDIT modal for leave type ── */
+function openEditModal(id, name, code, days, isPaid, isAccrual, monthly, maxConsec, advance, docAfter, carry, carryLimit, color, appTo, desc, isActive) {
+  document.getElementById('lt-id-field').value = id;
+  document.getElementById('lt-modal-title').textContent = 'Edit Leave Type';
+  document.getElementById('lt-save-btn-text').textContent = 'Save Changes';
+  document.getElementById('lt-name').value = name;
+  document.getElementById('lt-code').value = code;
+  document.getElementById('lt-code').readOnly = true;  // Don't allow code change on edit
+  document.getElementById('lt-days').value = days;
+  document.getElementById('lt-description').value = desc;
+  document.getElementById('lt-max-consec').value = maxConsec;
+  document.getElementById('lt-advance').value = advance;
+  document.getElementById('lt-doc-after').value = docAfter;
+  document.getElementById('lt-carry-limit').value = carryLimit;
+  document.getElementById('lt-color').value = color;
+  document.getElementById('lt-color-text').value = color;
+
+  // Checkboxes
+  setCheck('lt-paid',    isPaid,    'tg-paid');
+  setCheck('lt-accrual', isAccrual, 'tg-accrual');
+  setCheck('lt-carry',   carry,     'tg-carry');
+  setCheck('lt-active',  isActive,  'tg-active');
+
+  // Conditional rows
+  document.getElementById('lt-monthly-accrual').value = monthly;
+  toggleAccrual();
+  toggleCarry();
+
+  openModal('create-lt-modal');
+}
+function setCheck(inputId, value, groupId) {
+  const inp = document.getElementById(inputId);
+  const grp = document.getElementById(groupId);
+  if (!inp || !grp) return;
+  inp.checked = Boolean(value);
+  grp.classList.toggle('checked', inp.checked);
+}
+
+/* ── Open EDIT modal for policy ── */
+function openEditPolicyModal(id, name, desc, maxDays, minAdv, threshold, halfDay, shortLeave, weekends, holidays, isDefault, isActive) {
+  document.getElementById('policy-id-field').value = id;
+  document.getElementById('policy-modal-title').textContent = 'Edit Policy';
+  document.getElementById('policy-save-btn-text').textContent = 'Save Changes';
+  document.getElementById('policy-name').value = name;
+  document.getElementById('policy-desc').value = desc;
+  document.getElementById('policy-max-days').value = maxDays;
+  document.getElementById('policy-min-advance').value = minAdv;
+  document.getElementById('policy-threshold').value = threshold;
+  setCheck('policy-half-day',   halfDay,    'tg-half-day');
+  setCheck('policy-short-leave',shortLeave, 'tg-short-leave');
+  setCheck('policy-weekend',    weekends,   'tg-weekend');
+  setCheck('policy-holiday',    holidays,   'tg-holiday');
+  setCheck('policy-default',    isDefault,  'tg-default');
+  setCheck('policy-active',     isActive,   'tg-policy-active');
+  openModal('create-policy-modal');
+}
+</script>
+{% endblock %}
