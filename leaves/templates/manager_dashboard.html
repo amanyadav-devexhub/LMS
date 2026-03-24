@@ -4,7 +4,7 @@
 
 {% block extra_head %}
 <style>
-/* ── Hero banner ── */
+/* Hero Banner */
 .mgr-hero {
     background: linear-gradient(135deg, #1a1a2e 0%, #16213e 55%, #0f3460 100%);
     border-radius: var(--radius);
@@ -25,12 +25,12 @@
 .hero-label {
     display: flex; align-items: center; gap: 8px;
     font-size: 9px; font-weight: 800; letter-spacing: 2.5px;
-    text-transform: uppercase; color: var(--aqua);
+    text-transform: uppercase; color: #0d6efd;
     margin-bottom: 9px; opacity: .75;
 }
 .hero-label::before {
     content: ''; width: 22px; height: 1.5px;
-    background: var(--aqua); border-radius: 2px;
+    background: #0d6efd; border-radius: 2px;
 }
 .hero-name {
     font-size: 23px; font-weight: 800; color: #fff;
@@ -61,12 +61,12 @@
 .hn { text-align: center; }
 .hn-val { font-size: 27px; font-weight: 800; color: #fff; line-height: 1; }
 .hn-val.am { color: var(--warning); }
-.hn-val.aq { color: var(--aqua-light); }
+.hn-val.aq { color: #0dcaf0; }
 .hn-lbl { font-size: 9px; font-weight: 700; letter-spacing: 1.5px;
     text-transform: uppercase; color: rgba(255,255,255,.30); margin-top: 3px; }
 .hn-div { width: 1px; height: 38px; background: rgba(255,255,255,.08); }
 
-/* ── Stat row ── */
+/* Stat Row */
 .stat-row {
     display: grid; grid-template-columns: repeat(4, 1fr);
     gap: 14px; margin-bottom: 22px;
@@ -99,12 +99,12 @@
 .s-val { font-size: 26px; font-weight: 800; color: var(--text); letter-spacing: -1px; line-height: 1; }
 .s-lbl { font-size: 11px; color: var(--text-muted); margin-top: 4px; font-weight: 500; }
 
-/* ── Panels ── */
+/* Panels */
 .mgr-panel { display: none; animation: pu .26s ease both; }
 .mgr-panel.show { display: block; }
 @keyframes pu { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
 
-/* ── Section card ── */
+/* Section Card */
 .sc {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -130,91 +130,7 @@
 .sc-ttl { font-size: 13.5px; font-weight: 800; color: var(--text); }
 .sc-sub { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
 
-/* ── Vote Display Styles ── */
-.vote-container {
-    margin-top: 8px;
-    padding: 8px;
-    background: #f8f9fa;
-    border-radius: 6px;
-    border: 1px solid #e9ecef;
-    font-family: 'Plus Jakarta Sans', sans-serif;
-}
-.vote-progress {
-    margin-bottom: 6px;
-}
-.vote-progress-header {
-    display: flex;
-    justify-content: space-between;
-    font-size: 10px;
-    margin-bottom: 2px;
-}
-.vote-progress-approve {
-    color: #28a745;
-}
-.vote-progress-reject {
-    color: #dc3545;
-}
-.vote-progress-bar {
-    height: 4px;
-    background: #e9ecef;
-    border-radius: 2px;
-    overflow: hidden;
-    display: flex;
-}
-.vote-progress-approve-bar {
-    height: 100%;
-    background: #28a745;
-}
-.vote-progress-reject-bar {
-    height: 100%;
-    background: #dc3545;
-}
-.vote-icons {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 11px;
-    margin: 4px 0;
-}
-.vote-icon-item {
-    display: flex;
-    align-items: center;
-    gap: 2px;
-}
-.vote-icon-label {
-    font-weight: 600;
-}
-.vote-icon-approve {
-    color: #28a745;
-}
-.vote-icon-reject {
-    color: #dc3545;
-}
-.vote-icon-pending {
-    color: #ffc107;
-}
-.vote-status-badge {
-    margin-top: 6px;
-    text-align: center;
-    font-size: 10px;
-    font-weight: 600;
-    padding: 2px;
-    border-radius: 3px;
-}
-.vote-status-approved {
-    background: #28a745;
-    color: white;
-}
-.vote-status-rejected {
-    background: #dc3545;
-    color: white;
-}
-.vote-status-pending {
-    background: #ffc107;
-    color: black;
-}
-
-/* ── Leave rows ── */
+/* Leave Rows */
 .lr {
     display: flex;
     align-items: flex-start;
@@ -288,7 +204,7 @@
     background: rgba(240, 64, 88, 0.16);
 }
 
-/* ── Table ── */
+/* Table */
 .tt {
     width: 100%;
     border-collapse: collapse;
@@ -318,7 +234,7 @@
     vertical-align: middle;
 }
 
-/* ── Balance bar ── */
+/* Balance Bar */
 .bw {
     display: flex;
     align-items: center;
@@ -337,7 +253,7 @@
     border-radius: 3px;
 }
 
-/* ── Section labels ── */
+/* Section Labels */
 .sec-label {
     font-size: 10px;
     font-weight: 800;
@@ -356,7 +272,7 @@
     background: var(--border);
 }
 
-/* ── Badges ── */
+/* Chips */
 .chip {
     padding: 3px 10px;
     border-radius: 20px;
@@ -364,33 +280,13 @@
     font-weight: 800;
     white-space: nowrap;
 }
-.ch-am {
-    background: rgba(245, 166, 35, 0.10);
-    color: #905700;
-    border: 1px solid rgba(245, 166, 35, 0.25);
-}
-.ch-in {
-    background: rgba(13, 110, 253, 0.10);
-    color: #0d6efd;
-    border: 1px solid rgba(13, 110, 253, 0.22);
-}
-.ch-in-alt {
-    background: rgba(0, 198, 212, 0.10);
-    color: var(--aqua-deep);
-    border: 1px solid rgba(0, 198, 212, 0.22);
-}
-.ch-rd {
-    background: rgba(240, 64, 88, 0.09);
-    color: #b01530;
-    border: 1px solid rgba(240, 64, 88, 0.20);
-}
-.ch-gn {
-    background: rgba(5, 201, 138, 0.09);
-    color: #047a52;
-    border: 1px solid rgba(5, 201, 138, 0.22);
-}
+.ch-am { background: rgba(245, 166, 35, 0.10); color: #905700; border: 1px solid rgba(245, 166, 35, 0.25); }
+.ch-in { background: rgba(13, 110, 253, 0.10); color: #0d6efd; border: 1px solid rgba(13, 110, 253, 0.22); }
+.ch-in-alt { background: rgba(0, 198, 212, 0.10); color: var(--aqua-deep); border: 1px solid rgba(0, 198, 212, 0.22); }
+.ch-rd { background: rgba(240, 64, 88, 0.09); color: #b01530; border: 1px solid rgba(240, 64, 88, 0.20); }
+.ch-gn { background: rgba(5, 201, 138, 0.09); color: #047a52; border: 1px solid rgba(5, 201, 138, 0.22); }
 
-/* ── Empty state ── */
+/* Empty State */
 .emp {
     text-align: center;
     padding: 44px 24px;
@@ -412,7 +308,7 @@
     color: var(--text-muted);
 }
 
-/* ── Pagination ── */
+/* Pagination */
 .pgn {
     display: flex;
     align-items: center;
@@ -444,7 +340,7 @@
     pointer-events: none;
 }
 
-/* ── Profile styling ── */
+/* Profile Section */
 .prof-banner {
     height: 140px;
     background: linear-gradient(135deg, #1a1a2e 0%, #0d6efd 100%);
@@ -511,18 +407,12 @@
         display: none;
     }
 }
-@media (max-width: 540px) {
-    .stat-row {
-        grid-template-columns: 1fr 1fr;
-        gap: 10px;
-    }
-}
 </style>
 {% endblock %}
 
 {% block content %}
 
-{# ── HERO ── #}
+{# Hero Section #}
 <div class="mgr-hero animate-in">
     <div class="hero-label">Manager Dashboard</div>
     <div class="hero-name">Welcome back, {{ request.user.first_name|default:request.user.username }} 🚀</div>
@@ -547,7 +437,7 @@
     </div>
 </div>
 
-{# ── STATS ── #}
+{# Stat Cards #}
 <div class="stat-row animate-in delay-1">
     <div class="s-card active" id="stat-pending" onclick="switchTab('pending')">
         <div class="s-ico"><i class="fa-solid fa-clock-rotate-left"></i></div>
@@ -566,20 +456,19 @@
     </div>
     <div class="s-card" id="stat-profile" onclick="switchTab('profile')" style="--c:#6c757d;">
         <div class="s-ico"><i class="fa-solid fa-user-gear"></i></div>
-        <div class="s-val"><i class="fa-solid fa-shield-halved" style="font-size:18px;"></i></div>
+        <div class="s-val"><i class="fa-solid fa-shield-halved"></i></div>
         <div class="s-lbl">Account Settings</div>
     </div>
 </div>
 
-{# ── PANEL: PENDING with Voting ── #}
+{# PANEL — Pending Requests #}
 <div class="mgr-panel show" id="panel-pending">
-    
-    <div class="sec-label">Pending Requests - Voting in Progress</div>
+    <div class="sec-label">Pending Leave Requests</div>
     <div class="sc">
         <div class="sc-head">
             <div class="sc-hl">
                 <div class="sc-ico"><i class="fa-solid fa-inbox"></i></div>
-                <div class="sc-ttl">Leave Requests (2 approvals needed)</div>
+                <div class="sc-ttl">Leave Requests Requiring Your Approval</div>
             </div>
             <span class="chip ch-in">{{ pending_count }} Total</span>
         </div>
@@ -592,116 +481,39 @@
                     <div class="lr-nm">{{ leave.employee.get_full_name|default:leave.employee.username }}</div>
                     <div class="lr-mt">
                         <span style="color:#0d6efd;font-weight:700;">{{ leave.employee.department|default:"No Dept" }}</span> · 
-                        {{ leave.leave_type|capfirst }} · {{ leave.start_date }}{% if leave.start_date != leave.end_date %} → {{ leave.end_date }}{% endif %}
+                        {{ leave.leave_type|capfirst }} · {{ leave.start_date|date:"d M Y" }}{% if leave.start_date != leave.end_date %} → {{ leave.end_date|date:"d M Y" }}{% endif %}
                     </div>
-                    
-                    <!-- Vote Status Display -->
-                    <div style="margin-top: 8px; padding: 8px; background: #f8f9fa; border-radius: 6px; border-left: 3px solid #0d6efd;">
-                        <!-- Progress Bar -->
-                        <div style="margin-bottom: 8px;">
-                            <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 3px;">
-                                <span style="color: #28a745;">✅ Approvals: {{ leave.approval_count }}/2</span>
-                                <span style="color: #dc3545;">❌ Rejections: {{ leave.rejection_count }}/2</span>
-                            </div>
-                            <div style="height: 6px; background: #e9ecef; border-radius: 3px; overflow: hidden;">
-                                <div style="width: {% widthratio leave.approval_count 2 100 %}%; background: #28a745; height: 100%; float: left;"></div>
-                                <div style="width: {% widthratio leave.rejection_count 2 100 %}%; background: #dc3545; height: 100%; float: left;"></div>
-                            </div>
-                        </div>
-                        
-                        <!-- Individual Votes -->
-                        <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 6px;">
-                            <div>
-                                <strong>TL:</strong>
-                                {% if leave.tl_approved %}
-                                    <span style="color: #28a745;">✅ Approved</span>
-                                    <span style="font-size: 10px; color: #6c757d;">({{ leave.tl_acted_at|date:"d M H:i" }})</span>
-                                {% elif leave.tl_rejected %}
-                                    <span style="color: #dc3545;">❌ Rejected</span>
-                                {% else %}
-                                    <span style="color: #ffc107;">⏳ Pending</span>
-                                {% endif %}
-                            </div>
-                            <div>
-                                <strong>HR:</strong>
-                                {% if leave.hr_approved %}
-                                    <span style="color: #28a745;">✅ Approved</span>
-                                    <span style="font-size: 10px; color: #6c757d;">({{ leave.hr_acted_at|date:"d M H:i" }})</span>
-                                {% elif leave.hr_rejected %}
-                                    <span style="color: #dc3545;">❌ Rejected</span>
-                                {% else %}
-                                    <span style="color: #ffc107;">⏳ Pending</span>
-                                {% endif %}
-                            </div>
-                            <div>
-                                <strong>Mgr:</strong>
-                                {% if leave.manager_approved %}
-                                    <span style="color: #28a745;">✅ Approved</span>
-                                    <span style="font-size: 10px; color: #6c757d;">({{ leave.manager_acted_at|date:"d M H:i" }})</span>
-                                {% elif leave.manager_rejected %}
-                                    <span style="color: #dc3545;">❌ Rejected</span>
-                                {% else %}
-                                    <span style="color: #ffc107;">⏳ Pending</span>
-                                {% endif %}
-                            </div>
-                        </div>
-                        
-                        <!-- Final Status -->
-                        {% if leave.final_status != 'PENDING' %}
-                            <div style="margin-top: 8px; padding: 6px; text-align: center; border-radius: 4px; 
-                                {% if leave.final_status == 'APPROVED' %}background: #28a74520; color: #28a745; border: 1px solid #28a745;
-                                {% else %}background: #dc354520; color: #dc3545; border: 1px solid #dc3545;{% endif %}">
-                                <strong>
-                                    {% if leave.final_status == 'APPROVED' %}
-                                        ✅ APPROVED by {{ leave.approval_count }} voters
-                                    {% else %}
-                                        ❌ REJECTED by {{ leave.rejection_count }} voters
-                                    {% endif %}
-                                </strong>
-                            </div>
-                        {% else %}
-                            <div style="margin-top: 6px; font-size: 11px; color: #6c757d; text-align: center;">
-                                Need {{ need_count }} more approval{% if need_count > 1 %}s{% endif %}
-                            </div>
-                        {% endif %}
-                        
-                        <!-- Paid/Unpaid Info -->
-                        {% if leave.paid_days > 0 or leave.unpaid_days > 0 %}
-                        <div style="font-size: 10px; margin-top: 6px;">
-                            {% if leave.paid_days > 0 %}
-                            <span style="color: #28a745;">💰 {{ leave.paid_days }} paid</span>
-                            {% endif %}
-                            {% if leave.unpaid_days > 0 %}
-                            <span style="color: #dc3545;">⚠️ {{ leave.unpaid_days }} unpaid</span>
-                            {% endif %}
-                        </div>
-                        {% endif %}
+                    {% if leave.reason %}
+                    <div class="lr-mt" style="margin-top: 4px; color: var(--text-muted);">
+                        <i class="fa-regular fa-message"></i> {{ leave.reason|truncatechars:80 }}
                     </div>
+                    {% endif %}
+                    {% if leave.paid_days > 0 or leave.unpaid_days > 0 %}
+                    <div class="lr-mt" style="margin-top: 2px;">
+                        {% if leave.paid_days > 0 %}<span style="color:var(--success);">💰 {{ leave.paid_days }} paid</span>{% endif %}
+                        {% if leave.unpaid_days > 0 %}<span style="color:var(--danger); margin-left: 8px;">⚠️ {{ leave.unpaid_days }} unpaid</span>{% endif %}
+                    </div>
+                    {% endif %}
                 </div>
                 
-                <!-- Action Buttons -->
                 <div class="lr-acts">
                     {% if leave.final_status == 'PENDING' %}
-                        {% if request.user.role.name == 'Manager' %}
-                            {% if not leave.manager_voted %}
-                                <form method="POST" action="{% url 'approve_leave' leave.id %}" style="margin:0;display:inline;">
-                                    {% csrf_token %}
-                                    <button class="ab ab-ok" title="Approve" style="width: 36px; height: 36px;">
-                                        <i class="fa-solid fa-check fa-lg"></i>
-                                    </button>
-                                </form>
-                                <form method="POST" action="{% url 'reject_leave' leave.id %}" style="margin:0;display:inline;">
-                                    {% csrf_token %}
-                                    <button class="ab ab-no" title="Reject" style="width: 36px; height: 36px;"
-                                            onclick="return confirm('Reject this leave?')">
-                                        <i class="fa-solid fa-xmark fa-lg"></i>
-                                    </button>
-                                </form>
-                            {% else %}
-                                <span class="chip ch-in">✓ You voted</span>
-                            {% endif %}
+                        {% if not leave.manager_voted %}
+                            <form method="POST" action="{% url 'approve_leave' leave.id %}" style="margin:0;display:inline;">
+                                {% csrf_token %}
+                                <button class="ab ab-ok" title="Approve" style="width: 36px; height: 36px;">
+                                    <i class="fa-solid fa-check fa-lg"></i>
+                                </button>
+                            </form>
+                            <form method="POST" action="{% url 'reject_leave' leave.id %}" style="margin:0;display:inline;">
+                                {% csrf_token %}
+                                <button class="ab ab-no" title="Reject" style="width: 36px; height: 36px;"
+                                        onclick="return confirm('Reject this leave request?')">
+                                    <i class="fa-solid fa-xmark fa-lg"></i>
+                                </button>
+                            </form>
                         {% else %}
-                            <span class="chip ch-in">Observer</span>
+                            <span class="chip ch-in">✓ Voted</span>
                         {% endif %}
                     {% else %}
                         {% if leave.final_status == 'APPROVED' %}
@@ -746,7 +558,7 @@
     </div>
 </div>
 
-{# ── PANEL: MY TEAM (keep existing) ── #}
+{# PANEL — My Team #}
 <div class="mgr-panel" id="panel-team">
     <div class="sc">
         <div class="sc-head">
@@ -766,8 +578,7 @@
                     <th style="text-align:center;">Pending</th>
                     <th>Casual Bal</th>
                     <th>Sick Bal</th>
-                </tr>
-            </thead>
+                </thead>
             <tbody>
                 {% for item in team_data %}
                 <tr>
@@ -820,7 +631,7 @@
             <div class="lrav" style="background:linear-gradient(135deg,#f04058,#b01530);">{{ leave.employee.first_name|first|upper }}</div>
             <div class="lr-info">
                 <div class="lr-nm">{{ leave.employee.get_full_name|default:leave.employee.username }}</div>
-                <div class="lr-mt">{{ leave.leave_type|capfirst }} · Returns {{ leave.end_date }}</div>
+                <div class="lr-mt">{{ leave.leave_type|capfirst }} · Returns {{ leave.end_date|date:"d M Y" }}</div>
             </div>
             <span class="chip ch-rd">Away</span>
         </div>
@@ -829,7 +640,7 @@
     {% endif %}
 </div>
 
-{# ── PANEL: HISTORY (keep existing) ── #}
+{# PANEL — History #}
 <div class="mgr-panel" id="panel-history">
     <div class="sc">
         <div class="sc-head">
@@ -846,8 +657,8 @@
                 <tbody>
                     {% for leave in team_history_page %}
                     <tr>
-                        <td><strong>{{ leave.employee.first_name }}</strong></td>
-                        <td>{{ leave.start_date }}</td>
+                        <td><strong>{{ leave.employee.first_name }} {{ leave.employee.last_name }}</strong></td>
+                        <td>{{ leave.start_date|date:"d M Y" }}</td>
                         <td>{{ leave.leave_type|capfirst }}</td>
                         <td>
                             {% if leave.status == 'APPROVED' %}<span class="chip ch-gn">Approved</span>
@@ -893,33 +704,34 @@
                 <div class="lrav" style="background:#6c757d;">{{ leave.leave_type|first }}</div>
                 <div class="lr-info">
                     <div class="lr-nm">{{ leave.leave_type|capfirst }}</div>
-                    <div class="lr-mt">{{ leave.start_date }}</div>
+                    <div class="lr-mt">{{ leave.start_date|date:"d M Y" }} {% if leave.end_date != leave.start_date %}→ {{ leave.end_date|date:"d M Y" }}{% endif %}</div>
                 </div>
                 {% if leave.status == 'APPROVED' %}<span class="chip ch-gn">Approved</span>
                 {% elif leave.status == 'REJECTED' %}<span class="chip ch-rd">Rejected</span>
                 {% else %}<span class="chip ch-am">Pending</span>{% endif %}
             </div>
             {% endfor %}
+        {% else %}
+            <div class="emp"><div class="emp-ttl">No Leaves</div></div>
         {% endif %}
     </div>
 </div>
 
-{# ── PANEL: PROFILE (keep existing) ── #}
+{# PANEL — Profile #}
 <div class="mgr-panel" id="panel-profile">
     <div class="prof-banner"></div>
     <div class="prof-avatar-row">
         <div class="prof-av-wrap">
             <div class="prof-av">
-                {% if request.user.avatar %}<img src="{{ request.user.avatar.url }}">
-                {% else %}{{ request.user.first_name|first|upper }}{{ request.user.last_name|first|upper }}{% endif %}
+                {{ request.user.first_name|first|upper }}{{ request.user.last_name|first|upper }}
             </div>
         </div>
         <div class="prof-info">
             <div class="prof-name">{{ request.user.get_full_name|default:request.user.username }}</div>
             <div class="prof-meta">
-                <div class="prof-meta-item"><i class="fa-solid fa-envelope"></i> {{ request.user.email }}</div>
-                <div class="prof-meta-item"><i class="fa-solid fa-briefcase"></i> {{ profile.designation|default:"Manager" }}</div>
-                <div class="prof-meta-item"><i class="fa-solid fa-building"></i> {{ profile.department|default:"Management" }}</div>
+                <div><i class="fa-solid fa-envelope"></i> {{ request.user.email }}</div>
+                <div><i class="fa-solid fa-briefcase"></i> Manager</div>
+                <div><i class="fa-solid fa-building"></i> {{ profile.department|default:"Management" }}</div>
             </div>
         </div>
     </div>
@@ -956,32 +768,25 @@
 
 <script>
 function switchTab(tabId) {
-    // Panels
-    document.querySelectorAll('.mgr-panel').forEach(p => p.classList.remove('show'));
+    const panels = document.querySelectorAll('.mgr-panel');
+    panels.forEach(p => p.classList.remove('show'));
     const target = document.getElementById('panel-' + tabId);
     if(target) target.classList.add('show');
 
-    // Stat cards active state
-    document.querySelectorAll('.s-card').forEach(c => c.classList.remove('active'));
+    const cards = document.querySelectorAll('.s-card');
+    cards.forEach(c => c.classList.remove('active'));
     const card = document.getElementById('stat-' + tabId);
     if(card) card.classList.add('active');
 
-    // URL handling
     const url = new URL(window.location);
     url.searchParams.set('tab', tabId);
     window.history.replaceState({}, '', url);
 }
 
-// Global init for tab from URL
 window.addEventListener('DOMContentLoaded', () => {
     const params = new URLSearchParams(window.location.search);
     const tab = params.get('tab') || 'pending';
     switchTab(tab);
 });
-
-setTimeout(function() {
-    location.reload();
-}, 20000); // 10 seconds
 </script>
-
 {% endblock %}

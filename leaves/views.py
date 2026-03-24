@@ -329,6 +329,104 @@ def employee_dashboard(request):
     return render(request, "employee_dashboard.html", context)
 
 
+# Add this after your employee_dashboard function
+
+@login_required
+def employee_leave_balance(request):
+    """Employee leave balance page with stats and upcoming holidays"""
+    today = date.today()
+    current_year = today.year
+    current_month = today.month
+
+    # Get balance from EmployeeLeaveAllocation
+    leave_summary = get_employee_leave_summary(request.user, current_year)
+
+    # Keep old LeaveBalance for accrual fields (backward compat)
+    balance, _ = LeaveBalance.objects.get_or_create(employee=request.user)
+
+    # Use new system's total remaining as the primary balance
+    available_balance = leave_summary['total_remaining']
+    total_accrued = leave_summary['total_allocated']
+    total_taken = leave_summary['total_used']
+
+    # Monthly summary (approved leaves this month)
+    monthly_leaves = LeaveRequest.objects.filter(
+        employee=request.user,
+        final_status='APPROVED',
+        start_date__year=current_year,
+        start_date__month=current_month
+    )
+    monthly_paid = monthly_leaves.aggregate(total=Sum('paid_days'))['total'] or 0
+    monthly_unpaid = monthly_leaves.aggregate(total=Sum('unpaid_days'))['total'] or 0
+
+    # Salary deductions
+    month_start = date(current_year, current_month, 1)
+    monthly_deductions = SalaryDeduction.objects.filter(
+        employee=request.user, deduction_month=month_start
+    )
+    total_deduction_this_month = monthly_deductions.aggregate(
+        total=Sum('deduction_amount'))['total'] or 0
+    total_deduction_all_time = SalaryDeduction.objects.filter(
+        employee=request.user
+    ).aggregate(total=Sum('deduction_amount'))['total'] or 0
+
+    next_month_balance = available_balance + balance.monthly_accrual_rate
+
+    unread = Notification.objects.filter(
+        user=request.user, read_status=False).count()
+
+    pending_leaves = LeaveRequest.objects.filter(
+        employee=request.user, final_status="PENDING").count()
+
+    # Active leave types for the apply form dropdown
+    active_leave_types = []
+    if POLICY_ENABLED:
+        active_leave_types = LeaveTypeConfig.objects.filter(
+            is_active=True).order_by('name')
+
+    # Get upcoming holidays (from admin configured holidays)
+    upcoming_holidays = []
+    if HOLIDAYS_ENABLED:
+        from .models import Holiday
+        upcoming_holidays = Holiday.objects.filter(
+            date__gte=today,
+            is_active=True
+        ).order_by('date')[:10]
+
+    context = {
+        # Balance variables
+        "leave_summary": leave_summary,
+        "leave_breakdown": leave_summary['breakdown'],
+        "active_leave_types": active_leave_types,
+        "total_remaining": leave_summary['total_remaining'],
+        "total_allocated": leave_summary['total_allocated'],
+        "total_used_new": leave_summary['total_used'],
+
+        # Keep old names so existing template tags still work
+        "balance": balance,
+        "available_balance": available_balance,
+        "leave_balance": available_balance,
+        "total_accrued": total_accrued,
+        "total_taken": total_taken,
+
+        "pending_leaves": pending_leaves,
+        "unread_count": unread,
+        "designation": getattr(request.user, 'designation', None) or '',
+        "role_name": get_user_role(request.user),
+        "profile": _build_profile_context(request.user),
+
+        "monthly_paid": round(monthly_paid, 1),
+        "monthly_unpaid": round(monthly_unpaid, 1),
+        "total_deduction_this_month": total_deduction_this_month,
+        "total_deduction_all_time": total_deduction_all_time,
+        "next_month_balance": round(next_month_balance, 1),
+        
+        # Upcoming holidays
+        "upcoming_holidays": upcoming_holidays,
+    }
+    return render(request, "employee_leave_balance.html", context)
+
+
 # ════════════════════════════════════════════════════════════════════
 #  ★ APPLY LEAVE — updated to check EmployeeLeaveAllocation balance
 # ════════════════════════════════════════════════════════════════════
@@ -1464,7 +1562,7 @@ def approve_leave(request, leave_id):
         messages.warning(request, "You have already voted on this leave.")
         return redirect(request.META.get("HTTP_REFERER", "/"))
 
-    # Record vote
+    # ── Record the APPROVE vote ───────────────────────────────────
     if role_name == 'TL':
         leave.tl_approved = True; leave.tl_voted = True
         leave.tl_acted_at = timezone.now()
@@ -1481,36 +1579,53 @@ def approve_leave(request, leave_id):
     leave.approval_count += 1
     leave.save()
 
-    if leave.approval_count >= 2:
+    # ── Evaluate decision with new priority logic ─────────────────
+    decision, reason = _evaluate_leave_decision(leave)
+
+    if decision == 'APPROVED':
         leave.final_status        = 'APPROVED'
         leave.status              = 'APPROVED'
         leave.balance_deducted_at = timezone.now()
         leave.save()
-
-        # ★ FIXED: Deduct from EmployeeLeaveAllocation
         _deduct_leave_balance(leave)
 
         Notification.objects.create(
             user=leave.employee,
-            message="✅ Your leave request has been APPROVED (2 approvals received)."
+            message=f"✅ Your leave has been APPROVED. ({reason})"
         )
         for approver in leave.approvers.all():
             if approver != voter:
                 Notification.objects.create(
                     user=approver,
-                    message=f"Leave request for {leave.employee.get_full_name()} has been APPROVED."
+                    message=f"Leave for {leave.employee.get_full_name()} APPROVED. ({reason})"
                 )
-        messages.success(request, "✅ Leave APPROVED! (2 approvals reached)")
-    else:
-        needed = 2 - leave.approval_count
-        messages.success(
-            request,
-            f"✅ Your approval recorded. {needed} more approval(s) needed."
-        )
+        if 'Manager' in reason:
+            messages.success(request, "✅ Leave APPROVED! (Manager override — final decision)")
+        else:
+            messages.success(request, "✅ Leave APPROVED! (Both HR and TL approved)")
+
+    elif decision == 'REJECTED':
+        # Should not happen via approve path but handle edge case
+        leave.final_status = 'REJECTED'
+        leave.status       = 'REJECTED'
+        leave.save()
         Notification.objects.create(
             user=leave.employee,
-            message=f"{voter.get_full_name()} ({role_name}) approved your leave. "
-                    f"({leave.approval_count}/2 approvals)"
+            message=f"❌ Your leave has been REJECTED. ({reason})"
+        )
+        messages.warning(request, f"Leave REJECTED — {reason}")
+
+    else:
+        # Still PENDING — tell voter what is still needed
+        waiting = []
+        if not leave.hr_voted:   waiting.append("HR")
+        if not leave.tl_voted:   waiting.append("TL")
+        if not leave.manager_voted: waiting.append("Manager (can override)")
+        wait_str = " and ".join(waiting) if waiting else "other approvers"
+        messages.success(request, f"✅ Approval recorded. Still waiting for: {wait_str}")
+        Notification.objects.create(
+            user=leave.employee,
+            message=f"{voter.get_full_name()} ({role_name}) approved your leave. Waiting for: {wait_str}"
         )
 
     return redirect(request.META.get("HTTP_REFERER", "/"))
@@ -1634,6 +1749,7 @@ def reject_leave(request, leave_id):
         messages.warning(request, "You have already voted on this leave.")
         return redirect(request.META.get("HTTP_REFERER", "/"))
 
+    # ── Record the REJECT vote ────────────────────────────────────
     if role_name == 'TL':
         leave.tl_rejected = True; leave.tl_voted = True
         leave.tl_acted_at = timezone.now()
@@ -1650,34 +1766,104 @@ def reject_leave(request, leave_id):
     leave.rejection_count += 1
     leave.save()
 
-    if leave.rejection_count >= 2:
+    # ── Evaluate decision with new priority logic ─────────────────
+    decision, reason = _evaluate_leave_decision(leave)
+
+    if decision == 'REJECTED':
         leave.final_status = 'REJECTED'
         leave.status       = 'REJECTED'
         leave.save()
 
         Notification.objects.create(
             user=leave.employee,
-            message="❌ Your leave request has been REJECTED (2 rejections received)."
+            message=f"❌ Your leave has been REJECTED. ({reason})"
         )
         for approver in leave.approvers.all():
             if approver != voter:
                 Notification.objects.create(
                     user=approver,
-                    message=f"Leave request for {leave.employee.get_full_name()} has been REJECTED."
+                    message=f"Leave for {leave.employee.get_full_name()} REJECTED. ({reason})"
                 )
-        messages.warning(request, "❌ Leave REJECTED! (2 rejections reached)")
-    else:
-        needed = 2 - leave.rejection_count
-        messages.success(request,
-            f"✅ Your rejection recorded. {needed} more rejection(s) needed.")
+        if 'Manager' in reason:
+            messages.warning(request, "❌ Leave REJECTED! (Manager override — final decision)")
+        else:
+            messages.warning(request, f"❌ Leave REJECTED — {reason}")
+
+    elif decision == 'APPROVED':
+        # Manager previously approved but now other vote came in — shouldn't happen
+        # but handle gracefully
+        leave.final_status        = 'APPROVED'
+        leave.status              = 'APPROVED'
+        leave.balance_deducted_at = timezone.now()
+        leave.save()
+        _deduct_leave_balance(leave)
         Notification.objects.create(
             user=leave.employee,
-            message=f"{voter.get_full_name()} ({role_name}) rejected your leave. "
-                    f"({leave.rejection_count}/2 rejections)"
+            message=f"✅ Your leave has been APPROVED. ({reason})"
+        )
+        messages.success(request, f"Leave APPROVED — {reason}")
+
+    else:
+        # Still PENDING
+        waiting = []
+        if not leave.hr_voted:      waiting.append("HR")
+        if not leave.tl_voted:      waiting.append("TL")
+        if not leave.manager_voted: waiting.append("Manager (can override)")
+        wait_str = " and ".join(waiting) if waiting else "other approvers"
+        messages.warning(request, f"❌ Rejection recorded. Still waiting for: {wait_str}")
+        Notification.objects.create(
+            user=leave.employee,
+            message=f"{voter.get_full_name()} ({role_name}) rejected your leave. Waiting for: {wait_str}"
         )
 
     return redirect(request.META.get("HTTP_REFERER", "/"))
 
+
+
+
+# ════════════════════════════════════════════════════════════════════
+#  VOTING DECISION ENGINE
+#  Priority:
+#    1. Manager voted → FINAL (overrides HR + TL completely)
+#    2. Manager not voted → need BOTH HR AND TL to approve
+#    3. Manager not voted + EITHER HR or TL rejects → REJECTED
+# ════════════════════════════════════════════════════════════════════
+def _evaluate_leave_decision(leave):
+    """
+    Returns ('APPROVED'|'REJECTED'|'PENDING', reason_string)
+    
+    APPROVAL FLOW RULES:
+    1. Manager's vote is FINAL (overrides everything)
+       - Manager approves → APPROVED immediately
+       - Manager rejects → REJECTED immediately
+    
+    2. If Manager hasn't voted:
+       - Need BOTH HR AND TL to approve → APPROVED
+       - Need BOTH HR AND TL to reject → REJECTED
+       - Otherwise → PENDING
+    """
+    
+    # ── Rule 1: Manager's vote is FINAL ─────────────────────────────
+    if leave.manager_voted:
+        if leave.manager_approved:
+            return 'APPROVED', 'Manager approved (final override)'
+        else:
+            return 'REJECTED', 'Manager rejected (final override)'
+    
+    # ── Rule 2: Manager hasn't voted ────────────────────────────────
+    # Check if both HR and TL have voted
+    if leave.hr_voted and leave.tl_voted:
+        # Both have voted
+        if leave.hr_approved and leave.tl_approved:
+            return 'APPROVED', 'Both HR and TL approved'
+        elif (not leave.hr_approved) and (not leave.tl_approved):
+            return 'REJECTED', 'Both HR and TL rejected'
+        else:
+            # They voted differently - keep pending
+            return 'PENDING', 'HR and TL voted differently'
+    
+    # Still waiting for votes
+    return 'PENDING', 'Waiting for votes'
 
 # ════════════════════════════════════════════════════════════════════
 #  NOTIFICATIONS (unchanged)
@@ -1826,7 +2012,7 @@ def holiday_list(request):
         "total_days":     sum(h.duration for h in holidays),
         "months":         [(i, month_name[i]) for i in range(1, 13)],
     }
-    return render(request, "holiday_list.html", context)
+    return render(request, "leaves/holiday_list.html", context)
 
 
 @login_required
@@ -1880,7 +2066,7 @@ def holiday_create(request):
         "today":         datetime.now().date(),
         "current_year":  datetime.now().year,
     }
-    return render(request, "holiday_form.html", context)
+    return render(request, "leaves/holiday_form.html", context)
 
 
 @login_required
@@ -1923,7 +2109,7 @@ def holiday_edit(request, holiday_id):
         "holiday":       holiday,
         "holiday_types": Holiday.HOLIDAY_TYPES,
     }
-    return render(request, "holiday_form.html", context)
+    return render(request, "leaves/holiday_form.html", context)
 
 
 @login_required
@@ -1994,7 +2180,7 @@ Christmas|{current_year}-12-25|RELIGIOUS"""
         "common_holidays": common_holidays,
         "years":           range(current_year - 1, current_year + 3),
     }
-    return render(request, "holiday_bulk_form.html", context)
+    return render(request, "leaves/holiday_bulk_form.html", context)
 
 
 @login_required
@@ -2063,7 +2249,7 @@ def public_holidays(request):
         "months":         [(i, month_name[i]) for i in range(1, 13)],
         "holiday_types":  dict(Holiday.HOLIDAY_TYPES) if HOLIDAYS_ENABLED else {},
     }
-    return render(request, "public_holidays.html", context)
+    return render(request, "leaves/public_holidays.html", context)
 
 
 @login_required
@@ -2164,7 +2350,7 @@ def admin_leave_policy(request):
         'profile':           _build_profile_context(request.user),
         'pending_count':     LeaveRequest.objects.filter(status="PENDING").count(),
     }
-    return render(request, "admin_leave_policy.html", context)
+    return render(request, "leaves/admin_leave_policy.html", context)
 
 
 @login_required
@@ -2486,3 +2672,398 @@ def admin_policy_delete(request, policy_id):
     policy.delete()
     messages.success(request, f"✅ Policy '{name}' deleted successfully.")
     return redirect("admin_leave_policy")
+
+
+
+# ════════════════════════════════════════════════════════════════════
+#  EMPLOYEE LEAVE DETAIL  — JSON for modal
+# ════════════════════════════════════════════════════════════════════
+
+
+@login_required
+def employee_leave_detail(request, leave_id):
+    """Returns leave detail as JSON for the modal popup on employee dashboard."""
+    leave = get_object_or_404(LeaveRequest, id=leave_id)
+
+    # Only the employee themselves (or admin/hr/tl/manager) can view
+    role = get_user_role(request.user)
+    allowed = (
+        leave.employee == request.user or
+        request.user.is_superuser or
+        role in ('HR', 'Admin', 'Manager', 'TL')
+    )
+    if not allowed:
+        return JsonResponse({'error': 'Forbidden', 'success': False}, status=403)
+
+    # Build approver status with new approval flow
+    approvers_info = []
+    
+    # Sort order: Manager first, then HR, then TL
+    approver_order = {'Manager': 0, 'HR': 1, 'TL': 2}
+    
+    for approver in leave.approvers.all():
+        r = get_user_role(approver)
+        
+        # Determine vote status based on new approval flow
+        if r == 'TL':
+            if leave.tl_approved:
+                vote = 'approved'
+                vote_text = 'Approved'
+                vote_icon = '✅'
+                vote_color = '#28a745'
+            elif leave.tl_rejected:
+                vote = 'rejected'
+                vote_text = 'Rejected'
+                vote_icon = '❌'
+                vote_color = '#dc3545'
+            else:
+                vote = 'pending'
+                vote_text = 'Pending'
+                vote_icon = '⏳'
+                vote_color = '#ffc107'
+            acted_at = leave.tl_acted_at.strftime('%d %b %Y, %I:%M %p') if leave.tl_acted_at else None
+            
+        elif r == 'HR':
+            if leave.hr_approved:
+                vote = 'approved'
+                vote_text = 'Approved'
+                vote_icon = '✅'
+                vote_color = '#28a745'
+            elif leave.hr_rejected:
+                vote = 'rejected'
+                vote_text = 'Rejected'
+                vote_icon = '❌'
+                vote_color = '#dc3545'
+            else:
+                vote = 'pending'
+                vote_text = 'Pending'
+                vote_icon = '⏳'
+                vote_color = '#ffc107'
+            acted_at = leave.hr_acted_at.strftime('%d %b %Y, %I:%M %p') if leave.hr_acted_at else None
+            
+        elif r == 'Manager':
+            if leave.manager_approved:
+                vote = 'approved'
+                vote_text = 'Approved'
+                vote_icon = '✅'
+                vote_color = '#28a745'
+            elif leave.manager_rejected:
+                vote = 'rejected'
+                vote_text = 'Rejected'
+                vote_icon = '❌'
+                vote_color = '#dc3545'
+            else:
+                vote = 'pending'
+                vote_text = 'Pending'
+                vote_icon = '⏳'
+                vote_color = '#ffc107'
+            acted_at = leave.manager_acted_at.strftime('%d %b %Y, %I:%M %p') if leave.manager_acted_at else None
+        else:
+            vote = 'pending'
+            vote_text = 'Pending'
+            vote_icon = '⏳'
+            vote_color = '#ffc107'
+            acted_at = None
+
+        # Get initials for avatar
+        if approver.first_name and approver.last_name:
+            initials = (approver.first_name[0] + approver.last_name[0]).upper()
+        else:
+            initials = approver.username[:2].upper()
+
+        approvers_info.append({
+            'name': approver.get_full_name() or approver.username,
+            'role': r,
+            'vote': vote,
+            'vote_text': vote_text,
+            'vote_icon': vote_icon,
+            'vote_color': vote_color,
+            'acted_at': acted_at,
+            'initials': initials,
+            'email': approver.email,
+        })
+
+    # Sort approvers by order
+    approvers_info.sort(key=lambda x: approver_order.get(x['role'], 9))
+
+    # Determine final status display
+    if leave.final_status == 'APPROVED':
+        status_badge = 'success'
+        status_icon = '✅'
+        status_text = 'Approved'
+        status_color = '#28a745'
+    elif leave.final_status == 'REJECTED':
+        status_badge = 'danger'
+        status_icon = '❌'
+        status_text = 'Rejected'
+        status_color = '#dc3545'
+    else:
+        status_badge = 'warning'
+        status_icon = '⏳'
+        status_text = 'Pending'
+        status_color = '#ffc107'
+
+    # Calculate total days
+    if leave.duration == 'FULL':
+        total_days = (leave.end_date - leave.start_date).days + 1
+    elif leave.duration == 'HALF':
+        total_days = 0.5
+    elif leave.duration == 'SHORT':
+        total_days = leave.short_hours / 8 if leave.short_hours else 0.25
+    else:
+        total_days = 0
+
+    # Prepare response data
+    data = {
+        'success': True,
+        'id': leave.id,
+        'leave_type': leave.leave_type,
+        'leave_type_display': leave.get_leave_type_display() if hasattr(leave, 'get_leave_type_display') else leave.leave_type,
+        'duration': leave.get_duration_display() if hasattr(leave, 'get_duration_display') else leave.duration,
+        'duration_raw': leave.duration,
+        'start_date': leave.start_date.strftime('%d %b %Y'),
+        'start_date_full': leave.start_date.strftime('%A, %d %B %Y'),
+        'end_date': leave.end_date.strftime('%d %b %Y') if leave.end_date else None,
+        'end_date_full': leave.end_date.strftime('%A, %d %B %Y') if leave.end_date else None,
+        'total_days': total_days,
+        'reason': leave.reason,
+        'final_status': leave.final_status,
+        'status_badge': status_badge,
+        'status_icon': status_icon,
+        'status_text': status_text,
+        'status_color': status_color,
+        'paid_days': float(leave.paid_days) if leave.paid_days else 0,
+        'unpaid_days': float(leave.unpaid_days) if leave.unpaid_days else 0,
+        'is_fully_paid': leave.is_fully_paid,
+        'approval_count': leave.approval_count,
+        'rejection_count': leave.rejection_count,
+        'created_at': leave.created_at.strftime('%d %b %Y, %I:%M %p'),
+        'created_at_full': leave.created_at.strftime('%A, %d %B %Y at %I:%M %p'),
+        'updated_at': leave.updated_at.strftime('%d %b %Y, %I:%M %p') if leave.updated_at else None,
+        'approvers': approvers_info,
+        'has_attachment': bool(leave.attachment),
+        'attachment_url': leave.attachment.url if leave.attachment else None,
+        'attachment_name': leave.attachment.name.split('/')[-1] if leave.attachment else None,
+        'short_hours': leave.short_hours,
+        'short_session': leave.short_session,
+        'tl_voted': leave.tl_voted,
+        'tl_approved': leave.tl_approved,
+        'tl_rejected': leave.tl_rejected,
+        'hr_voted': leave.hr_voted,
+        'hr_approved': leave.hr_approved,
+        'hr_rejected': leave.hr_rejected,
+        'manager_voted': leave.manager_voted,
+        'manager_approved': leave.manager_approved,
+        'manager_rejected': leave.manager_rejected,
+    }
+    return JsonResponse(data)
+
+
+
+
+# Add this after your employee_dashboard function
+
+@login_required
+def employee_leave_balance(request):
+    """Employee leave balance page with stats and upcoming holidays"""
+    today = date.today()
+    current_year = today.year
+    current_month = today.month
+
+    # Get balance from EmployeeLeaveAllocation
+    leave_summary = get_employee_leave_summary(request.user, current_year)
+
+    # Keep old LeaveBalance for accrual fields (backward compat)
+    balance, _ = LeaveBalance.objects.get_or_create(employee=request.user)
+
+    # Use new system's total remaining as the primary balance
+    available_balance = leave_summary['total_remaining']
+    total_accrued = leave_summary['total_allocated']
+    total_taken = leave_summary['total_used']
+
+    # Monthly summary (approved leaves this month)
+    monthly_leaves = LeaveRequest.objects.filter(
+        employee=request.user,
+        final_status='APPROVED',
+        start_date__year=current_year,
+        start_date__month=current_month
+    )
+    monthly_paid = monthly_leaves.aggregate(total=Sum('paid_days'))['total'] or 0
+    monthly_unpaid = monthly_leaves.aggregate(total=Sum('unpaid_days'))['total'] or 0
+
+    # Salary deductions
+    month_start = date(current_year, current_month, 1)
+    monthly_deductions = SalaryDeduction.objects.filter(
+        employee=request.user, deduction_month=month_start
+    )
+    total_deduction_this_month = monthly_deductions.aggregate(
+        total=Sum('deduction_amount'))['total'] or 0
+    total_deduction_all_time = SalaryDeduction.objects.filter(
+        employee=request.user
+    ).aggregate(total=Sum('deduction_amount'))['total'] or 0
+
+    next_month_balance = available_balance + balance.monthly_accrual_rate
+
+    unread = Notification.objects.filter(
+        user=request.user, read_status=False).count()
+
+    pending_leaves = LeaveRequest.objects.filter(
+        employee=request.user, final_status="PENDING").count()
+
+    # Active leave types for the apply form dropdown
+    active_leave_types = []
+    if POLICY_ENABLED:
+        active_leave_types = LeaveTypeConfig.objects.filter(
+            is_active=True).order_by('name')
+
+    # Get upcoming holidays (from admin configured holidays)
+    upcoming_holidays = []
+    if HOLIDAYS_ENABLED:
+        from .models import Holiday
+        upcoming_holidays = Holiday.objects.filter(
+            date__gte=today,
+            is_active=True
+        ).order_by('date')[:10]
+
+    context = {
+        # Balance variables
+        "leave_summary": leave_summary,
+        "leave_breakdown": leave_summary['breakdown'],
+        "active_leave_types": active_leave_types,
+        "total_remaining": leave_summary['total_remaining'],
+        "total_allocated": leave_summary['total_allocated'],
+        "total_used_new": leave_summary['total_used'],
+
+        # Keep old names so existing template tags still work
+        "balance": balance,
+        "available_balance": available_balance,
+        "leave_balance": available_balance,
+        "total_accrued": total_accrued,
+        "total_taken": total_taken,
+
+        "pending_leaves": pending_leaves,
+        "unread_count": unread,
+        "designation": getattr(request.user, 'designation', None) or '',
+        "role_name": get_user_role(request.user),
+        "profile": _build_profile_context(request.user),
+
+        "monthly_paid": round(monthly_paid, 1),
+        "monthly_unpaid": round(monthly_unpaid, 1),
+        "total_deduction_this_month": total_deduction_this_month,
+        "total_deduction_all_time": total_deduction_all_time,
+        "next_month_balance": round(next_month_balance, 1),
+        
+        # Upcoming holidays
+        "upcoming_holidays": upcoming_holidays,
+    }
+    return render(request, "employee_leave_balance.html", context)
+
+
+
+@login_required
+def leave_detail_page(request, leave_id):
+    """Display leave details on a dedicated HTML page"""
+    leave = get_object_or_404(LeaveRequest, id=leave_id)
+    role_name = get_user_role(request.user)
+    
+    # Check if user can view this leave
+    can_view = (
+        leave.employee == request.user or
+        request.user.is_superuser or
+        role_name in ('HR', 'Admin', 'Manager', 'TL')
+    )
+    
+    if not can_view:
+        messages.error(request, "You don't have permission to view this leave.")
+        if role_name == 'Employee':
+            return redirect('employee_dashboard')
+        elif role_name == 'TL':
+            return redirect('tl_dashboard')
+        elif role_name == 'HR':
+            return redirect('hr_dashboard')
+        elif role_name == 'Manager':
+            return redirect('manager_dashboard')
+        else:
+            return redirect('employee_dashboard')
+    
+    # Build approvers list with their vote status
+    approvers = []
+    
+    # TL
+    tl = None
+    for approver in leave.approvers.all():
+        if get_user_role(approver) == 'TL':
+            tl = approver
+            break
+    
+    if tl:
+        approvers.append({
+            'name': tl.get_full_name() or tl.username,
+            'email': tl.email,
+            'role': 'Team Leader',
+            'vote': 'approved' if leave.tl_approved else ('rejected' if leave.tl_rejected else 'pending'),
+            'acted_at': leave.tl_acted_at.strftime('%d %b %Y, %I:%M %p') if leave.tl_acted_at else None,
+        })
+    
+    # HR
+    hr = None
+    for approver in leave.approvers.all():
+        if get_user_role(approver) == 'HR':
+            hr = approver
+            break
+    
+    if hr:
+        approvers.append({
+            'name': hr.get_full_name() or hr.username,
+            'email': hr.email,
+            'role': 'HR',
+            'vote': 'approved' if leave.hr_approved else ('rejected' if leave.hr_rejected else 'pending'),
+            'acted_at': leave.hr_acted_at.strftime('%d %b %Y, %I:%M %p') if leave.hr_acted_at else None,
+        })
+    
+    # Manager
+    manager = None
+    for approver in leave.approvers.all():
+        if get_user_role(approver) == 'Manager':
+            manager = approver
+            break
+    
+    if manager:
+        approvers.append({
+            'name': manager.get_full_name() or manager.username,
+            'email': manager.email,
+            'role': 'Manager',
+            'vote': 'approved' if leave.manager_approved else ('rejected' if leave.manager_rejected else 'pending'),
+            'acted_at': leave.manager_acted_at.strftime('%d %b %Y, %I:%M %p') if leave.manager_acted_at else None,
+        })
+    
+    # Check if current user can approve/reject
+    can_approve = False
+    user_has_voted = False
+    
+    if leave.final_status == 'PENDING':
+        if role_name == 'HR' and not leave.hr_voted and leave.employee != request.user:
+            can_approve = True
+            user_has_voted = leave.hr_voted
+        elif role_name == 'TL' and not leave.tl_voted and leave.employee != request.user:
+            can_approve = True
+            user_has_voted = leave.tl_voted
+        elif role_name == 'Manager' and not leave.manager_voted and leave.employee != request.user:
+            can_approve = True
+            user_has_voted = leave.manager_voted
+        elif request.user.is_superuser:
+            can_approve = True
+    
+    # Calculate total days for display
+    total_days = leave.leave_duration_days
+    
+    context = {
+        'leave': leave,
+        'approvers': approvers,
+        'can_approve': can_approve,
+        'user_has_voted': user_has_voted,
+        'role_name': role_name,
+        'total_days': total_days,
+    }
+    
+    return render(request, 'leave_detail.html', context)

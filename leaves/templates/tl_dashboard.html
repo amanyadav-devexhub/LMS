@@ -4,7 +4,7 @@
 
 {% block extra_head %}
 <style>
-/* ── Hero banner ── */
+/* Hero Banner */
 .tl-hero {
     background: linear-gradient(135deg, var(--ink) 0%, var(--ink-soft) 55%, #082030 100%);
     border-radius: var(--radius);
@@ -65,7 +65,7 @@
     text-transform: uppercase; color: rgba(255,255,255,.30); margin-top: 3px; }
 .hn-div { width: 1px; height: 38px; background: rgba(255,255,255,.08); }
 
-/* ── Stat row ── */
+/* Stat Row */
 .stat-row {
     display: grid; grid-template-columns: repeat(4,1fr);
     gap: 14px; margin-bottom: 22px;
@@ -103,12 +103,12 @@
 .s-val { font-size: 26px; font-weight: 800; color: var(--text); letter-spacing: -1px; line-height: 1; }
 .s-lbl { font-size: 11px; color: var(--text-muted); margin-top: 4px; font-weight: 500; }
 
-/* ── Panels ── */
+/* Panels */
 .tl-panel { display: none; animation: pu .26s ease both; }
 .tl-panel.show { display: block; }
 @keyframes pu { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
 
-/* ── Section card ── */
+/* Section Card */
 .sc {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -142,91 +142,7 @@
 .ch-rd { background: rgba(240,64,88,.09); color: #b01530; border: 1px solid rgba(240,64,88,.20); }
 .ch-gn { background: rgba(5,201,138,.09); color: #047a52; border: 1px solid rgba(5,201,138,.22); }
 
-/* ── Vote Display Styles ── */
-.vote-container {
-    margin-top: 8px;
-    padding: 8px;
-    background: #f8f9fa;
-    border-radius: 6px;
-    border: 1px solid #e9ecef;
-    font-family: 'Plus Jakarta Sans', sans-serif;
-}
-.vote-progress {
-    margin-bottom: 6px;
-}
-.vote-progress-header {
-    display: flex;
-    justify-content: space-between;
-    font-size: 10px;
-    margin-bottom: 2px;
-}
-.vote-progress-approve {
-    color: #28a745;
-}
-.vote-progress-reject {
-    color: #dc3545;
-}
-.vote-progress-bar {
-    height: 4px;
-    background: #e9ecef;
-    border-radius: 2px;
-    overflow: hidden;
-    display: flex;
-}
-.vote-progress-approve-bar {
-    height: 100%;
-    background: #28a745;
-}
-.vote-progress-reject-bar {
-    height: 100%;
-    background: #dc3545;
-}
-.vote-icons {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 11px;
-    margin: 4px 0;
-}
-.vote-icon-item {
-    display: flex;
-    align-items: center;
-    gap: 2px;
-}
-.vote-icon-label {
-    font-weight: 600;
-}
-.vote-icon-approve {
-    color: #28a745;
-}
-.vote-icon-reject {
-    color: #dc3545;
-}
-.vote-icon-pending {
-    color: #ffc107;
-}
-.vote-status-badge {
-    margin-top: 6px;
-    text-align: center;
-    font-size: 10px;
-    font-weight: 600;
-    padding: 2px;
-    border-radius: 3px;
-}
-.vote-status-approved {
-    background: #28a745;
-    color: white;
-}
-.vote-status-rejected {
-    background: #dc3545;
-    color: white;
-}
-.vote-status-pending {
-    background: #ffc107;
-    color: black;
-}
-
-/* ── Leave rows ── */
+/* Leave Rows */
 .lr {
     display: flex;
     align-items: flex-start;
@@ -300,7 +216,7 @@
     background: rgba(240,64,88,.16);
 }
 
-/* ── Table ── */
+/* Table */
 .tt {
     width: 100%;
     border-collapse: collapse;
@@ -333,7 +249,48 @@
     vertical-align: middle;
 }
 
-/* ── Pagination ── */
+/* Balance Bar */
+.bw {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+.bt {
+    flex: 1;
+    height: 5px;
+    border-radius: 3px;
+    background: var(--border);
+    overflow: hidden;
+    min-width: 44px;
+}
+.bf {
+    height: 100%;
+    border-radius: 3px;
+}
+
+/* Empty State */
+.emp {
+    text-align: center;
+    padding: 44px 24px;
+}
+.emp-ico {
+    font-size: 36px;
+    color: var(--aqua-light);
+    opacity: .25;
+    margin-bottom: 10px;
+}
+.emp-ttl {
+    font-size: 15px;
+    font-weight: 800;
+    color: var(--text);
+    margin-bottom: 4px;
+}
+.emp-sub {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+/* Pagination */
 .pgn {
     display: flex;
     align-items: center;
@@ -382,26 +339,7 @@
     pointer-events: none;
 }
 
-/* ── Balance bar ── */
-.bw {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-}
-.bt {
-    flex: 1;
-    height: 5px;
-    border-radius: 3px;
-    background: var(--border);
-    overflow: hidden;
-    min-width: 44px;
-}
-.bf {
-    height: 100%;
-    border-radius: 3px;
-}
-
-/* ── Status dot ── */
+/* Status Dot */
 .sdot {
     display: inline-flex;
     align-items: center;
@@ -418,57 +356,6 @@
     flex-shrink: 0;
 }
 
-/* ── Empty state ── */
-.emp {
-    text-align: center;
-    padding: 44px 24px;
-}
-.emp-ico {
-    font-size: 36px;
-    color: var(--aqua-light);
-    opacity: .25;
-    margin-bottom: 10px;
-}
-.emp-ttl {
-    font-size: 15px;
-    font-weight: 800;
-    color: var(--text);
-    margin-bottom: 4px;
-}
-.emp-sub {
-    font-size: 12px;
-    color: var(--text-muted);
-}
-
-/* ── Totals footer ── */
-.tot-bar {
-    display: grid;
-    grid-template-columns: repeat(4,1fr);
-    border-top: 1px solid var(--border);
-}
-.tot-cell {
-    padding: 13px 20px;
-    text-align: center;
-    border-right: 1px solid var(--border);
-}
-.tot-cell:last-child {
-    border-right: none;
-}
-.tot-val {
-    font-size: 19px;
-    font-weight: 800;
-    color: var(--text);
-    line-height: 1;
-}
-.tot-lbl {
-    font-size: 9.5px;
-    font-weight: 700;
-    letter-spacing: .8px;
-    text-transform: uppercase;
-    color: var(--text-faint);
-    margin-top: 3px;
-}
-
 @media (max-width: 900px) {
     .stat-row {
         grid-template-columns: repeat(2,1fr);
@@ -477,25 +364,16 @@
         display: none;
     }
 }
-@media (max-width: 540px) {
-    .stat-row {
-        grid-template-columns: 1fr 1fr;
-        gap: 10px;
-    }
-}
-
-/* Keep your existing profile panel styles */
-/* ... (all profile styles remain the same) ... */
 </style>
 {% endblock %}
 
 {% block content %}
 
-{# ═══════════════════════════════════ HERO ═══════════════════════════════════ #}
+{# Hero Section #}
 <div class="tl-hero animate-in">
-    <div class="hero-label"><i class="fa-solid fa-people-group" style="font-size:8px;"></i> TL Dashboard</div>
+    <div class="hero-label"><i class="fa-solid fa-people-group"></i> TL Dashboard</div>
     <div class="hero-name">Welcome, {{ request.user.first_name|default:request.user.username }} 👋</div>
-    <div class="hero-date">{% now "l, j F Y" %}{% if team_members.0.department %} &nbsp;·&nbsp; {{ team_members.0.department.name }}{% endif %}</div>
+    <div class="hero-date">{% now "l, j F Y" %}</div>
     <div class="hero-pills">
         <span class="hpill hp-green" onclick="switchTab('balance')">
             <span class="hpill-dot"></span>{{ team_count }} Active
@@ -516,8 +394,8 @@
     </div>
 </div>
 
-{# ═════════════════════════ STAT CARDS ═════════════════════════ #}
-<div class="stat-row animate-in delay-1" id="stat-row">
+{# Stat Cards #}
+<div class="stat-row animate-in delay-1">
     <div class="s-card" id="sc-pending" style="--c:#f5a623;--cr:245,166,35;" onclick="switchTab('pending')">
         <div class="s-ico"><i class="fa-solid fa-clock"></i></div>
         <div class="s-val">{{ pending_count }}</div>
@@ -540,15 +418,15 @@
     </div>
 </div>
 
-{# ══════════════════════ PANEL — Pending Requests with Voting ══════════════════════ #}
-<div class="tl-panel" id="panel-pending">
+{# PANEL — Pending Requests #}
+<div class="tl-panel show" id="panel-pending">
     <div class="sc">
         <div class="sc-head">
             <div class="sc-hl">
                 <div class="sc-ico"><i class="fa-solid fa-inbox"></i></div>
                 <div>
                     <div class="sc-ttl">Pending Leave Requests</div>
-                    <div class="sc-sub">Voting: 2 approvals needed</div>
+                    <div class="sc-sub">Your approval needed</div>
                 </div>
             </div>
             {% if pending_count > 0 %}<span class="chip ch-am">{{ pending_count }} waiting</span>
@@ -567,89 +445,24 @@
                         {% elif leave.duration == "HALF" %}Half Day
                         {% elif leave.duration == "SHORT" %}Short ({{ leave.short_hours }}h)
                         {% else %}{{ leave.duration }}{% endif %}
-                        · {{ leave.start_date }}{% if leave.start_date != leave.end_date %} → {{ leave.end_date }}{% endif %}
+                        · {{ leave.start_date|date:"d M Y" }}{% if leave.start_date != leave.end_date %} → {{ leave.end_date|date:"d M Y" }}{% endif %}
                     </div>
-                    
-                    {# ===== VOTE DISPLAY COMPONENT ===== #}
-                    <div class="vote-container">
-                        <!-- Vote Progress Bar -->
-                        <div class="vote-progress">
-                            <div class="vote-progress-header">
-                                <span class="vote-progress-approve">✅ {{ leave.approval_count }}/2</span>
-                                <span class="vote-progress-reject">❌ {{ leave.rejection_count }}/2</span>
-                            </div>
-                            <div class="vote-progress-bar">
-                                <div class="vote-progress-approve-bar" style="width: {% widthratio leave.approval_count 2 100 %}%;"></div>
-                                <div class="vote-progress-reject-bar" style="width: {% widthratio leave.rejection_count 2 100 %}%;"></div>
-                            </div>
-                        </div>
-                        
-                        <!-- Individual Votes -->
-                        <div class="vote-icons">
-                            <div class="vote-icon-item">
-                                <span class="vote-icon-label">TL:</span>
-                                {% if leave.tl_approved %}
-                                    <span class="vote-icon-approve">✅</span>
-                                {% elif leave.tl_rejected %}
-                                    <span class="vote-icon-reject">❌</span>
-                                {% else %}
-                                    <span class="vote-icon-pending">⏳</span>
-                                {% endif %}
-                            </div>
-                            <div class="vote-icon-item">
-                                <span class="vote-icon-label">HR:</span>
-                                {% if leave.hr_approved %}
-                                    <span class="vote-icon-approve">✅</span>
-                                {% elif leave.hr_rejected %}
-                                    <span class="vote-icon-reject">❌</span>
-                                {% else %}
-                                    <span class="vote-icon-pending">⏳</span>
-                                {% endif %}
-                            </div>
-                            <div class="vote-icon-item">
-                                <span class="vote-icon-label">Mgr:</span>
-                                {% if leave.manager_approved %}
-                                    <span class="vote-icon-approve">✅</span>
-                                {% elif leave.manager_rejected %}
-                                    <span class="vote-icon-reject">❌</span>
-                                {% else %}
-                                    <span class="vote-icon-pending">⏳</span>
-                                {% endif %}
-                            </div>
-                        </div>
-                        
-                        <!-- Final Status -->
-                        <div class="vote-status-badge 
-                            {% if leave.final_status == 'APPROVED' %}vote-status-approved
-                            {% elif leave.final_status == 'REJECTED' %}vote-status-rejected
-                            {% else %}vote-status-pending{% endif %}">
-                            {% if leave.final_status == 'APPROVED' %}
-                                ✅ APPROVED
-                            {% elif leave.final_status == 'REJECTED' %}
-                                ❌ REJECTED
-                            {% else %}
-                                ⏳ {{ leave.approval_count }}/2 approvals
-                            {% endif %}
-                        </div>
+                    {% if leave.reason %}
+                    <div class="lr-mt" style="margin-top: 4px; color: var(--text-muted);">
+                        <i class="fa-regular fa-message"></i> {{ leave.reason|truncatechars:60 }}
                     </div>
-                    
-                    {# Paid/Unpaid Info #}
+                    {% endif %}
                     {% if leave.paid_days > 0 or leave.unpaid_days > 0 %}
-                    <div style="font-size:9px; margin-top:4px;">
-                        {% if leave.paid_days > 0 %}
-                        <span style="color:var(--success);">💰 {{ leave.paid_days }} paid</span>
-                        {% endif %}
-                        {% if leave.unpaid_days > 0 %}
-                        <span style="color:var(--danger);">⚠️ {{ leave.unpaid_days }} unpaid</span>
-                        {% endif %}
+                    <div class="lr-mt" style="margin-top: 2px;">
+                        {% if leave.paid_days > 0 %}<span style="color:var(--success);">💰 {{ leave.paid_days }} paid</span>{% endif %}
+                        {% if leave.unpaid_days > 0 %}<span style="color:var(--danger); margin-left: 8px;">⚠️ {{ leave.unpaid_days }} unpaid</span>{% endif %}
                     </div>
                     {% endif %}
                 </div>
                 
-                {# Action Area - Only shows if user hasn't voted #}
                 <div class="lr-acts">
-                    {% if leave.final_status == 'PENDING' and request.user in leave.approvers.all %}
-                        {% if request.user.role.name == 'TL' and not leave.tl_voted %}
+                    {% if leave.final_status == 'PENDING' %}
+                        {% if not leave.tl_voted %}
                             <form method="POST" action="{% url 'approve_leave' leave.id %}" style="margin:0;display:inline;">
                                 {% csrf_token %}
                                 <button class="ab ab-ok" title="Approve"><i class="fa-solid fa-check"></i></button>
@@ -662,7 +475,7 @@
                                 </button>
                             </form>
                         {% else %}
-                            <span class="chip ch-in">Vote recorded</span>
+                            <span class="chip ch-in">✓ Voted</span>
                         {% endif %}
                     {% else %}
                         {% if leave.final_status == 'APPROVED' %}
@@ -687,14 +500,6 @@
                         <span class="pb off"><i class="fa-solid fa-chevron-left"></i></span>
                     {% endif %}
                     
-                    {% for n in leaves.paginator.page_range %}
-                        {% if leaves.number == n %}
-                            <span class="pb on">{{ n }}</span>
-                        {% elif n >= leaves.number|add:"-2" and n <= leaves.number|add:"2" %}
-                            <a href="?page={{ n }}&tab=pending" class="pb">{{ n }}</a>
-                        {% endif %}
-                    {% endfor %}
-                    
                     {% if leaves.has_next %}
                         <a href="?page={{ leaves.next_page_number }}&tab=pending" class="pb">
                             <i class="fa-solid fa-chevron-right"></i>
@@ -715,7 +520,7 @@
     </div>
 </div>
 
-{# ══════════════════════ PANEL — On Leave Today ══════════════════════ #}
+{# PANEL — On Leave Today #}
 <div class="tl-panel" id="panel-onleave">
     <div class="sc">
         <div class="sc-head">
@@ -734,7 +539,7 @@
         {% if on_leave_today %}
         <table class="tt">
             <thead>
-                <tr><th>Employee</th><th>Leave Type</th><th>Duration</th><th>From</th><th>To</th></tr>
+                <tr><th>Employee</th><th>Leave Type</th><th>Duration</th><th>Dates</th></tr>
             </thead>
             <tbody>
             {% for leave in on_leave_today %}
@@ -745,24 +550,14 @@
                                 {{ leave.employee.first_name|first|upper }}{{ leave.employee.last_name|first|upper }}
                             </div>
                             <div>
-                                <div style="font-weight:700;font-size:13px;color:var(--text);">{{ leave.employee.get_full_name|default:leave.employee.username }}</div>
+                                <div style="font-weight:700;font-size:13px;">{{ leave.employee.get_full_name|default:leave.employee.username }}</div>
                                 <div style="font-size:11px;color:var(--text-muted);">{{ leave.employee.email }}</div>
                             </div>
                         </div>
                     </td>
-                    <td>
-                        {% if leave.leave_type == "CASUAL" %}<span class="badge badge-info">Casual</span>
-                        {% elif leave.leave_type == "SICK" %}<span class="badge badge-pending">Sick</span>
-                        {% else %}<span class="badge">{{ leave.leave_type }}</span>{% endif %}
-                    </td>
-                    <td>
-                        {% if leave.duration == "FULL" %}Full Day
-                        {% elif leave.duration == "HALF" %}Half Day
-                        {% elif leave.duration == "SHORT" %}Short ({{ leave.short_hours }}h)
-                        {% else %}{{ leave.duration }}{% endif %}
-                    </td>
-                    <td>{{ leave.start_date }}</td>
-                    <td>{{ leave.end_date }}</td>
+                    <td><span class="badge badge-info">{{ leave.leave_type }}</span></td>
+                    <td>{% if leave.duration == "FULL" %}Full Day{% elif leave.duration == "HALF" %}Half Day{% else %}Short{% endif %}</td>
+                    <td>{{ leave.start_date|date:"d M" }}{% if leave.end_date != leave.start_date %} → {{ leave.end_date|date:"d M" }}{% endif %}</td>
                 </tr>
             {% endfor %}
             </tbody>
@@ -777,7 +572,7 @@
     </div>
 </div>
 
-{# ══════════════════════ PANEL — Leave Balance (keep existing) ══════════════════════ #}
+{# PANEL — Leave Balance #}
 <div class="tl-panel" id="panel-balance">
     <div class="sc">
         <div class="sc-head">
@@ -798,7 +593,6 @@
                     <th style="text-align:center;">Total</th>
                     <th style="text-align:center;">Approved</th>
                     <th style="text-align:center;">Pending</th>
-                    <th style="text-align:center;">Rejected</th>
                     <th>Casual</th><th>Sick</th>
                 </tr>
             </thead>
@@ -811,7 +605,7 @@
                                 {{ item.member.first_name|first|upper }}{{ item.member.last_name|first|upper }}
                             </div>
                             <div>
-                                <div style="font-weight:700;font-size:13px;color:var(--text);">{{ item.member.get_full_name|default:item.member.username }}</div>
+                                <div style="font-weight:700;">{{ item.member.get_full_name|default:item.member.username }}</div>
                                 <div style="font-size:11px;color:var(--text-muted);">{{ item.member.email }}</div>
                             </div>
                         </div>
@@ -824,29 +618,22 @@
                     <td style="text-align:center;font-weight:700;">{{ item.total_leaves }}</td>
                     <td style="text-align:center;font-weight:700;color:var(--success);">{{ item.approved }}</td>
                     <td style="text-align:center;font-weight:700;color:var(--warning);">{{ item.pending }}</td>
-                    <td style="text-align:center;font-weight:700;color:var(--danger);">{{ item.rejected }}</td>
                     <td>
                         <div class="bw">
                             <div class="bt"><div class="bf" style="background:#60a5fa;width:{% widthratio item.casual_balance 15 100 %}%;"></div></div>
-                            <span style="font-size:12px;font-weight:700;color:#2563eb;min-width:18px;text-align:right;">{{ item.casual_balance }}</span>
+                            <span style="font-size:12px;font-weight:700;">{{ item.casual_balance }}</span>
                         </div>
                     </td>
                     <td>
                         <div class="bw">
                             <div class="bt"><div class="bf" style="background:#f472b6;width:{% widthratio item.sick_balance 15 100 %}%;"></div></div>
-                            <span style="font-size:12px;font-weight:700;color:#be185d;min-width:18px;text-align:right;">{{ item.sick_balance }}</span>
+                            <span style="font-size:12px;font-weight:700;">{{ item.sick_balance }}</span>
                         </div>
                     </td>
                 </tr>
             {% endfor %}
             </tbody>
         </table>
-        <div class="tot-bar">
-            <div class="tot-cell"><div class="tot-val">{{ total_leaves_count }}</div><div class="tot-lbl">Total</div></div>
-            <div class="tot-cell"><div class="tot-val" style="color:var(--success);">{{ approved_count }}</div><div class="tot-lbl">Approved</div></div>
-            <div class="tot-cell"><div class="tot-val" style="color:var(--warning);">{{ pending_count }}</div><div class="tot-lbl">Pending</div></div>
-            <div class="tot-cell"><div class="tot-val" style="color:var(--danger);">{{ rejected_count }}</div><div class="tot-lbl">Rejected</div></div>
-        </div>
         {% else %}
         <div class="emp">
             <div class="emp-ico"><i class="fa-solid fa-users-slash"></i></div>
@@ -857,7 +644,7 @@
     </div>
 </div>
 
-{# ══════════════════════ PANEL — My Leave History (keep existing) ══════════════════════ #}
+{# PANEL — My Leaves #}
 <div class="tl-panel" id="panel-myleaves">
     <div class="sc">
         <div class="sc-head">
@@ -873,61 +660,24 @@
         {% if my_leaves_page.object_list %}
         <table class="tt">
             <thead>
-                <tr><th>Type</th><th>Duration</th><th>From</th><th>To</th><th>Reason</th><th>Applied</th><th>Status</th></tr>
+                <tr><th>Type</th><th>Duration</th><th>From</th><th>To</th><th>Status</th></tr>
             </thead>
             <tbody>
             {% for leave in my_leaves_page %}
                 <tr>
-                    <td>
-                        {% if leave.leave_type == "CASUAL" %}<span class="badge badge-info">Casual</span>
-                        {% elif leave.leave_type == "SICK" %}<span class="badge badge-pending">Sick</span>
-                        {% else %}<span class="badge">{{ leave.leave_type }}</span>{% endif %}
-                    </td>
-                    <td>{% if leave.duration == "FULL" %}Full Day{% elif leave.duration == "HALF" %}Half Day{% elif leave.duration == "SHORT" %}Short ({{ leave.short_hours }}h){% else %}{{ leave.duration }}{% endif %}</td>
-                    <td>{{ leave.start_date }}</td>
-                    <td>{{ leave.end_date }}</td>
-                    <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-muted);">{{ leave.reason|truncatechars:30|default:"—" }}</td>
-                    <td style="color:var(--text-muted);">{{ leave.created_at|date:"d M Y" }}</td>
+                    <td><span class="badge badge-info">{{ leave.leave_type }}</span></td>
+                    <td>{% if leave.duration == "FULL" %}Full Day{% elif leave.duration == "HALF" %}Half Day{% else %}Short{% endif %}</td>
+                    <td>{{ leave.start_date|date:"d M Y" }}</td>
+                    <td>{{ leave.end_date|date:"d M Y" }}</td>
                     <td>
                         {% if leave.status == "APPROVED" %}<span class="badge badge-approved">Approved</span>
                         {% elif leave.status == "REJECTED" %}<span class="badge badge-rejected">Rejected</span>
-                        {% elif leave.status == "PENDING" %}<span class="badge badge-pending">Pending</span>
-                        {% else %}<span class="badge">{{ leave.status }}</span>{% endif %}
+                        {% else %}<span class="badge badge-pending">Pending</span>{% endif %}
                     </td>
                 </tr>
             {% endfor %}
             </tbody>
         </table>
-        {% if my_leaves_page.has_other_pages %}
-        <div class="pgn">
-            <span class="pgn-info">{{ my_leaves_page.start_index }}–{{ my_leaves_page.end_index }} of {{ my_leaves_page.paginator.count }}</span>
-            <div class="pgn-btns">
-                {% if my_leaves_page.has_previous %}
-                    <a href="?mypage={{ my_leaves_page.previous_page_number }}&tab=myleaves" class="pb">
-                        <i class="fa-solid fa-chevron-left"></i>
-                    </a>
-                {% else %}
-                    <span class="pb off"><i class="fa-solid fa-chevron-left"></i></span>
-                {% endif %}
-                
-                {% for n in my_leaves_page.paginator.page_range %}
-                    {% if my_leaves_page.number == n %}
-                        <span class="pb on">{{ n }}</span>
-                    {% elif n >= my_leaves_page.number|add:"-2" and n <= my_leaves_page.number|add:"2" %}
-                        <a href="?mypage={{ n }}&tab=myleaves" class="pb">{{ n }}</a>
-                    {% endif %}
-                {% endfor %}
-                
-                {% if my_leaves_page.has_next %}
-                    <a href="?mypage={{ my_leaves_page.next_page_number }}&tab=myleaves" class="pb">
-                        <i class="fa-solid fa-chevron-right"></i>
-                    </a>
-                {% else %}
-                    <span class="pb off"><i class="fa-solid fa-chevron-right"></i></span>
-                {% endif %}
-            </div>
-        </div>
-        {% endif %}
         {% else %}
         <div class="emp">
             <div class="emp-ico"><i class="fa-solid fa-calendar-xmark"></i></div>
@@ -938,245 +688,27 @@
     </div>
 </div>
 
-{# ══════════════════════ PANEL — Team Leave History (keep existing) ══════════════════════ #}
-<div class="tl-panel" id="panel-teamhistory">
-    <div class="sc">
-        <div class="sc-head">
-            <div class="sc-hl">
-                <div class="sc-ico"><i class="fa-solid fa-clock-rotate-left"></i></div>
-                <div>
-                    <div class="sc-ttl">Team Leave History</div>
-                    <div class="sc-sub">All requests · {{ current_year }}</div>
-                </div>
-            </div>
-            <span class="chip ch-in">{{ history_page.paginator.count }} total</span>
-        </div>
-        {% if history_page.object_list %}
-        <table class="tt">
-            <thead>
-                <tr><th>Employee</th><th>Type</th><th>Duration</th><th>From</th><th>To</th><th>Reason</th><th>Applied</th><th>Status</th></tr>
-            </thead>
-            <tbody>
-            {% for leave in history_page %}
-                <tr>
-                    <td>
-                        <div style="display:flex;align-items:center;gap:8px;">
-                            <div class="lrav" style="width:26px;height:26px;font-size:10px;flex-shrink:0;">
-                                {{ leave.employee.first_name|first|upper }}{{ leave.employee.last_name|first|upper }}
-                            </div>
-                            <span style="font-weight:600;color:var(--text);">{{ leave.employee.get_full_name|default:leave.employee.username }}</span>
-                        </div>
-                    </td>
-                    <td>
-                        {% if leave.leave_type == "CASUAL" %}<span class="badge badge-info">Casual</span>
-                        {% elif leave.leave_type == "SICK" %}<span class="badge badge-pending">Sick</span>
-                        {% else %}<span class="badge">{{ leave.leave_type }}</span>{% endif %}
-                    </td>
-                    <td>{% if leave.duration == "FULL" %}Full Day{% elif leave.duration == "HALF" %}Half Day{% elif leave.duration == "SHORT" %}Short ({{ leave.short_hours }}h){% else %}{{ leave.duration }}{% endif %}</td>
-                    <td>{{ leave.start_date }}</td>
-                    <td>{{ leave.end_date }}</td>
-                    <td style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-muted);">{{ leave.reason|truncatechars:25|default:"—" }}</td>
-                    <td style="color:var(--text-muted);">{{ leave.created_at|date:"d M Y" }}</td>
-                    <td>
-                        {% if leave.status == "APPROVED" %}<span class="badge badge-approved">Approved</span>
-                        {% elif leave.status == "REJECTED" %}<span class="badge badge-rejected">Rejected</span>
-                        {% elif leave.status == "PENDING" %}<span class="badge badge-pending">Pending</span>
-                        {% else %}<span class="badge">{{ leave.status }}</span>{% endif %}
-                    </td>
-                </tr>
-            {% endfor %}
-            </tbody>
-        </table>
-        {% if history_page.has_other_pages %}
-        <div class="pgn">
-            <span class="pgn-info">{{ history_page.start_index }}–{{ history_page.end_index }} of {{ history_page.paginator.count }}</span>
-            <div class="pgn-btns">
-                {% if history_page.has_previous %}
-                    <a href="?hpage={{ history_page.previous_page_number }}&tab=teamhistory" class="pb">
-                        <i class="fa-solid fa-chevron-left"></i>
-                    </a>
-                {% else %}
-                    <span class="pb off"><i class="fa-solid fa-chevron-left"></i></span>
-                {% endif %}
-                
-                {% for n in history_page.paginator.page_range %}
-                    {% if history_page.number == n %}
-                        <span class="pb on">{{ n }}</span>
-                    {% elif n >= history_page.number|add:"-2" and n <= history_page.number|add:"2" %}
-                        <a href="?hpage={{ n }}&tab=teamhistory" class="pb">{{ n }}</a>
-                    {% endif %}
-                {% endfor %}
-                
-                {% if history_page.has_next %}
-                    <a href="?hpage={{ history_page.next_page_number }}&tab=teamhistory" class="pb">
-                        <i class="fa-solid fa-chevron-right"></i>
-                    </a>
-                {% else %}
-                    <span class="pb off"><i class="fa-solid fa-chevron-right"></i></span>
-                {% endif %}
-            </div>
-        </div>
-        {% endif %}
-        {% else %}
-        <div class="emp">
-            <div class="emp-ico"><i class="fa-solid fa-calendar-xmark"></i></div>
-            <div class="emp-ttl">No Leave History</div>
-            <div class="emp-sub">Your team hasn't applied for any leaves this year.</div>
-        </div>
-        {% endif %}
-    </div>
-</div>
-
-{# ══════════════════════ PANEL — My Profile (keep existing) ══════════════════════ #}
-{# Toast #}
-<div class="pp-toast" id="ppToast">
-    <div class="pp-toast-ico" id="ppToastIco"></div>
-    <span id="ppToastMsg">Saved successfully!</span>
-</div>
-
-<div class="tl-panel" id="panel-profile">
-    {# Keep your existing profile panel code here - unchanged #}
-    {# ... your existing profile HTML ... #}
-</div>
-
-{% endblock %}
-
-{% block extra_scripts %}
 <script>
-// Tab switching function (keep your existing JavaScript)
-const CONTENT_TABS = ['pending','onleave','balance','myleaves','teamhistory'];
-const ALL_TABS     = ['dashboard','pending','onleave','balance','myleaves','teamhistory','profile'];
-
-function switchTab(name) {
-    if (!ALL_TABS.includes(name)) name = 'dashboard';
-
-    const isProfile = name === 'profile';
-    const statRow   = document.getElementById('stat-row');
-
-    if (statRow) statRow.style.display = isProfile ? 'none' : '';
-
-    CONTENT_TABS.forEach(t => {
-        const p = document.getElementById('panel-' + t);
-        if (p) p.classList.toggle('show', t === name);
-        const c = document.getElementById('sc-' + t);
-        if (c) c.classList.toggle('active', t === name);
-    });
-
-    const pp = document.getElementById('panel-profile');
-    if (pp) pp.classList.toggle('show', isProfile);
-
-    const u = new URL(window.location);
-    u.searchParams.set('tab', name);
-    window.history.replaceState({}, '', u);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+function switchTab(tabId) {
+    const panels = document.querySelectorAll('.tl-panel');
+    panels.forEach(p => p.classList.remove('show'));
+    const target = document.getElementById('panel-' + tabId);
+    if(target) target.classList.add('show');
+    
+    const cards = document.querySelectorAll('.s-card');
+    cards.forEach(c => c.classList.remove('active'));
+    const card = document.getElementById('sc-' + tabId);
+    if(card) card.classList.add('active');
+    
+    const url = new URL(window.location);
+    url.searchParams.set('tab', tabId);
+    window.history.replaceState({}, '', url);
 }
 
-// Keep all your existing profile functions
-let tlEmpEditOn = false;
-function tlToggleEmpEdit() {
-    tlEmpEditOn = !tlEmpEditOn;
-    const view = document.getElementById('tl-view-basic');
-    const form = document.getElementById('tl-edit-basic-emp');
-    const icon = document.getElementById('tlEmpEditIcon');
-    const text = document.getElementById('tlEmpEditText');
-    if (tlEmpEditOn) {
-        view.style.display = 'none';
-        form.classList.add('show');
-        icon.className = 'fa-solid fa-xmark';
-        text.textContent = 'Cancel';
-    } else {
-        view.style.display = '';
-        form.classList.remove('show');
-        icon.className = 'fa-solid fa-pen-to-square';
-        text.textContent = 'Edit Profile';
-    }
-}
-
-const tlHrEditState = {};
-function tlToggleHrEdit(section) {
-    tlHrEditState[section] = !tlHrEditState[section];
-    const view  = document.getElementById('tl-view-' + section);
-    const form  = document.getElementById('tl-edit-' + section);
-    const btnId = 'tlHrEdit' + section.charAt(0).toUpperCase() + section.slice(1) + 'Btn';
-    const btn   = document.getElementById(btnId);
-    if (tlHrEditState[section]) {
-        if (view) view.style.display = 'none';
-        if (form) form.classList.add('show');
-        if (btn)  btn.innerHTML = '<i class="fa-solid fa-xmark"></i> Cancel';
-    } else {
-        if (view) view.style.display = '';
-        if (form) form.classList.remove('show');
-        if (btn)  btn.innerHTML = '<i class="fa-solid fa-pen-to-square"></i> HR Edit';
-    }
-}
-
-function tlPreviewAvatar(input) {
-    if (input.files && input.files[0]) {
-        const reader = new FileReader();
-        reader.onload = e => {
-            const prev = document.getElementById('tl-avatar-preview');
-            if (prev) prev.innerHTML = '<img src="'+e.target.result+'">';
-            const circle = document.getElementById('tlAvatarCircle');
-            if (circle) {
-                const existing = circle.querySelector('img#tlAvatarImg');
-                const initials = circle.querySelector('#tlAvatarInitials');
-                if (initials) initials.style.display = 'none';
-                if (existing) { existing.src = e.target.result; }
-                else {
-                    const img = document.createElement('img');
-                    img.src = e.target.result; img.id = 'tlAvatarImg';
-                    circle.insertBefore(img, circle.querySelector('.prof-av-overlay'));
-                }
-            }
-        };
-        reader.readAsDataURL(input.files[0]);
-    }
-}
-
-const TL_PROF_TABS = ['basic','salary','bank','verification','additional'];
-function switchProfTab(name, btn) {
-    TL_PROF_TABS.forEach(t => {
-        const p = document.getElementById('ptab-' + t);
-        if (p) p.classList.toggle('show', t === name);
-    });
-    document.querySelectorAll('.ptb').forEach(b => b.classList.remove('active'));
-    if (btn) btn.classList.add('active');
-    if (name !== 'basic' && tlEmpEditOn) tlToggleEmpEdit();
-}
-
-function tlShowToast(msg, isError) {
-    const toast = document.getElementById('ppToast');
-    const ico   = document.getElementById('ppToastIco');
-    document.getElementById('ppToastMsg').textContent = msg || 'Saved!';
-    if (isError) {
-        ico.style.background = 'rgba(240,64,88,.12)';
-        ico.innerHTML = '<i class="fa-solid fa-circle-xmark" style="color:var(--danger);"></i>';
-        toast.style.borderColor = 'rgba(240,64,88,.3)';
-    } else {
-        ico.style.background = 'rgba(5,201,138,.12)';
-        ico.innerHTML = '<i class="fa-solid fa-circle-check" style="color:var(--success);"></i>';
-        toast.style.borderColor = 'var(--border)';
-    }
-    toast.classList.add('show');
-    setTimeout(() => toast.classList.remove('show'), 3500);
-}
-
-{% if messages %}{% for message in messages %}
-document.addEventListener('DOMContentLoaded', () => {
-    if (new URLSearchParams(window.location.search).get('tab') === 'profile') {
-        tlShowToast("{{ message }}", {% if message.tags == 'error' %}true{% else %}false{% endif %});
-    }
+window.addEventListener('DOMContentLoaded', () => {
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get('tab') || 'pending';
+    switchTab(tab);
 });
-{% endfor %}{% endif %}
-
-// On load
-(function(){
-    const t = new URLSearchParams(window.location.search).get('tab') || 'dashboard';
-    switchTab(t);
-})();
-
-setTimeout(function() {
-    location.reload();
-}, 20000); // 10 seconds
 </script>
 {% endblock %}

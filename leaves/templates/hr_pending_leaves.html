@@ -3,6 +3,16 @@
 {% block page_title %}Pending Leave Approvals{% endblock %}
 
 {% block content %}
+<style>
+.clickable-row {
+    cursor: pointer;
+    transition: background 0.2s;
+}
+.clickable-row:hover {
+    background: rgba(0,198,212,0.05);
+}
+</style>
+
 <div class="card">
     <div class="table-header">
         <div class="table-title">
@@ -13,7 +23,7 @@
     </div>
     
     <div class="table-container">
-        <table>
+        <table class="data-table">
             <thead>
                 <tr>
                     <th>Employee</th>
@@ -24,11 +34,10 @@
                     <th>Reason</th>
                     <th>Applied On</th>
                     <th>Actions</th>
-                </tr>
-            </thead>
+                </thead>
             <tbody>
                 {% for leave in leaves %}
-                <tr>
+                <tr class="clickable-row" onclick="window.location.href='{% url 'leave_detail' leave.id %}'">
                     <td>
                         <div style="display: flex; align-items: center; gap: 10px;">
                             <div class="avatar">{{ leave.employee.first_name|first|upper }}{{ leave.employee.last_name|first|upper }}</div>
@@ -46,14 +55,22 @@
                     <td>{{ leave.created_at|date:"d M Y" }}</td>
                     <td>
                         <div style="display: flex; gap: 5px;">
-                            <form method="POST" action="{% url 'approve_leave' leave.id %}" style="display: inline;">
-                                {% csrf_token %}
-                                <button type="submit" class="btn btn-success btn-sm"><i class="fa-solid fa-check"></i> Approve</button>
-                            </form>
-                            <form method="POST" action="{% url 'reject_leave' leave.id %}" style="display: inline;">
-                                {% csrf_token %}
-                                <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Reject this leave request?')"><i class="fa-solid fa-xmark"></i> Reject</button>
-                            </form>
+                            {% if leave.final_status == 'PENDING' and not leave.hr_voted %}
+                                <form method="POST" action="{% url 'approve_leave' leave.id %}" style="display: inline;" onclick="event.stopPropagation()">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-success btn-sm"><i class="fa-solid fa-check"></i> Approve</button>
+                                </form>
+                                <form method="POST" action="{% url 'reject_leave' leave.id %}" style="display: inline;" onclick="event.stopPropagation()">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Reject this leave request?')"><i class="fa-solid fa-xmark"></i> Reject</button>
+                                </form>
+                            {% elif leave.hr_voted %}
+                                <span class="badge badge-secondary">✓ Voted</span>
+                            {% elif leave.final_status == 'APPROVED' %}
+                                <span class="badge badge-approved">Approved</span>
+                            {% elif leave.final_status == 'REJECTED' %}
+                                <span class="badge badge-rejected">Rejected</span>
+                            {% endif %}
                         </div>
                     </td>
                 </tr>
@@ -70,4 +87,13 @@
         </table>
     </div>
 </div>
+
+<script>
+// Stop event propagation for action buttons so they don't trigger the row click
+document.querySelectorAll('.clickable-row form').forEach(form => {
+    form.addEventListener('click', (e) => {
+        e.stopPropagation();
+    });
+});
+</script>
 {% endblock %}

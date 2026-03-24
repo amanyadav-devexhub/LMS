@@ -30,6 +30,12 @@ urlpatterns = [
     path('employee/<int:pk>/',                    views.employee_detail,        name='employee_detail'),
     path('employee/create/',                      views.create_employee,        name='create_employee'),
     path('employee/toggle-status/<int:user_id>/', views.toggle_employee_status, name='toggle_employee_status'),
+#     path('leave-detail/<int:leave_id>/', views.employee_leave_detail, name='employee_leave_detail'),
+    path('employee/leave-balance/', views.employee_leave_balance, name='employee_leave_balance'),
+
+     path('leave-detail/<int:leave_id>/', views.leave_detail_page, name='leave_detail'),
+     path('api/leave-detail/<int:leave_id>/', views.employee_leave_detail, name='employee_leave_detail'),
+     
 
     # ── Notifications ─────────────────────────────────────────────
     path('notifications/', views.notifications, name='notifications'),
@@ -96,4 +102,8 @@ urlpatterns = [
     path('api/leave-types/',
          views.api_leave_types,
          name='api_leave_types'),
+
+     
+
+     
 ]
