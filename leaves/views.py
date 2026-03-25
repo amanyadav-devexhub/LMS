@@ -2357,7 +2357,7 @@ def holiday_create(request):
         "today":         datetime.now().date(),
         "current_year":  datetime.now().year,
     }
-    return render(request, "leaves/holiday_form.html", context)
+    return render(request, "holiday_form.html", context)
 
 
 @login_required
@@ -2405,7 +2405,7 @@ def holiday_edit(request, holiday_id):
         "holiday":       holiday,
         "holiday_types": Holiday.HOLIDAY_TYPES,
     }
-    return render(request, "leaves/holiday_form.html", context)
+    return render(request, "holiday_form.html", context)
 
 
 @login_required
@@ -2481,7 +2481,7 @@ Christmas|{current_year}-12-25|RELIGIOUS"""
         "common_holidays": common_holidays,
         "years":           range(current_year - 1, current_year + 3),
     }
-    return render(request, "leaves/holiday_bulk_form.html", context)
+    return render(request, "holiday_bulk_form.html", context)
 
 
 @login_required
@@ -2559,7 +2559,7 @@ def public_holidays(request):
         "months":         [(i, month_name[i]) for i in range(1, 13)],
         "holiday_types":  dict(Holiday.HOLIDAY_TYPES) if HOLIDAYS_ENABLED else {},
     }
-    return render(request, "leaves/public_holidays.html", context)
+    return render(request, "public_holidays.html", context)
 
 
 @login_required
