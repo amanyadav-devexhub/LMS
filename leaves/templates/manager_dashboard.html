@@ -642,6 +642,7 @@ function switchTab(tabId) {
     window.history.replaceState({}, '', url);
 }
 
+$(function() {
     const params = new URLSearchParams(window.location.search);
     const tab = params.get('tab') || 'pending';
     switchTab(tab);

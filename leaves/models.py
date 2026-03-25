@@ -296,6 +296,7 @@ class LeaveRequest(models.Model):
 class Notification(models.Model):
     user        = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     message     = models.TextField()
+    link        = models.CharField(max_length=500, blank=True, null=True, help_text="URL to redirect when clicked")
     read_status = models.BooleanField(default=False)
     created_at  = models.DateTimeField(auto_now_add=True)
 

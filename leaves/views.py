@@ -26,6 +26,7 @@ from django.http import JsonResponse
 from django.db.models import Q, Count, Sum, Case, When, Value, FloatField
 from django.core.paginator import Paginator
 from django.utils import timezone
+from django.urls import reverse
 
 # ── DRF ──────────────────────────────────────────────────────────────
 from rest_framework.decorators import api_view, permission_classes
@@ -77,9 +78,9 @@ def calculate_leave_days(leave):
     return (leave.end_date - leave.start_date).days + 1
 
 
-def send_notification(users, message):
+def send_notification(users, message, link=None):
     for u in users:
-        Notification.objects.create(user=u, message=message)
+        Notification.objects.create(user=u, message=message, link=link)
 
 
 # ★ NEW HELPER — reads EmployeeLeaveAllocation (admin-configured)
@@ -237,6 +238,8 @@ def employee_dashboard(request):
     today         = date.today()
     current_year  = today.year
     current_month = today.month
+    tab           = request.GET.get('tab', 'overview')
+    current_month = today.month
 
     all_leaves = LeaveRequest.objects.filter(employee=request.user).order_by('-created_at')
 
@@ -288,6 +291,7 @@ def employee_dashboard(request):
             is_active=True).order_by('name')
 
     context = {
+        "tab":             tab,
         "leaves":          page_obj,
         "all_leaves_count":all_leaves.count(),
         "page_obj":        page_obj,
@@ -328,7 +332,7 @@ def employee_dashboard(request):
 
     if request.headers.get('x-requested-with') == 'XMLHttpRequest':
         html = render_to_string('partials/employee_leave_history.html', context)
-        return JsonResponse({'html': html})
+        return JsonResponse({'html': html, 'success': True})
 
     return render(request, "employee_dashboard.html", context)
 
@@ -451,12 +455,22 @@ def apply_leave(request):
         try:
             start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date()
         except (ValueError, TypeError):
-            messages.error(request, "Invalid start date. Please select a valid date.")
+            error_msg = "Invalid start date. Please select a valid date."
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest' or request.headers.get('Accept') == 'application/json':
+                return JsonResponse({"success": False, "error": error_msg})
+            messages.error(request, error_msg)
             return redirect("apply_leave")
 
         today = date.today()
         if start_date < today:
             messages.error(request, "Start date cannot be in the past.")
+            return redirect("apply_leave")
+
+        if not leave_type:
+            error_msg = "Please select a leave type."
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest' or request.headers.get('Accept') == 'application/json':
+                return JsonResponse({"success": False, "error": error_msg})
+            messages.error(request, error_msg)
             return redirect("apply_leave")
 
         # ── Set end_date based on duration ─────────────────
@@ -475,7 +489,11 @@ def apply_leave(request):
                 try:
                     end_date = datetime.strptime(end_date_str, "%Y-%m-%d").date()
                 except (ValueError, TypeError):
-                    end_date = start_date
+                    error_msg = "Invalid end date. Please select a valid date."
+                    if request.headers.get('x-requested-with') == 'XMLHttpRequest' or request.headers.get('Accept') == 'application/json':
+                        return JsonResponse({"success": False, "error": error_msg})
+                    messages.error(request, error_msg)
+                    return redirect("apply_leave")
             else:
                 end_date = start_date
             if end_date < start_date:
@@ -605,17 +623,16 @@ def apply_leave(request):
             if leave_obj.unpaid_days > 0 else ""
         )
 
+        leave_url = reverse('leave_detail', args=[leave_obj.id])
         vote_msg = (
-            f"🗳️ VOTE REQUIRED: New leave request from {applicant_name} "
-            f"({leave_type}, {duration}{paid_unpaid_text}, {start_date} to {end_date}). "
-            f"2 approvals needed."
+            f"🗳️ VOTE REQUIRED: {applicant_name} ({leave_type}, {duration}{paid_unpaid_text}, {start_date} to {end_date})"
         )
-        for approver in approvers_list:
-            Notification.objects.create(user=approver, message=vote_msg)
+        send_notification(approvers_list, vote_msg, link=leave_url)
 
         Notification.objects.create(
             user=employee,
-            message="Your leave request has been submitted and is pending votes from TL, HR, and Manager."
+            message="Your leave request has been submitted and is pending votes.",
+            link=leave_url
         )
 
         if leave_obj.unpaid_days > 0:
@@ -637,7 +654,17 @@ def apply_leave(request):
             "Manager":  "manager_dashboard",
         }
         if request.headers.get('x-requested-with') == 'XMLHttpRequest' or request.headers.get('Accept') == 'application/json':
-            return JsonResponse({"status": "success", "message": "Leave application submitted successfully!"})
+            role = get_user_role(request.user)
+            redirect_url = redirect_map.get(role, "employee_dashboard")
+            # Build URL with tab parameter so user sees their history
+            tab_param = ""
+            if role in ("TL", "Manager"):
+                tab_param = "?tab=myleaves"
+            return JsonResponse({
+                "success": True,
+                "message": "Leave application submitted successfully!",
+                "redirect": reverse(redirect_url) + tab_param
+            })
 
         return redirect(redirect_map.get(get_user_role(request.user), "employee_dashboard"))
 
@@ -696,7 +723,8 @@ def tl_dashboard(request):
     ).select_related("role", "department")
 
     all_pending = LeaveRequest.objects.filter(
-        status="PENDING",
+        tl_voted=False,
+        manager_voted=False,
         employee__reporting_manager=request.user
     ).select_related("employee").order_by("-created_at")
 
@@ -769,6 +797,8 @@ def tl_dashboard(request):
             html = render_to_string('partials/tl_pending_leaves.html', {"leaves": leaves_page}, request=request)
         elif tab == 'myleaves':
             html = render_to_string('partials/tl_my_leaves.html', {"my_leaves_page": my_leaves_page}, request=request)
+        elif tab == 'teamhistory':
+            html = render_to_string('partials/tl_team_history.html', {"history_page": history_page}, request=request)
         else:
             html = ""
         return JsonResponse({"html": html, "success": True})
@@ -820,7 +850,8 @@ def hr_dashboard(request):
     active_count    = all_emps.filter(is_active=True).count()
 
     pending_leaves = LeaveRequest.objects.filter(
-        status="PENDING"
+        hr_voted=False,
+        manager_voted=False
     ).exclude(employee=request.user
     ).select_related("employee", "employee__department").order_by("-created_at")
 
@@ -901,7 +932,8 @@ def hr_pending_leaves(request):
         return redirect("employee_dashboard")
 
     leaves = LeaveRequest.objects.filter(
-        status="PENDING"
+        hr_voted=False,
+        manager_voted=False
     ).exclude(employee=request.user
     ).select_related("employee", "employee__department").order_by("-created_at")
 
@@ -1114,17 +1146,51 @@ def hr_my_leave_balance(request):
     if role not in ("HR", "Admin") and not request.user.is_superuser:
         return redirect("employee_dashboard")
 
-    current_year = timezone.now().year
+    today         = timezone.now().date()
+    current_year  = today.year
+    current_month = today.month
+    
     balance, _   = LeaveBalance.objects.get_or_create(employee=request.user)
     my_leaves    = LeaveRequest.objects.filter(
         employee=request.user).order_by("-created_at")
 
     # ★ New balance from admin-configured types
-    my_leave_summary = get_employee_leave_summary(request.user, current_year)
+    leave_summary = get_employee_leave_summary(request.user, current_year)
+    
+    # Monthly summary (approved leaves this month)
+    monthly_leaves = LeaveRequest.objects.filter(
+        employee=request.user,
+        final_status='APPROVED',
+        start_date__year=current_year,
+        start_date__month=current_month
+    )
+    monthly_paid   = monthly_leaves.aggregate(total=Sum('paid_days'))['total']   or 0
+    monthly_unpaid = monthly_leaves.aggregate(total=Sum('unpaid_days'))['total'] or 0
+
+    # Salary deductions
+    month_start = date(current_year, current_month, 1)
+    monthly_deductions = SalaryDeduction.objects.filter(
+        employee=request.user, deduction_month=month_start
+    )
+    total_deduction_this_month = monthly_deductions.aggregate(
+        total=Sum('deduction_amount'))['total'] or 0
+    total_deduction_all_time = SalaryDeduction.objects.filter(
+        employee=request.user
+    ).aggregate(total=Sum('deduction_amount'))['total'] or 0
+
     active_leave_types = []
     if POLICY_ENABLED:
         active_leave_types = LeaveTypeConfig.objects.filter(
             is_active=True).order_by('name')
+
+    # Get upcoming holidays
+    upcoming_holidays = []
+    if HOLIDAYS_ENABLED:
+        from .models import Holiday
+        upcoming_holidays = Holiday.objects.filter(
+            date__gte=today,
+            is_active=True
+        ).order_by('date')[:10]
 
     context = {
         **_hr_base_context(request),
@@ -1132,13 +1198,18 @@ def hr_my_leave_balance(request):
         "my_leaves":          my_leaves[:10],
         "approved_count":     my_leaves.filter(status="APPROVED").count(),
         "rejected_count":     my_leaves.filter(status="REJECTED").count(),
-        "pending_count":      my_leaves.filter(status="PENDING").count(),
-        # ★ New
-        "my_leave_summary":   my_leave_summary,
-        "my_breakdown":       my_leave_summary['breakdown'],
-        "my_total_remaining": my_leave_summary['total_remaining'],
-        "my_total_allocated": my_leave_summary['total_allocated'],
+        # Standardized names for UI reuse
+        "pending_leaves":     my_leaves.filter(status="PENDING").count(),
+        "leave_breakdown":    leave_summary['breakdown'],
+        "total_remaining":    leave_summary['total_remaining'],
+        "total_allocated":    leave_summary['total_allocated'],
+        "total_used_new":     leave_summary['total_used'],
         "active_leave_types": active_leave_types,
+        "monthly_paid":       round(monthly_paid, 1),
+        "monthly_unpaid":     round(monthly_unpaid, 1),
+        "total_deduction_this_month": total_deduction_this_month,
+        "total_deduction_all_time":   total_deduction_all_time,
+        "upcoming_holidays":  upcoming_holidays,
     }
     return render(request, "hr_my_leave_balance.html", context)
 
@@ -1260,13 +1331,13 @@ def manager_dashboard(request):
     ).select_related("role", "department")
 
     team_pending = LeaveRequest.objects.filter(
-        status="PENDING",
+        manager_voted=False,
         employee__reporting_manager=request.user
     ).exclude(employee=request.user
     ).select_related("employee", "employee__department").order_by("-created_at")
 
     all_pending = LeaveRequest.objects.filter(
-        status="PENDING"
+        manager_voted=False
     ).exclude(employee=request.user
     ).select_related("employee", "employee__department").order_by("-created_at")
 
@@ -1594,7 +1665,7 @@ def approve_leave(request, leave_id):
     voter     = request.user
     role_name = get_user_role(voter)
     is_admin  = request.user.is_superuser or role_name == "Admin"
-    is_ajax   = request.headers.get('x-requested-with') == 'XMLHttpRequest'
+    is_ajax   = request.headers.get('x-requested-with') == 'XMLHttpRequest' or request.headers.get('Accept') == 'application/json'
 
     # ── Admin override ─────────────────────────────────
     if is_admin:
@@ -1634,8 +1705,9 @@ def approve_leave(request, leave_id):
         messages.error(request, error_msg)
         return redirect(request.META.get("HTTP_REFERER", "/"))
 
-    if leave.final_status != 'PENDING':
-        info_msg = f"This leave is already {leave.final_status}."
+    # ── Final status check (bypass for Manager/Admin) ──────────────
+    if leave.final_status != 'PENDING' and role_name != 'Manager' and not is_admin:
+        info_msg = f"This leave is already {leave.final_status}. Only Manager can override."
         if is_ajax:
             return JsonResponse({"success": False, "message": info_msg, "status": leave.final_status})
         messages.info(request, info_msg)
@@ -1647,6 +1719,9 @@ def approve_leave(request, leave_id):
         (role_name == 'HR'      and leave.hr_voted)      or
         (role_name == 'Manager' and leave.manager_voted)
     )
+    # Manager can override even if they already voted or if status is not pending, 
+    # but for simplicity, let's just allow them to vote if they haven't voted yet.
+    # The rule says Manager is final.
     if already_voted:
         warning_msg = "You have already voted on this leave."
         if is_ajax:
@@ -1654,15 +1729,24 @@ def approve_leave(request, leave_id):
         messages.warning(request, warning_msg)
         return redirect(request.META.get("HTTP_REFERER", "/"))
 
+    # If it's already FINAL (APPROVED/REJECTED), only Manager or Admin can vote/override
+    if leave.final_status != 'PENDING' and role_name != 'Manager' and not is_admin:
+        info_msg = f"This leave is already {leave.final_status}. Only Manager can override."
+        if is_ajax:
+            return JsonResponse({"success": False, "message": info_msg, "status": leave.final_status})
+        messages.info(request, info_msg)
+        return redirect(request.META.get("HTTP_REFERER", "/"))
+
     # ── Record the APPROVE vote ───────────────────────────────────
+    old_status = leave.final_status
     if role_name == 'TL':
-        leave.tl_approved = True; leave.tl_voted = True
+        leave.tl_approved = True; leave.tl_rejected = False; leave.tl_voted = True
         leave.tl_acted_at = timezone.now()
     elif role_name == 'HR':
-        leave.hr_approved = True; leave.hr_voted = True
+        leave.hr_approved = True; leave.hr_rejected = False; leave.hr_voted = True
         leave.hr_acted_at = timezone.now()
     elif role_name == 'Manager':
-        leave.manager_approved = True; leave.manager_voted = True
+        leave.manager_approved = True; leave.manager_rejected = False; leave.manager_voted = True
         leave.manager_acted_at = timezone.now()
     else:
         error_msg = "You don't have voting rights."
@@ -1672,38 +1756,42 @@ def approve_leave(request, leave_id):
         return redirect(request.META.get("HTTP_REFERER", "/"))
 
     leave.approval_count += 1
+    # If they previously rejected, decrement rejection count
+    if (role_name == 'TL' and leave.tl_rejected) or (role_name == 'HR' and leave.hr_rejected) or (role_name == 'Manager' and leave.manager_rejected):
+        leave.rejection_count = max(0, leave.rejection_count - 1)
+    
     leave.save()
 
     # ── Evaluate decision with new priority logic ─────────────────
     decision, reason = _evaluate_leave_decision(leave)
 
     if decision == 'APPROVED':
-        leave.final_status        = 'APPROVED'
-        leave.status              = 'APPROVED'
-        leave.balance_deducted_at = timezone.now()
-        leave.save()
-        _deduct_leave_balance(leave)
-
-        Notification.objects.create(
-            user=leave.employee,
-            message=f"✅ Your leave has been APPROVED. ({reason})"
-        )
-        for approver in leave.approvers.all():
-            if approver != voter:
-                Notification.objects.create(
-                    user=approver,
-                    message=f"Leave for {leave.employee.get_full_name()} APPROVED. ({reason})"
-                )
-        if 'Manager' in reason:
-            messages.success(request, "✅ Leave APPROVED! (Manager override — final decision)")
+        # If transitioning from NOT-APPROVED to APPROVED, deduct balance
+        if old_status != 'APPROVED':
+            leave.final_status        = 'APPROVED'
+            leave.status              = 'APPROVED'
+            leave.balance_deducted_at = timezone.now()
+            leave.save()
+            _deduct_leave_balance(leave)
+            
+            Notification.objects.create(
+                user=leave.employee,
+                message=f"✅ Your leave has been APPROVED. ({reason})"
+            )
+            messages.success(request, f"✅ Leave APPROVED! ({reason})")
         else:
-            messages.success(request, "✅ Leave APPROVED! (Both HR and TL approved)")
+            # Already approved, just notify that approval was recorded
+            messages.success(request, f"✅ Approval recorded. Leave remains APPROVED.")
 
     elif decision == 'REJECTED':
-        # Should not happen via approve path but handle edge case
+        # If transitioning from APPROVED to REJECTED, restore balance
+        if old_status == 'APPROVED':
+            _restore_leave_balance(leave)
+        
         leave.final_status = 'REJECTED'
         leave.status       = 'REJECTED'
         leave.save()
+        
         Notification.objects.create(
             user=leave.employee,
             message=f"❌ Your leave has been REJECTED. ({reason})"
@@ -1711,21 +1799,20 @@ def approve_leave(request, leave_id):
         messages.warning(request, f"Leave REJECTED — {reason}")
 
     else:
-        # Still PENDING — tell voter what is still needed
+        # Still PENDING
+        leave.final_status = 'PENDING'
+        leave.status       = 'PENDING'
+        leave.save()
+        
         waiting = []
         if not leave.hr_voted:   waiting.append("HR")
         if not leave.tl_voted:   waiting.append("TL")
-        if not leave.manager_voted: waiting.append("Manager (can override)")
+        if not leave.manager_voted: waiting.append("Manager")
         wait_str = " and ".join(waiting) if waiting else "other approvers"
         messages.success(request, f"✅ Approval recorded. Still waiting for: {wait_str}")
-        Notification.objects.create(
-            user=leave.employee,
-            message=f"{voter.get_full_name()} ({role_name}) approved your leave. Waiting for: {wait_str}"
-        )
 
     if is_ajax:
-        msg = f"Leave APPROVED! ({reason})" if decision == 'APPROVED' else (f"Leave REJECTED — {reason}" if decision == 'REJECTED' else f"Approval recorded. Still waiting for: {wait_str}")
-        return JsonResponse({"success": True, "message": msg, "status": leave.final_status or 'PENDING'})
+        return JsonResponse({"success": True, "message": f"Action recorded. Decision: {decision}", "status": leave.final_status})
     return redirect(request.META.get("HTTP_REFERER", "/"))
 
 
@@ -1797,6 +1884,55 @@ def _deduct_old_balance(leave):
         pass
 
 
+def _restore_leave_balance(leave):
+    """
+    Restores paid_days to EmployeeLeaveAllocation if a leave status changes from APPROVED to something else.
+    """
+    if POLICY_ENABLED and leave.paid_days > 0 and leave.balance_deducted_at:
+        try:
+            alloc = EmployeeLeaveAllocation.objects.filter(
+                employee=leave.employee,
+                leave_type__code=leave.leave_type.upper(),
+                year=leave.start_date.year
+            ).first()
+
+            if not alloc:
+                alloc = EmployeeLeaveAllocation.objects.filter(
+                    employee=leave.employee,
+                    leave_type__name__iexact=leave.leave_type,
+                    year=leave.start_date.year
+                ).first()
+
+            if alloc:
+                alloc.used_days = max(0, round(alloc.used_days - leave.paid_days, 2))
+                alloc.save(update_fields=['used_days', 'updated_at'])
+            else:
+                _restore_old_balance(leave)
+
+        except Exception:
+            _restore_old_balance(leave)
+
+    # Handle salary deduction removal
+    try:
+        SalaryDeduction.objects.filter(leave_request=leave).delete()
+    except Exception:
+        pass
+    
+    leave.balance_deducted_at = None
+    leave.save(update_fields=['balance_deducted_at'])
+
+
+def _restore_old_balance(leave):
+    """Fallback: restores to old LeaveBalance model."""
+    try:
+        balance = LeaveBalance.objects.get(employee=leave.employee)
+        if leave.paid_days > 0:
+            balance.total_paid_taken = max(0, round(balance.total_paid_taken - leave.paid_days, 2))
+            balance.save(update_fields=['total_paid_taken', 'updated_at'])
+    except LeaveBalance.DoesNotExist:
+        pass
+
+
 # ════════════════════════════════════════════════════════════════════
 #  REJECT LEAVE (unchanged logic, just cleaned up)
 # ════════════════════════════════════════════════════════════════════
@@ -1811,7 +1947,7 @@ def reject_leave(request, leave_id):
     role_name = get_user_role(voter)
     is_admin  = request.user.is_superuser or role_name == "Admin"
 
-    is_ajax   = request.headers.get('x-requested-with') == 'XMLHttpRequest'
+    is_ajax   = request.headers.get('x-requested-with') == 'XMLHttpRequest' or request.headers.get('Accept') == 'application/json'
 
     if is_admin:
         leave.status       = "REJECTED"
@@ -1838,13 +1974,14 @@ def reject_leave(request, leave_id):
             return redirect(request.META.get("HTTP_REFERER", "/"))
 
     if leave.employee == voter:
-        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        if is_ajax:
             return JsonResponse({"success": False, "error": "You cannot reject your own leave request."})
         messages.error(request, "You cannot reject your own leave request.")
         return redirect(request.META.get("HTTP_REFERER", "/"))
 
-    if leave.final_status != 'PENDING':
-        info_msg = f"This leave is already {leave.final_status}."
+    # ── Final status check (bypass for Manager/Admin) ──────────────
+    if leave.final_status != 'PENDING' and role_name != 'Manager' and not is_admin:
+        info_msg = f"This leave is already {leave.final_status}. Only Manager can override."
         if is_ajax:
             return JsonResponse({"success": False, "message": info_msg, "status": leave.final_status})
         messages.info(request, info_msg)
@@ -1862,30 +1999,39 @@ def reject_leave(request, leave_id):
         messages.warning(request, warning_msg)
         return redirect(request.META.get("HTTP_REFERER", "/"))
 
-    # ── Record the REJECT vote ────────────────────────────────────
+    # Record the REJECT vote
+    old_status = leave.final_status
     if role_name == 'TL':
-        leave.tl_rejected = True; leave.tl_voted = True
+        leave.tl_rejected = True; leave.tl_approved = False; leave.tl_voted = True
         leave.tl_acted_at = timezone.now()
     elif role_name == 'HR':
-        leave.hr_rejected = True; leave.hr_voted = True
+        leave.hr_rejected = True; leave.hr_approved = False; leave.hr_voted = True
         leave.hr_acted_at = timezone.now()
     elif role_name == 'Manager':
-        leave.manager_rejected = True; leave.manager_voted = True
+        leave.manager_rejected = True; leave.manager_approved = False; leave.manager_voted = True
         leave.manager_acted_at = timezone.now()
     else:
+        # Admin or restricted
         error_msg = "You don't have voting rights."
-        if is_ajax:
-            return JsonResponse({"success": False, "error": error_msg}, status=403)
+        if is_ajax: return JsonResponse({"success": False, "error": error_msg}, status=403)
         messages.error(request, error_msg)
         return redirect(request.META.get("HTTP_REFERER", "/"))
 
     leave.rejection_count += 1
+    # If they previously approved, decrement approval count
+    if (role_name == 'TL' and leave.tl_approved) or (role_name == 'HR' and leave.hr_approved) or (role_name == 'Manager' and leave.manager_approved):
+        leave.approval_count = max(0, leave.approval_count - 1)
+        
     leave.save()
 
-    # ── Evaluate decision with new priority logic ─────────────────
+    # ── Evaluate decision ─────────────────────────────────────────
     decision, reason = _evaluate_leave_decision(leave)
 
     if decision == 'REJECTED':
+        # If transitioning from APPROVED to REJECTED, restore balance
+        if old_status == 'APPROVED':
+            _restore_leave_balance(leave)
+            
         leave.final_status = 'REJECTED'
         leave.status       = 'REJECTED'
         leave.save()
@@ -1894,47 +2040,38 @@ def reject_leave(request, leave_id):
             user=leave.employee,
             message=f"❌ Your leave has been REJECTED. ({reason})"
         )
-        for approver in leave.approvers.all():
-            if approver != voter:
-                Notification.objects.create(
-                    user=approver,
-                    message=f"Leave for {leave.employee.get_full_name()} REJECTED. ({reason})"
-                )
-        if 'Manager' in reason:
-            messages.warning(request, "❌ Leave REJECTED! (Manager override — final decision)")
-        else:
-            messages.warning(request, f"❌ Leave REJECTED — {reason}")
+        messages.warning(request, f"❌ Leave REJECTED — {reason}")
 
     elif decision == 'APPROVED':
-        # Manager previously approved but now other vote came in — shouldn't happen
-        # but handle gracefully
-        leave.final_status        = 'APPROVED'
-        leave.status              = 'APPROVED'
-        leave.balance_deducted_at = timezone.now()
-        leave.save()
-        _deduct_leave_balance(leave)
-        Notification.objects.create(
-            user=leave.employee,
-            message=f"✅ Your leave has been APPROVED. ({reason})"
-        )
-        messages.success(request, f"Leave APPROVED — {reason}")
+        # If transitioning from NOT-APPROVED to APPROVED, deduct balance
+        if old_status != 'APPROVED':
+            leave.final_status = 'APPROVED'
+            leave.status       = 'APPROVED'
+            leave.balance_deducted_at = timezone.now()
+            leave.save()
+            _deduct_leave_balance(leave)
+            messages.success(request, f"Leave APPROVED — {reason}")
+        else:
+            messages.success(request, "Rejection recorded, but leave remains APPROVED (Manager override)")
 
     else:
         # Still PENDING
+        if old_status == 'APPROVED':
+            _restore_leave_balance(leave)
+            
+        leave.final_status = 'PENDING'
+        leave.status       = 'PENDING'
+        leave.save()
+        
         waiting = []
         if not leave.hr_voted:      waiting.append("HR")
         if not leave.tl_voted:      waiting.append("TL")
-        if not leave.manager_voted: waiting.append("Manager (can override)")
+        if not leave.manager_voted: waiting.append("Manager")
         wait_str = " and ".join(waiting) if waiting else "other approvers"
         messages.warning(request, f"❌ Rejection recorded. Still waiting for: {wait_str}")
-        Notification.objects.create(
-            user=leave.employee,
-            message=f"{voter.get_full_name()} ({role_name}) rejected your leave. Waiting for: {wait_str}"
-        )
 
     if is_ajax:
-        msg = f"Leave REJECTED! ({reason})" if decision == 'REJECTED' else (f"Leave APPROVED! ({reason})" if decision == 'APPROVED' else f"Rejection recorded. Still waiting for: {wait_str}")
-        return JsonResponse({"success": True, "message": msg, "status": leave.final_status or 'PENDING'})
+        return JsonResponse({"success": True, "message": f"Action recorded. Decision: {decision}", "status": leave.final_status})
     return redirect(request.META.get("HTTP_REFERER", "/"))
 
 
@@ -1951,38 +2088,39 @@ def _evaluate_leave_decision(leave):
     """
     Returns ('APPROVED'|'REJECTED'|'PENDING', reason_string)
     
-    APPROVAL FLOW RULES:
-    1. Manager's vote is FINAL (overrides everything)
+    VOTING DECISION ENGINE:
+    1. Manager's vote is FINAL (overrides HR + TL completely)
        - Manager approves → APPROVED immediately
        - Manager rejects → REJECTED immediately
     
-    2. If Manager hasn't voted:
-       - Need BOTH HR AND TL to approve → APPROVED
-       - Need BOTH HR AND TL to reject → REJECTED
-       - Otherwise → PENDING
+    2. If Manager hasn't acted:
+       - EITHER HR or TL rejects → REJECTED immediately
+       - BOTH HR AND TL must approve → APPROVED
+       - Otherwise → PENDING (waiting for more votes)
     """
     
     # ── Rule 1: Manager's vote is FINAL ─────────────────────────────
     if leave.manager_voted:
         if leave.manager_approved:
-            return 'APPROVED', 'Manager approved (final override)'
+            return 'APPROVED', 'Manager approved (Final decision)'
         else:
-            return 'REJECTED', 'Manager rejected (final override)'
+            return 'REJECTED', 'Manager rejected (Final decision)'
     
     # ── Rule 2: Manager hasn't voted ────────────────────────────────
-    # Check if both HR and TL have voted
-    if leave.hr_voted and leave.tl_voted:
-        # Both have voted
-        if leave.hr_approved and leave.tl_approved:
-            return 'APPROVED', 'Both HR and TL approved'
-        elif (not leave.hr_approved) and (not leave.tl_approved):
-            return 'REJECTED', 'Both HR and TL rejected'
-        else:
-            # They voted differently - keep pending
-            return 'PENDING', 'HR and TL voted differently'
+    # Check for any rejection first
+    if leave.hr_rejected or leave.tl_rejected:
+        return 'REJECTED', f"{'HR' if leave.hr_rejected else 'TL'} rejected the request"
     
-    # Still waiting for votes
-    return 'PENDING', 'Waiting for votes'
+    # Check for both approvals
+    if leave.hr_approved and leave.tl_approved:
+        return 'APPROVED', 'Both HR and TL approved'
+    
+    # Otherwise, it's still pending
+    waiting_for = []
+    if not leave.hr_voted: waiting_for.append('HR')
+    if not leave.tl_voted: waiting_for.append('TL')
+    
+    return 'PENDING', f"Waiting for {', '.join(waiting_for)} approval"
 
 # ════════════════════════════════════════════════════════════════════
 #  NOTIFICATIONS (unchanged)

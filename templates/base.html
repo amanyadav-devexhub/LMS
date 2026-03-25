@@ -648,9 +648,13 @@
         {# ── EMPLOYEE ── #}
         {% else %}
             <div class="nav-label">Main</div>
-            <a href="{% url 'employee_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'employee_dashboard' %}active{% endif %}">
-                <span class="nav-icon"><i class="fa-solid fa-clock-rotate-left"></i></span>
+            <a href="{% url 'employee_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'employee_dashboard' and not request.GET.tab or request.GET.tab == 'overview' %}active{% endif %}">
+                <span class="nav-icon"><i class="fa-solid fa-gauge-high"></i></span>
                 <span class="nav-text">Dashboard</span>
+            </a>
+            <a href="{% url 'employee_dashboard' %}?tab=history" class="nav-item {% if request.resolver_match.url_name == 'employee_dashboard' and request.GET.tab == 'history' %}active{% endif %}">
+                <span class="nav-icon"><i class="fa-solid fa-clock-rotate-left"></i></span>
+                <span class="nav-text">Leave History</span>
             </a>
             <a href="{% url 'employee_leave_balance' %}" class="nav-item {% if request.resolver_match.url_name == 'employee_leave_balance' %}active{% endif %}">
                 <span class="nav-icon"><i class="fa-solid fa-wallet"></i></span>
@@ -838,7 +842,11 @@ $(document).on('submit', '.ajax-form', function(e) {
     axios({
         method: method,
         url: url,
-        data: formData
+        data: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json'
+        }
     }).then(response => {
         if (response.data.success) {
             showToast(response.data.message || 'Success', 'success');

@@ -582,6 +582,27 @@
     </div>
 </div>
 
+{# PANEL — Team Leave History #}
+<div class="tl-panel" id="panel-teamhistory">
+    <div class="sc">
+        <div class="sc-head">
+            <div class="sc-hl">
+                <div class="sc-ico" style="background:rgba(108,99,255,.10);color:#6c63ff;border-color:rgba(108,99,255,.18);">
+                    <i class="fa-solid fa-clock-rotate-left"></i>
+                </div>
+                <div>
+                    <div class="sc-ttl">Team Leave History</div>
+                    <div class="sc-sub">All team leave requests · {{ current_year }}</div>
+                </div>
+            </div>
+            <span class="chip ch-in">{{ history_page.paginator.count }} total</span>
+        </div>
+        <div id="teamhistory-list">
+            {% include "partials/tl_team_history.html" %}
+        </div>
+    </div>
+</div>
+
 <script>
 function switchTab(tabId) {
     const panels = document.querySelectorAll('.tl-panel');
@@ -599,6 +620,7 @@ function switchTab(tabId) {
     window.history.replaceState({}, '', url);
 }
 
+$(function() {
     const params = new URLSearchParams(window.location.search);
     const tab = params.get('tab') || 'pending';
     switchTab(tab);

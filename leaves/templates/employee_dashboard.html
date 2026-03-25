@@ -622,151 +622,189 @@
 }
 </style>
 
-<!-- Simplified Hero Section with Apply Button -->
-<div class="dashboard-hero animate-in">
-    <div class="hero-content">
-        <div class="hero-avatar">
-            {{ request.user.first_name|first|upper }}{{ request.user.last_name|first|upper }}
-        </div>
-        <div class="hero-info">
-            <h2>Welcome back, {{ request.user.first_name|default:"Employee" }}</h2>
-            <p><i class="fa-regular fa-envelope"></i> {{ request.user.email }}</p>
-            <div class="hero-badge">
-                <i class="fa-solid fa-briefcase"></i> 
-                {% if profile.designation %}{{ profile.designation }}{% else %}Employee{% endif %}
+<div id="panel-overview" class="employee-panel {% if tab == 'overview' or not tab %}show{% endif %}">
+    <!-- Simplified Hero Section with Apply Button -->
+    <div class="dashboard-hero animate-in">
+        <div class="hero-content">
+            <div class="hero-avatar">
+                {{ request.user.first_name|first|upper }}{{ request.user.last_name|first|upper }}
+            </div>
+            <div class="hero-info">
+                <h2>Welcome back, {{ request.user.first_name|default:"Employee" }}</h2>
+                <p><i class="fa-regular fa-envelope"></i> {{ request.user.email }}</p>
+                <div class="hero-badge">
+                    <i class="fa-solid fa-briefcase"></i> 
+                    {% if profile.designation %}{{ profile.designation }}{% else %}Employee{% endif %}
+                </div>
             </div>
         </div>
-    </div>
-    <a href="{% url 'apply_leave' %}" class="apply-btn-hero">
-        <i class="fa-regular fa-calendar-plus"></i>
-        Apply for Leave
-        <i class="fa-regular fa-arrow-right"></i>
-    </a>
-</div>
-
-<!-- My Leave Balance Section -->
-<div class="leave-breakdown-section animate-in delay-1">
-    <div class="lbs-header">
-        <div class="lbs-title">
-            <div class="lbs-title-icon"><i class="fa-solid fa-wallet"></i></div>
-            My Leave Balance
-        </div>
-        <span class="lbs-year-badge"><i class="fa-regular fa-calendar"></i> {% now "Y" %}</span>
-    </div>
-
-    {% if leave_breakdown %}
-    <div class="lbs-grid">
-        {% for b in leave_breakdown %}
-        <div class="lbs-card">
-            <div class="lbs-card-accent" style="background:{{ b.color }};"></div>
-            <div class="lbs-card-name">{{ b.name }}</div>
-            <div class="lbs-card-remaining">{{ b.remaining|floatformat:1 }}</div>
-            <div class="lbs-card-of">of {{ b.allocated|floatformat:0 }} days allocated</div>
-            <div class="lbs-card-bar-bg">
-                <div class="lbs-card-bar-fill" style="width:{{ b.used_percent }}%;background:{{ b.color }};"></div>
-            </div>
-            <div class="lbs-card-footer">
-                {% if b.is_paid %}
-                    <span class="lbs-paid-tag paid">Paid</span>
-                {% else %}
-                    <span class="lbs-paid-tag unpaid">Unpaid</span>
-                {% endif %}
-                <span class="lbs-used-text">{{ b.used|floatformat:1 }} used</span>
-            </div>
-        </div>
-        {% endfor %}
-    </div>
-
-    <!-- Total row -->
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 24px;border-top:1px solid var(--border);background:linear-gradient(90deg,rgba(0,198,212,0.03),transparent);flex-wrap:wrap;gap:8px;">
-        <div style="font-size:12px;color:var(--text-muted);font-weight:600;">
-            <i class="fa-solid fa-sigma" style="color:var(--aqua-deep);margin-right:6px;"></i>
-            Total Available Balance
-        </div>
-        <div style="font-size:24px;font-weight:800;color:var(--aqua-deep);">
-            {{ total_remaining|default:"0"|floatformat:1 }} days
-        </div>
-    </div>
-    {% else %}
-    <div style="padding:40px;text-align:center;color:var(--text-muted);">
-        <i class="fa-solid fa-chart-simple" style="font-size:48px;margin-bottom:12px;opacity:0.5;"></i>
-        <p>No leave types configured yet.</p>
-    </div>
-    {% endif %}
-</div>
-
-<!-- Leave History Section -->
-<div class="section-card animate-in delay-2">
-    <div class="section-card-header">
-        <div class="section-card-title">
-            <div class="section-title-icon"><i class="fa-regular fa-clock-rotate-left"></i></div>
-            Leave History
-        </div>
-        <span class="section-count">{{ all_leaves_count }} Records</span>
-    </div>
-    <div id="leave-history-container">
-        {% include 'partials/employee_leave_history.html' %}
-    </div>
-</div>
-
-<!-- Employee Details & Quick Actions -->
-<div class="quick-actions">
-    <div class="action-card animate-in delay-3">
-        <div class="action-header">
-            <i class="fa-regular fa-circle-user"></i>
-            <h4>Employee Details</h4>
-        </div>
-        <div class="action-item">
-            <span class="action-label">Department</span>
-            <span class="action-value">{{ profile.department|default:"—" }}</span>
-        </div>
-        <div class="action-item">
-            <span class="action-label">Designation</span>
-            <span class="action-value">{{ profile.designation|default:designation|default:"—" }}</span>
-        </div>
-        <div class="action-item">
-            <span class="action-label">Role</span>
-            <span class="action-value">{{ role_name|default:"Employee" }}</span>
-        </div>
-        <a href="{% url 'dashboard' %}" class="action-link">
-            <span>View Full Profile</span>
+        <a href="{% url 'apply_leave' %}" class="apply-btn-hero">
+            <i class="fa-regular fa-calendar-plus"></i>
+            Apply for Leave
             <i class="fa-regular fa-arrow-right"></i>
         </a>
     </div>
-    
-    <div class="action-card animate-in delay-3">
-        <div class="action-header">
-            <i class="fa-regular fa-bell"></i>
-            <h4>Quick Actions</h4>
+
+    <!-- My Leave Balance Section -->
+    <div class="leave-breakdown-section animate-in delay-1">
+        <div class="lbs-header">
+            <div class="lbs-title">
+                <div class="lbs-title-icon"><i class="fa-solid fa-wallet"></i></div>
+                My Leave Balance
+            </div>
+            <span class="lbs-year-badge"><i class="fa-regular fa-calendar"></i> {% now "Y" %}</span>
         </div>
-        <div class="action-item">
-            <span class="action-label">Notifications</span>
-            <span class="action-value">
-                {% if unread_count|default:0 > 0 %}
-                    <span style="background:var(--danger);color:white;padding:2px 8px;border-radius:30px;font-size:12px;">{{ unread_count }} New</span>
-                {% else %}
-                    None
-                {% endif %}
-            </span>
+
+        {% if leave_breakdown %}
+        <div class="lbs-grid">
+            {% for b in leave_breakdown %}
+            <div class="lbs-card">
+                <div class="lbs-card-accent" style="background:{{ b.color }};"></div>
+                <div class="lbs-card-name">{{ b.name }}</div>
+                <div class="lbs-card-remaining">{{ b.remaining|floatformat:1 }}</div>
+                <div class="lbs-card-of">of {{ b.allocated|floatformat:0 }} days allocated</div>
+                <div class="lbs-card-bar-bg">
+                    <div class="lbs-card-bar-fill" style="width:{{ b.used_percent }}%;background:{{ b.color }};"></div>
+                </div>
+                <div class="lbs-card-footer">
+                    {% if b.is_paid %}
+                        <span class="lbs-paid-tag paid">Paid</span>
+                    {% else %}
+                        <span class="lbs-paid-tag unpaid">Unpaid</span>
+                    {% endif %}
+                    <span class="lbs-used-text">{{ b.used|floatformat:1 }} used</span>
+                </div>
+            </div>
+            {% endfor %}
         </div>
-        <div class="action-item">
-            <span class="action-label">Total Available</span>
-            <span class="action-value">{{ total_remaining|default:available_balance|default:"0" }} days</span>
+
+        <!-- Total row -->
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 24px;border-top:1px solid var(--border);background:linear-gradient(90deg,rgba(0,198,212,0.03),transparent);flex-wrap:wrap;gap:8px;">
+            <div style="font-size:12px;color:var(--text-muted);font-weight:600;">
+                <i class="fa-solid fa-sigma" style="color:var(--aqua-deep);margin-right:6px;"></i>
+                Total Available Balance
+            </div>
+            <div style="font-size:24px;font-weight:800;color:var(--aqua-deep);">
+                {{ total_remaining|default:"0"|floatformat:1 }} days
+            </div>
         </div>
-        <div class="action-item">
-            <span class="action-label">Leave Types</span>
-            <span class="action-value">{{ leave_breakdown|length|default:"0" }} configured</span>
+        {% else %}
+        <div style="padding:40px;text-align:center;color:var(--text-muted);">
+            <i class="fa-solid fa-chart-simple" style="font-size:48px;margin-bottom:12px;opacity:0.5;"></i>
+            <p>No leave types configured yet.</p>
         </div>
-        <a href="{% url 'apply_leave' %}" class="action-link">
-            <span>Apply for Leave</span>
-            <i class="fa-regular fa-arrow-right"></i>
-        </a>
+        {% endif %}
+    </div>
+
+    <!-- Employee Details & Quick Actions -->
+    <div class="quick-actions">
+        <div class="action-card animate-in delay-2">
+            <div class="action-header">
+                <i class="fa-regular fa-circle-user"></i>
+                <h4>Employee Details</h4>
+            </div>
+            <div class="action-item">
+                <span class="action-label">Department</span>
+                <span class="action-value">{{ profile.department|default:"—" }}</span>
+            </div>
+            <div class="action-item">
+                <span class="action-label">Designation</span>
+                <span class="action-value">{{ profile.designation|default:designation|default:"—" }}</span>
+            </div>
+            <div class="action-item">
+                <span class="action-label">Role</span>
+                <span class="action-value">{{ role_name|default:"Employee" }}</span>
+            </div>
+            <a href="{% url 'dashboard' %}" class="action-link">
+                <span>View Full Profile</span>
+                <i class="fa-regular fa-arrow-right"></i>
+            </a>
+        </div>
+        
+        <div class="action-card animate-in delay-2">
+            <div class="action-header">
+                <i class="fa-regular fa-bell"></i>
+                <h4>Quick Actions</h4>
+            </div>
+            <div class="action-item">
+                <span class="action-label">Notifications</span>
+                <span class="action-value">
+                    {% if unread_count|default:0 > 0 %}
+                        <span style="background:var(--danger);color:white;padding:2px 8px;border-radius:30px;font-size:12px;">{{ unread_count }} New</span>
+                    {% else %}
+                        None
+                    {% endif %}
+                </span>
+            </div>
+            <div class="action-item">
+                <span class="action-label">Total Available</span>
+                <span class="action-value">{{ total_remaining|default:available_balance|default:"0" }} days</span>
+            </div>
+            <div class="action-item">
+                <span class="action-label">Leave Types</span>
+                <span class="action-value">{{ leave_breakdown|length|default:"0" }} configured</span>
+            </div>
+            <a href="{% url 'apply_leave' %}" class="action-link">
+                <span>Apply for Leave</span>
+                <i class="fa-regular fa-arrow-right"></i>
+            </a>
+        </div>
     </div>
 </div>
+
+<div id="panel-history" class="employee-panel {% if tab == 'history' %}show{% endif %}">
+    <!-- Leave History Section -->
+    <div class="section-card animate-in">
+        <div class="section-card-header">
+            <div class="section-card-title">
+                <div class="section-title-icon"><i class="fa-regular fa-clock-rotate-left"></i></div>
+                Detailed Leave History
+            </div>
+            <span class="section-count">{{ all_leaves_count }} Records</span>
+        </div>
+        <div id="leave-history-container">
+            {% include 'partials/employee_leave_history.html' %}
+        </div>
+    </div>
+</div>
+
+<style>
+.employee-panel { display: none; }
+.employee-panel.show { display: block; }
+</style>
 
 <script>
+function switchTab(tabId) {
+    document.querySelectorAll('.employee-panel').forEach(p => p.classList.remove('show'));
+    const target = document.getElementById('panel-' + tabId);
+    if(target) target.classList.add('show');
+    
+    // Update URL without reload
+    const url = new URL(window.location);
+    url.searchParams.set('tab', tabId);
+    window.history.replaceState({}, '', url);
+
+    // Update Sidebar highlight if needed (though base.html handle active based on URL name mostly)
+}
+
+$(function() {
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get('tab');
+    if(tab) switchTab(tab);
+});
+
+// AJAX Pagination link compatibility
+$(document).on('click', '.pg-btn', function(e) {
+    if($(this).hasClass('ajax-pagination')) {
+        e.preventDefault();
+        // ... handled by your existing ajax pagination if any
+    }
+});
+
 function loadPage(p) {
-    window.location.href = '?page=' + p;
+    const params = new URLSearchParams(window.location.search);
+    params.set('page', p);
+    window.location.href = '?' + params.toString();
 }
 </script>
 {% endblock %}
