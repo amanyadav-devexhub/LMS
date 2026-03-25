@@ -2160,7 +2160,7 @@ def holiday_list(request):
         "total_days":     sum(h.duration for h in holidays),
         "months":         [(i, month_name[i]) for i in range(1, 13)],
     }
-    return render(request, "leaves/holiday_list.html", context)
+    return render(request, "holiday_list.html", context)
 
 
 @login_required
@@ -2522,7 +2522,7 @@ def admin_leave_policy(request):
         'profile':           _build_profile_context(request.user),
         'pending_count':     LeaveRequest.objects.filter(status="PENDING").count(),
     }
-    return render(request, "leaves/admin_leave_policy.html", context)
+    return render(request, "admin_leave_policy.html", context)
 
 
 @login_required
