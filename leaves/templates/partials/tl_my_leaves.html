@@ -1,0 +1,52 @@
+{% if my_leaves_page.object_list %}
+<table class="tt">
+    <thead>
+        <tr><th>Type</th><th>Duration</th><th>From</th><th>To</th><th>Status</th></tr>
+    </thead>
+    <tbody>
+    {% for leave in my_leaves_page %}
+        <tr>
+            <td><span class="badge badge-info">{{ leave.leave_type }}</span></td>
+            <td>{% if leave.duration == "FULL" %}Full Day{% elif leave.duration == "HALF" %}Half Day{% else %}Short{% endif %}</td>
+            <td>{{ leave.start_date|date:"d M Y" }}</td>
+            <td>{{ leave.end_date|date:"d M Y" }}</td>
+            <td>
+                {% if leave.status == "APPROVED" %}<span class="badge badge-approved">Approved</span>
+                {% elif leave.status == "REJECTED" %}<span class="badge badge-rejected">Rejected</span>
+                {% else %}<span class="badge badge-pending">Pending</span>{% endif %}
+            </td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+
+{% if my_leaves_page.has_other_pages %}
+<div class="pgn" id="myleaves-pagination">
+    <span class="pgn-info">{{ my_leaves_page.start_index }}–{{ my_leaves_page.end_index }} of {{ my_leaves_page.paginator.count }}</span>
+    <div class="pgn-btns">
+        {% if my_leaves_page.has_previous %}
+            <a href="?mypage={{ my_leaves_page.previous_page_number }}&tab=myleaves" class="pb ajax-pagination" data-target="myleaves-list" data-param="mypage">
+                <i class="fa-solid fa-chevron-left"></i>
+            </a>
+        {% else %}
+            <span class="pb off"><i class="fa-solid fa-chevron-left"></i></span>
+        {% endif %}
+        
+        {% if my_leaves_page.has_next %}
+            <a href="?mypage={{ my_leaves_page.next_page_number }}&tab=myleaves" class="pb ajax-pagination" data-target="myleaves-list" data-param="mypage">
+                <i class="fa-solid fa-chevron-right"></i>
+            </a>
+        {% else %}
+            <span class="pb off"><i class="fa-solid fa-chevron-right"></i></span>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+{% else %}
+<div class="emp">
+    <div class="emp-ico"><i class="fa-solid fa-calendar-xmark"></i></div>
+    <div class="emp-ttl">No Leaves Yet</div>
+    <div class="emp-sub">You haven't applied for any leaves yet.</div>
+</div>
+{% endif %}

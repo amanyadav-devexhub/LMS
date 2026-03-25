@@ -433,90 +433,9 @@
             {% else %}<span class="chip ch-in">All clear</span>{% endif %}
         </div>
 
-        {% if leaves %}
-            {% for leave in leaves %}
-            <div class="lr">
-                <div class="lrav">{{ leave.employee.first_name|first|upper }}{{ leave.employee.last_name|first|upper }}</div>
-                <div class="lr-info">
-                    <div class="lr-nm">{{ leave.employee.get_full_name|default:leave.employee.username }}</div>
-                    <div class="lr-mt">
-                        {{ leave.leave_type|capfirst }} ·
-                        {% if leave.duration == "FULL" %}Full Day
-                        {% elif leave.duration == "HALF" %}Half Day
-                        {% elif leave.duration == "SHORT" %}Short ({{ leave.short_hours }}h)
-                        {% else %}{{ leave.duration }}{% endif %}
-                        · {{ leave.start_date|date:"d M Y" }}{% if leave.start_date != leave.end_date %} → {{ leave.end_date|date:"d M Y" }}{% endif %}
-                    </div>
-                    {% if leave.reason %}
-                    <div class="lr-mt" style="margin-top: 4px; color: var(--text-muted);">
-                        <i class="fa-regular fa-message"></i> {{ leave.reason|truncatechars:60 }}
-                    </div>
-                    {% endif %}
-                    {% if leave.paid_days > 0 or leave.unpaid_days > 0 %}
-                    <div class="lr-mt" style="margin-top: 2px;">
-                        {% if leave.paid_days > 0 %}<span style="color:var(--success);">💰 {{ leave.paid_days }} paid</span>{% endif %}
-                        {% if leave.unpaid_days > 0 %}<span style="color:var(--danger); margin-left: 8px;">⚠️ {{ leave.unpaid_days }} unpaid</span>{% endif %}
-                    </div>
-                    {% endif %}
-                </div>
-                
-                <div class="lr-acts">
-                    {% if leave.final_status == 'PENDING' %}
-                        {% if not leave.tl_voted %}
-                            <form method="POST" action="{% url 'approve_leave' leave.id %}" style="margin:0;display:inline;">
-                                {% csrf_token %}
-                                <button class="ab ab-ok" title="Approve"><i class="fa-solid fa-check"></i></button>
-                            </form>
-                            <form method="POST" action="{% url 'reject_leave' leave.id %}" style="margin:0;display:inline;">
-                                {% csrf_token %}
-                                <button class="ab ab-no" title="Reject"
-                                    onclick="return confirm('Reject leave for {{ leave.employee.first_name }}?')">
-                                    <i class="fa-solid fa-xmark"></i>
-                                </button>
-                            </form>
-                        {% else %}
-                            <span class="chip ch-in">✓ Voted</span>
-                        {% endif %}
-                    {% else %}
-                        {% if leave.final_status == 'APPROVED' %}
-                            <span class="chip ch-gn">Approved</span>
-                        {% elif leave.final_status == 'REJECTED' %}
-                            <span class="chip ch-rd">Rejected</span>
-                        {% endif %}
-                    {% endif %}
-                </div>
-            </div>
-            {% endfor %}
-            
-            {% if leaves.has_other_pages %}
-            <div class="pgn">
-                <span class="pgn-info">{{ leaves.start_index }}–{{ leaves.end_index }} of {{ leaves.paginator.count }}</span>
-                <div class="pgn-btns">
-                    {% if leaves.has_previous %}
-                        <a href="?page={{ leaves.previous_page_number }}&tab=pending" class="pb">
-                            <i class="fa-solid fa-chevron-left"></i>
-                        </a>
-                    {% else %}
-                        <span class="pb off"><i class="fa-solid fa-chevron-left"></i></span>
-                    {% endif %}
-                    
-                    {% if leaves.has_next %}
-                        <a href="?page={{ leaves.next_page_number }}&tab=pending" class="pb">
-                            <i class="fa-solid fa-chevron-right"></i>
-                        </a>
-                    {% else %}
-                        <span class="pb off"><i class="fa-solid fa-chevron-right"></i></span>
-                    {% endif %}
-                </div>
-            </div>
-            {% endif %}
-        {% else %}
-        <div class="emp">
-            <div class="emp-ico"><i class="fa-solid fa-check-double"></i></div>
-            <div class="emp-ttl">All Caught Up!</div>
-            <div class="emp-sub">No pending leave requests from your team.</div>
+        <div id="pending-list">
+            {% include "partials/tl_pending_leaves.html" %}
         </div>
-        {% endif %}
     </div>
 </div>
 
@@ -657,34 +576,9 @@
             </div>
             <span class="chip ch-in">{{ my_leaves_page.paginator.count }} total</span>
         </div>
-        {% if my_leaves_page.object_list %}
-        <table class="tt">
-            <thead>
-                <tr><th>Type</th><th>Duration</th><th>From</th><th>To</th><th>Status</th></tr>
-            </thead>
-            <tbody>
-            {% for leave in my_leaves_page %}
-                <tr>
-                    <td><span class="badge badge-info">{{ leave.leave_type }}</span></td>
-                    <td>{% if leave.duration == "FULL" %}Full Day{% elif leave.duration == "HALF" %}Half Day{% else %}Short{% endif %}</td>
-                    <td>{{ leave.start_date|date:"d M Y" }}</td>
-                    <td>{{ leave.end_date|date:"d M Y" }}</td>
-                    <td>
-                        {% if leave.status == "APPROVED" %}<span class="badge badge-approved">Approved</span>
-                        {% elif leave.status == "REJECTED" %}<span class="badge badge-rejected">Rejected</span>
-                        {% else %}<span class="badge badge-pending">Pending</span>{% endif %}
-                    </td>
-                </tr>
-            {% endfor %}
-            </tbody>
-        </table>
-        {% else %}
-        <div class="emp">
-            <div class="emp-ico"><i class="fa-solid fa-calendar-xmark"></i></div>
-            <div class="emp-ttl">No Leaves Yet</div>
-            <div class="emp-sub">You haven't applied for any leaves yet.</div>
+        <div id="myleaves-list">
+            {% include "partials/tl_my_leaves.html" %}
         </div>
-        {% endif %}
     </div>
 </div>
 
@@ -705,10 +599,65 @@ function switchTab(tabId) {
     window.history.replaceState({}, '', url);
 }
 
-window.addEventListener('DOMContentLoaded', () => {
     const params = new URLSearchParams(window.location.search);
     const tab = params.get('tab') || 'pending';
     switchTab(tab);
+});
+
+// AJAX Pagination
+$(document).on('click', '.ajax-pagination', function(e) {
+    e.preventDefault();
+    const $link = $(this);
+    const url = $link.attr('href');
+    const targetId = $link.data('target');
+    const $target = $('#' + targetId);
+
+    $target.css('opacity', '0.5');
+
+    fetch(url, {
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            $target.html(data.html).css('opacity', '1');
+            // Update URL without reload
+            window.history.replaceState({}, '', url);
+        }
+    })
+    .catch(err => {
+        console.error('Pagination error:', err);
+        $target.css('opacity', '1');
+    });
+});
+
+// Handle AJAX success for forms (approvals/rejections)
+$(document).on('ajax:success', '.ajax-form', function(e, data) {
+    if (data.success) {
+        $(this).closest('.lr').fadeOut(400, function() {
+            $(this).remove();
+            // Update badges
+            const badge = $('#sc-pending .chip.ch-am');
+            if (badge.length) {
+                let countStr = badge.text().match(/\d+/);
+                if (countStr) {
+                    let count = parseInt(countStr[0]);
+                    if (count > 1) {
+                        badge.text((count - 1) + ' waiting');
+                    } else {
+                        badge.removeClass('ch-am').addClass('ch-in').text('All clear');
+                    }
+                }
+            }
+            // Update sidebar badge if it exists
+            const sideBadge = $('.nav-item.active .nav-badge');
+            if (sideBadge.length) {
+                let count = parseInt(sideBadge.text());
+                if (count > 1) sideBadge.text(count - 1);
+                else sideBadge.remove();
+            }
+        });
+    }
 });
 </script>
 {% endblock %}

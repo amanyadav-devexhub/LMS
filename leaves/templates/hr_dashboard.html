@@ -431,13 +431,13 @@
         {% if leave.final_status == 'PENDING' %}
           {% if request.user.role.name == 'HR' %}
             {% if not leave.hr_voted %}
-              <form method="POST" action="{% url 'approve_leave' leave.id %}" style="display:inline;">
+              <form method="POST" action="{% url 'approve_leave' leave.id %}" class="ajax-form" style="display:inline;">
                 {% csrf_token %}
                 <button type="submit" class="btn btn-success btn-sm" title="Approve" style="padding: 6px 12px;">
                   <i class="fa-solid fa-check"></i> Approve
                 </button>
               </form>
-              <form method="POST" action="{% url 'reject_leave' leave.id %}" style="display:inline;">
+              <form method="POST" action="{% url 'reject_leave' leave.id %}" class="ajax-form" style="display:inline;">
                 {% csrf_token %}
                 <button type="submit" class="btn btn-danger btn-sm" title="Reject" 
                         onclick="return confirm('Reject this leave request?')"
@@ -513,7 +513,39 @@
 {% block extra_scripts %}
 <script>
 
-// Add this at the end
+// Handle AJAX success to remove the row
+$(document).on('ajax:success', '.ajax-form', function(e, data) {
+    if (data.success) {
+        const row = $(this).closest('.pr');
+        row.fadeOut(400, function() {
+            $(this).remove();
+            
+            // Update Stat Cards and Badges
+            updateCount($('.sc[style*="#f5a623"] .sc-val')); // Pending Approvals card
+            updateCount($('.b-metric-val[style*="var(--warning)"]')); // Banner metric
+            updateCount($('.b-pill strong').eq(1)); // Banner pill
+            
+            // Check if queue is empty
+            if ($('.scroll-3 .pr').length === 0) {
+                $('.scroll-3').html(`
+                    <div class="empty-state" style="padding:40px 20px;">
+                        <div class="empty-icon"><i class="fa-solid fa-inbox"></i></div>
+                        <div class="empty-title">All Clear!</div>
+                        <p style="font-size:12px;color:var(--text-muted);margin-top:4px;">No pending approvals.</p>
+                    </div>
+                `);
+                $('.badge-pending').removeClass('badge-pending').addClass('badge-approved').text('All clear');
+            }
+        });
+    }
+});
+
+function updateCount(el) {
+    if (el.length) {
+        let count = parseInt(el.text());
+        if (!isNaN(count) && count > 0) el.text(count - 1);
+    }
+}
 
 </script>
 {% endblock %}

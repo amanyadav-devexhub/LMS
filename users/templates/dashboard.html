@@ -1078,22 +1078,50 @@
     }
   }
 
-  function showToast(msg, isError) {
-    const toast = document.getElementById('pToast');
-    const ico   = document.getElementById('toastIco');
-    document.getElementById('toastMsg').textContent = msg || 'Saved!';
-    if (isError) {
-      ico.style.background = 'rgba(239,68,68,.12)';
-      ico.innerHTML = '<i class="fa-solid fa-circle-xmark" style="color:#ef4444;"></i>';
-      toast.style.borderColor = '#fca5a5';
-    } else {
-      ico.style.background = 'rgba(5,201,138,.12)';
-      ico.innerHTML = '<i class="fa-solid fa-circle-check" style="color:#05c98a;"></i>';
-      toast.style.borderColor = 'var(--bd)';
-    }
-    toast.classList.add('show');
-    setTimeout(() => toast.classList.remove('show'), 3500);
-  }
+  // AJAX Form Submission
+  $(document).ready(function() {
+    $('.edit-form').on('submit', function(e) {
+      e.preventDefault();
+      const $form = $(this);
+      const url = $form.attr('action');
+      const formData = new FormData(this);
+
+      // Disable button
+      const $btn = $form.find('button[type="submit"]');
+      const originalBtnHtml = $btn.html();
+      $btn.prop('disabled', true).html('<i class="fa-solid fa-spinner fa-spin"></i> Saving...');
+
+      $.ajax({
+        url: url,
+        type: 'POST',
+        data: formData,
+        processData: false,
+        contentType: false,
+        success: function(response) {
+          showToast(response.message || 'Profile updated successfully!', false);
+          // Toggle edit mode off if it was successful
+          if ($form.attr('id') === 'edit-basic-emp') {
+            toggleEmpEdit();
+          } else {
+            // Find the section name from hidden input
+            const section = $form.find('input[name="section"]').val();
+            if (section) toggleHrEdit(section);
+          }
+          // Optionally reload the page after a short delay to see updated data,
+          // or we could manually update the view labels. 
+          // For now, let's reload to ensure all UI components reflect the changes.
+          setTimeout(() => window.location.reload(), 1500);
+        },
+        error: function(xhr) {
+          const msg = xhr.responseJSON ? xhr.responseJSON.message : 'Error updating profile';
+          showToast(msg, true);
+        },
+        complete: function() {
+          $btn.prop('disabled', false).html(originalBtnHtml);
+        }
+      });
+    });
+  });
 
   {% if messages %}{% for message in messages %}
   window.addEventListener('DOMContentLoaded', () => {

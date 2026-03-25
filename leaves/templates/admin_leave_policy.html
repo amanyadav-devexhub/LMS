@@ -212,7 +212,7 @@
   </div>
   <div class="sb-right">
     <!-- APPLY ALL TO EMPLOYEES -->
-    <form method="POST" action="{% url 'admin_apply_to_all_employees' %}" style="display:inline;">
+    <form method="POST" action="{% url 'admin_apply_to_all_employees' %}" class="ajax-form" style="display:inline;">
       {% csrf_token %}
       <input type="hidden" name="force_update" value="on">
       <button type="submit" class="btn btn-primary"
@@ -373,7 +373,7 @@
                   <i class="fa-solid fa-pen-to-square"></i>
                 </button>
                 <!-- Toggle active/inactive -->
-                <form method="POST" action="{% url 'admin_leave_type_toggle' lt.id %}" style="margin:0;">
+                <form method="POST" action="{% url 'admin_leave_type_toggle' lt.id %}" class="ajax-form" style="margin:0;">
                   {% csrf_token %}
                   <button type="submit"
                           class="btn btn-sm {% if lt.is_active %}btn-danger{% else %}btn-success{% endif %}"
@@ -383,7 +383,7 @@
                   </button>
                 </form>
                 <!-- ★ Delete -->
-                <form method="POST" action="{% url 'admin_leave_type_delete' lt.id %}" style="margin:0;">
+                <form method="POST" action="{% url 'admin_leave_type_delete' lt.id %}" class="ajax-form delete-form" style="margin:0;">
                   {% csrf_token %}
                   <button type="submit"
                           class="btn btn-sm btn-danger"
@@ -465,7 +465,7 @@
               <i class="fa-solid fa-pen-to-square"></i> Edit
             </button>
             <!-- ★ Toggle active/inactive -->
-            <form method="POST" action="{% url 'admin_policy_toggle' policy.id %}" style="margin:0;display:inline;">
+            <form method="POST" action="{% url 'admin_policy_toggle' policy.id %}" class="ajax-form" style="margin:0;display:inline;">
               {% csrf_token %}
               <button type="submit"
                       class="btn btn-sm {% if policy.is_active %}btn-danger{% else %}btn-success{% endif %}"
@@ -475,7 +475,7 @@
               </button>
             </form>
             <!-- ★ Delete -->
-            <form method="POST" action="{% url 'admin_policy_delete' policy.id %}" style="margin:0;display:inline;">
+            <form method="POST" action="{% url 'admin_policy_delete' policy.id %}" class="ajax-form delete-form" style="margin:0;display:inline;">
               {% csrf_token %}
               <button type="submit"
                       class="btn btn-sm btn-danger"
@@ -534,7 +534,7 @@
       <button onclick="closeModal('create-lt-modal')" class="icon-btn"><i class="fa-solid fa-xmark"></i></button>
     </div>
 
-    <form method="POST" action="{% url 'admin_leave_type_save' %}">
+    <form method="POST" action="{% url 'admin_leave_type_save' %}" class="ajax-form refresh-on-success">
       {% csrf_token %}
       <input type="hidden" name="lt_id" id="lt-id-field">
 
@@ -693,7 +693,7 @@
       <button onclick="closeModal('create-policy-modal')" class="icon-btn"><i class="fa-solid fa-xmark"></i></button>
     </div>
 
-    <form method="POST" action="{% url 'admin_policy_save' %}">
+    <form method="POST" action="{% url 'admin_policy_save' %}" class="ajax-form refresh-on-success">
       {% csrf_token %}
       <input type="hidden" name="policy_id" id="policy-id-field">
 
@@ -790,6 +790,48 @@ function closeModal(id) {
     document.getElementById('policy-save-btn-text').textContent = 'Create Policy';
   }
 }
+
+// Handle AJAX success updates
+$(document).on('ajax:success', '.ajax-form', function(e, data) {
+    if (data.success) {
+        const form = $(this);
+        
+        // Handle Row/Card Removal
+        if (form.hasClass('delete-form')) {
+            form.closest('tr, .policy-card').fadeOut(400, function() {
+                $(this).remove();
+            });
+            return;
+        }
+        
+        // Handle Toggle Updates (Active/Inactive)
+        if (data.hasOwnProperty('is_active')) {
+            const isActive = data.is_active;
+            const rowOrCard = form.closest('tr, .policy-card');
+            
+            // Update Toggle Button
+            const btn = form.find('button[type="submit"]');
+            btn.removeClass('btn-danger btn-success').addClass(isActive ? 'btn-danger' : 'btn-success');
+            btn.find('i').removeClass('fa-toggle-on fa-toggle-off').addClass(isActive ? 'fa-toggle-on' : 'fa-toggle-off');
+            
+            // Update Status Tag
+            const tag = rowOrCard.find('.tag-on, .tag-off');
+            if (isActive) {
+                tag.removeClass('tag-off').addClass('tag-on').html('<i class="fa-solid fa-circle" style="font-size:6px;"></i> Active');
+            } else {
+                tag.removeClass('tag-on').addClass('tag-off').html('<i class="fa-solid fa-circle" style="font-size:6px;"></i> Inactive');
+            }
+        }
+        
+        // Handle Page Refresh for complex saves
+        if (form.hasClass('refresh-on-success')) {
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        }
+    }
+});
+
 document.querySelectorAll('[id$="-modal"]').forEach(m => {
   m.addEventListener('click', function(e) { if (e.target === this) closeModal(this.id); });
 });

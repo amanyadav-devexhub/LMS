@@ -473,88 +473,9 @@
             <span class="chip ch-in">{{ pending_count }} Total</span>
         </div>
         
-        {% if pending_page %}
-            {% for leave in pending_page %}
-            <div class="lr">
-                <div class="lrav">{{ leave.employee.first_name|first|upper }}{{ leave.employee.last_name|first|upper }}</div>
-                <div class="lr-info">
-                    <div class="lr-nm">{{ leave.employee.get_full_name|default:leave.employee.username }}</div>
-                    <div class="lr-mt">
-                        <span style="color:#0d6efd;font-weight:700;">{{ leave.employee.department|default:"No Dept" }}</span> · 
-                        {{ leave.leave_type|capfirst }} · {{ leave.start_date|date:"d M Y" }}{% if leave.start_date != leave.end_date %} → {{ leave.end_date|date:"d M Y" }}{% endif %}
-                    </div>
-                    {% if leave.reason %}
-                    <div class="lr-mt" style="margin-top: 4px; color: var(--text-muted);">
-                        <i class="fa-regular fa-message"></i> {{ leave.reason|truncatechars:80 }}
-                    </div>
-                    {% endif %}
-                    {% if leave.paid_days > 0 or leave.unpaid_days > 0 %}
-                    <div class="lr-mt" style="margin-top: 2px;">
-                        {% if leave.paid_days > 0 %}<span style="color:var(--success);">💰 {{ leave.paid_days }} paid</span>{% endif %}
-                        {% if leave.unpaid_days > 0 %}<span style="color:var(--danger); margin-left: 8px;">⚠️ {{ leave.unpaid_days }} unpaid</span>{% endif %}
-                    </div>
-                    {% endif %}
-                </div>
-                
-                <div class="lr-acts">
-                    {% if leave.final_status == 'PENDING' %}
-                        {% if not leave.manager_voted %}
-                            <form method="POST" action="{% url 'approve_leave' leave.id %}" style="margin:0;display:inline;">
-                                {% csrf_token %}
-                                <button class="ab ab-ok" title="Approve" style="width: 36px; height: 36px;">
-                                    <i class="fa-solid fa-check fa-lg"></i>
-                                </button>
-                            </form>
-                            <form method="POST" action="{% url 'reject_leave' leave.id %}" style="margin:0;display:inline;">
-                                {% csrf_token %}
-                                <button class="ab ab-no" title="Reject" style="width: 36px; height: 36px;"
-                                        onclick="return confirm('Reject this leave request?')">
-                                    <i class="fa-solid fa-xmark fa-lg"></i>
-                                </button>
-                            </form>
-                        {% else %}
-                            <span class="chip ch-in">✓ Voted</span>
-                        {% endif %}
-                    {% else %}
-                        {% if leave.final_status == 'APPROVED' %}
-                            <span class="chip ch-gn">Approved</span>
-                        {% else %}
-                            <span class="chip ch-rd">Rejected</span>
-                        {% endif %}
-                    {% endif %}
-                </div>
-            </div>
-            {% endfor %}
-            
-            {% if pending_page.has_other_pages %}
-            <div class="pgn">
-                <span style="font-size:11px;color:var(--text-muted);">Page {{ pending_page.number }} of {{ pending_page.paginator.num_pages }}</span>
-                <div style="display:flex;gap:4px;">
-                    {% if pending_page.has_previous %}
-                        <a href="?page={{ pending_page.previous_page_number }}&tab=pending" class="pb">
-                            <i class="fa-solid fa-chevron-left"></i>
-                        </a>
-                    {% else %}
-                        <span class="pb off"><i class="fa-solid fa-chevron-left"></i></span>
-                    {% endif %}
-                    
-                    {% if pending_page.has_next %}
-                        <a href="?page={{ pending_page.next_page_number }}&tab=pending" class="pb">
-                            <i class="fa-solid fa-chevron-right"></i>
-                        </a>
-                    {% else %}
-                        <span class="pb off"><i class="fa-solid fa-chevron-right"></i></span>
-                    {% endif %}
-                </div>
-            </div>
-            {% endif %}
-        {% else %}
-            <div class="emp">
-                <div class="emp-ico"><i class="fa-solid fa-check-double"></i></div>
-                <div class="emp-ttl">Queue is Empty</div>
-                <div class="emp-sub">No pending leave requests at the moment.</div>
-            </div>
-        {% endif %}
+        <div id="pending-list">
+            {% include "partials/mgr_pending_leaves.html" %}
+        </div>
     </div>
 </div>
 
@@ -649,71 +570,9 @@
                 <div class="sc-ttl">Team history ({{ current_year }})</div>
             </div>
         </div>
-        {% if team_history_page %}
-            <table class="tt">
-                <thead>
-                    <tr><th>Employee</th><th>Date</th><th>Type</th><th>Status</th></tr>
-                </thead>
-                <tbody>
-                    {% for leave in team_history_page %}
-                    <tr>
-                        <td><strong>{{ leave.employee.first_name }} {{ leave.employee.last_name }}</strong></td>
-                        <td>{{ leave.start_date|date:"d M Y" }}</td>
-                        <td>{{ leave.leave_type|capfirst }}</td>
-                        <td>
-                            {% if leave.status == 'APPROVED' %}<span class="chip ch-gn">Approved</span>
-                            {% elif leave.status == 'REJECTED' %}<span class="chip ch-rd">Rejected</span>
-                            {% else %}<span class="chip ch-am">Pending</span>{% endif %}
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-            {% if team_history_page.has_other_pages %}
-            <div class="pgn">
-                <span>{{ team_history_page.start_index }}–{{ team_history_page.end_index }} of {{ team_history_page.paginator.count }}</span>
-                <div style="display:flex;gap:4px;">
-                    {% if team_history_page.has_previous %}
-                        <a href="?hpage={{ team_history_page.previous_page_number }}&tab=history" class="pb">
-                            <i class="fa-solid fa-chevron-left"></i>
-                        </a>
-                    {% else %}
-                        <span class="pb off"><i class="fa-solid fa-chevron-left"></i></span>
-                    {% endif %}
-                    
-                    {% if team_history_page.has_next %}
-                        <a href="?hpage={{ team_history_page.next_page_number }}&tab=history" class="pb">
-                            <i class="fa-solid fa-chevron-right"></i>
-                        </a>
-                    {% else %}
-                        <span class="pb off"><i class="fa-solid fa-chevron-right"></i></span>
-                    {% endif %}
-                </div>
-            </div>
-            {% endif %}
-        {% else %}
-            <div class="emp"><div class="emp-ttl">No Activity Recorded</div></div>
-        {% endif %}
-    </div>
-
-    <div class="sec-label">My Own Leaves</div>
-    <div class="sc">
-        {% if my_leaves_page %}
-            {% for leave in my_leaves_page %}
-            <div class="lr">
-                <div class="lrav" style="background:#6c757d;">{{ leave.leave_type|first }}</div>
-                <div class="lr-info">
-                    <div class="lr-nm">{{ leave.leave_type|capfirst }}</div>
-                    <div class="lr-mt">{{ leave.start_date|date:"d M Y" }} {% if leave.end_date != leave.start_date %}→ {{ leave.end_date|date:"d M Y" }}{% endif %}</div>
-                </div>
-                {% if leave.status == 'APPROVED' %}<span class="chip ch-gn">Approved</span>
-                {% elif leave.status == 'REJECTED' %}<span class="chip ch-rd">Rejected</span>
-                {% else %}<span class="chip ch-am">Pending</span>{% endif %}
-            </div>
-            {% endfor %}
-        {% else %}
-            <div class="emp"><div class="emp-ttl">No Leaves</div></div>
-        {% endif %}
+        <div id="history-list">
+            {% include "partials/mgr_team_history.html" %}
+        </div>
     </div>
 </div>
 
@@ -783,10 +642,54 @@ function switchTab(tabId) {
     window.history.replaceState({}, '', url);
 }
 
-window.addEventListener('DOMContentLoaded', () => {
     const params = new URLSearchParams(window.location.search);
     const tab = params.get('tab') || 'pending';
     switchTab(tab);
+});
+
+// AJAX Pagination
+$(document).on('click', '.ajax-pagination', function(e) {
+    e.preventDefault();
+    const $link = $(this);
+    const url = $link.attr('href');
+    const targetId = $link.data('target');
+    const $target = $('#' + targetId);
+
+    $target.css('opacity', '0.5');
+
+    fetch(url, {
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            $target.html(data.html).css('opacity', '1');
+            window.history.replaceState({}, '', url);
+        }
+    })
+    .catch(err => {
+        console.error('Pagination error:', err);
+        $target.css('opacity', '1');
+    });
+});
+
+// Handle AJAX success for forms
+$(document).on('ajax:success', '.ajax-form', function(e, data) {
+    if (data.success) {
+        $(this).closest('.lr').fadeOut(400, function() {
+            $(this).remove();
+            
+            // Update Stat Card count
+            const badge = $('#stat-pending .s-val');
+            let count = parseInt(badge.text());
+            if (!isNaN(count) && count > 0) badge.text(count - 1);
+
+            // Update Hero count
+            const heroCount = $('.hn-val').first();
+            let hCount = parseInt(heroCount.text());
+            if (!isNaN(hCount) && hCount > 0) heroCount.text(hCount - 1);
+        });
+    }
 });
 </script>
 {% endblock %}

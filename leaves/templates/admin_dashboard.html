@@ -910,7 +910,7 @@
                 <a href="{% url 'employee_detail' emp.pk %}" class="btn btn-ghost btn-sm" title="View">
                   <i class="fa-solid fa-eye"></i>
                 </a>
-                <form method="POST" action="{% url 'toggle_employee_status' emp.id %}" style="margin:0;">
+                <form method="POST" action="{% url 'toggle_employee_status' emp.id %}" class="ajax-form" style="margin:0;">
                   {% csrf_token %}
                   <button type="submit"
                           class="btn btn-sm toggle-status-btn {% if emp.is_active %}btn-danger{% else %}btn-success{% endif %}"
@@ -1181,7 +1181,7 @@
               class="icon-btn"><i class="fa-solid fa-xmark"></i></button>
     </div>
 
-    <form method="POST" action="{% url 'create_employee' %}">
+    <form method="POST" action="{% url 'create_employee' %}" class="ajax-form redirect-on-success">
       {% csrf_token %}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
         <div class="form-group">
@@ -1258,6 +1258,7 @@ function renderEmployeeRow(emp) {
   const deptHtml    = emp.department
     ? `<span style="font-size:10.5px;color:var(--text-faint);"><i class="fa-solid fa-building" style="font-size:9px;"></i> ${emp.department}</span>`
     : '';
+  const csrfToken   = document.querySelector('[name=csrfmiddlewaretoken]').value;
 
   return `
     <tr>
@@ -1282,9 +1283,15 @@ function renderEmployeeRow(emp) {
           <a href="/leave/employee/${emp.id}/" class="btn btn-ghost btn-sm" title="View">
             <i class="fa-solid fa-eye"></i>
           </a>
-          <span class="btn btn-ghost btn-sm" style="opacity:0.4;cursor:default;">
-            <i class="fa-solid fa-power-off"></i>
-          </span>
+          <form method="POST" action="/leave/employee/toggle-status/${emp.id}/" class="ajax-form" style="margin:0;">
+            <input type="hidden" name="csrfmiddlewaretoken" value="${csrfToken}">
+            <button type="submit"
+                    class="btn btn-sm toggle-status-btn ${emp.is_active ? 'btn-danger' : 'btn-success'}"
+                    title="${emp.is_active ? 'Deactivate' : 'Activate'}">
+              <i class="fa-solid ${emp.is_active ? 'fa-user-slash' : 'fa-user-check'}"></i>
+              ${emp.is_active ? 'Deactivate' : 'Activate'}
+            </button>
+          </form>
         </div>
       </td>
     </tr>`;
@@ -1360,6 +1367,32 @@ document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') {
     document.getElementById('create-modal').style.display = 'none';
   }
+});
+
+// Handle AJAX success for status toggle
+$(document).on('ajax:success', '.ajax-form', function(e, data) {
+    if (data.hasOwnProperty('is_active')) {
+        const form = $(this);
+        const row = form.closest('tr');
+        const isActive = data.is_active;
+        
+        // Update Button
+        const btn = form.find('.toggle-status-btn');
+        btn.removeClass('btn-danger btn-success').addClass(isActive ? 'btn-danger' : 'btn-success');
+        btn.attr('title', isActive ? 'Deactivate' : 'Activate');
+        btn.html(`<i class="fa-solid ${isActive ? 'fa-user-slash' : 'fa-user-check'}"></i> ${isActive ? 'Deactivate' : 'Activate'}`);
+        
+        // Update Badge
+        const badgeCell = row.find('td:nth-child(3)');
+        if (isActive) {
+            badgeCell.html(`<span class="badge badge-approved"><i class="fa-solid fa-circle" style="font-size:6px;"></i> Active</span>`);
+        } else {
+            badgeCell.html(`<span class="badge badge-rejected"><i class="fa-solid fa-circle" style="font-size:6px;"></i> Inactive</span>`);
+        }
+        
+        // Update Avatar
+        row.find('.emp-avatar').toggleClass('inactive', !isActive);
+    }
 });
 </script>
 

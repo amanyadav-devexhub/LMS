@@ -326,6 +326,10 @@ def employee_dashboard(request):
         html = render_to_string('leave_table.html', context, request=request)
         return JsonResponse({'html': html, 'success': True})
 
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        html = render_to_string('partials/employee_leave_history.html', context)
+        return JsonResponse({'html': html})
+
     return render(request, "employee_dashboard.html", context)
 
 
@@ -632,6 +636,9 @@ def apply_leave(request):
             "HR":       "hr_dashboard",
             "Manager":  "manager_dashboard",
         }
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest' or request.headers.get('Accept') == 'application/json':
+            return JsonResponse({"status": "success", "message": "Leave application submitted successfully!"})
+
         return redirect(redirect_map.get(get_user_role(request.user), "employee_dashboard"))
 
     # ── GET: show form ────────────────────────────────────────
@@ -753,6 +760,18 @@ def tl_dashboard(request):
 
     unread = Notification.objects.filter(
         user=request.user, read_status=False).count()
+
+    # AJAX handling for pagination/tab sections
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        from django.template.loader import render_to_string
+        tab = request.GET.get('tab', 'pending')
+        if tab == 'pending':
+            html = render_to_string('partials/tl_pending_leaves.html', {"leaves": leaves_page}, request=request)
+        elif tab == 'myleaves':
+            html = render_to_string('partials/tl_my_leaves.html', {"my_leaves_page": my_leaves_page}, request=request)
+        else:
+            html = ""
+        return JsonResponse({"html": html, "success": True})
 
     context = {
         "leaves":               leaves_page,
@@ -885,6 +904,11 @@ def hr_pending_leaves(request):
         status="PENDING"
     ).exclude(employee=request.user
     ).select_related("employee", "employee__department").order_by("-created_at")
+
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        from django.template.loader import render_to_string
+        html = render_to_string('partials/hr_pending_leaves_table.html', {"leaves": leaves}, request=request)
+        return JsonResponse({"html": html, "success": True})
 
     context = {
         **_hr_base_context(request),
@@ -1127,7 +1151,7 @@ def hr_my_leave_balance(request):
 def hr_employee_list(request):
     role_name = get_user_role(request.user)
     if role_name not in ("HR", "Manager", "Admin") and not request.user.is_superuser:
-        messages.error(request, "You don't have permission to view this page.")
+        messages.success(request, "Leave request submitted successfully!")
         return redirect("employee_dashboard")
 
     today         = date.today()
@@ -1185,9 +1209,24 @@ def hr_employee_list(request):
         status="APPROVED", start_date__lte=today, end_date__gte=today
     ).values("employee").distinct().count()
 
+    # ★ Pagination
+    paginator = Paginator(employee_data, 20)
+    page_number = request.GET.get('page', 1)
+    page_obj = paginator.get_page(page_number)
+
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        from django.template.loader import render_to_string
+        html = render_to_string('partials/hr_employee_table.html', {
+            "page_obj": page_obj,
+            "result_count": len(employee_data),
+            "search_query": search_query
+        }, request=request)
+        return JsonResponse({"html": html, "success": True})
+
     context = {
         **_hr_base_context(request),
-        "employee_data":  employee_data,
+        "page_obj":       page_obj,
+        "employee_data":  page_obj.object_list,
         "search_query":   search_query,
         "dept_filter":    dept_filter,
         "role_filter":    role_filter,
@@ -1291,6 +1330,23 @@ def manager_dashboard(request):
 
     unread = Notification.objects.filter(
         user=request.user, read_status=False).count()
+
+    # AJAX handling for pagination/tab sections
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        from django.template.loader import render_to_string
+        tab = request.GET.get('tab', 'pending')
+        if tab == 'pending':
+            html = render_to_string('partials/mgr_pending_leaves.html', {"pending_page": pending_page}, request=request)
+        elif tab == 'history':
+            # This handles both team history and my own leaves if they are in the same tab
+            html = render_to_string('partials/mgr_team_history.html', {
+                "team_history_page": team_history_page,
+                "my_leaves_page": my_leaves_page,
+                "current_year": current_year
+            }, request=request)
+        else:
+            html = ""
+        return JsonResponse({"html": html, "success": True})
 
     context = {
         "pending_page":        pending_page,
@@ -1403,6 +1459,27 @@ def admin_dashboard(request):
         "leave_types_count": leave_types_count,
         "profile":           _build_profile_context(request.user),
     }
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        employee_list = []
+        for emp in page_obj.object_list:
+            employee_list.append({
+                "id": emp.id,
+                "name": emp.get_full_name() or emp.username,
+                "email": emp.email,
+                "role": emp.role.name if emp.role else "—",
+                "department": emp.department.name if emp.department else "—",
+                "is_active": emp.is_active,
+                "date_joined": emp.date_joined.strftime("%Y-%m-%d")
+            })
+        return JsonResponse({
+            "success": True,
+            "employees": employee_list,
+            "has_next": page_obj.has_next(),
+            "has_previous": page_obj.has_previous(),
+            "number": page_obj.number,
+            "num_pages": paginator.num_pages
+        })
+
     return render(request, "admin_dashboard.html", context)
 
 
@@ -1517,6 +1594,7 @@ def approve_leave(request, leave_id):
     voter     = request.user
     role_name = get_user_role(voter)
     is_admin  = request.user.is_superuser or role_name == "Admin"
+    is_ajax   = request.headers.get('x-requested-with') == 'XMLHttpRequest'
 
     # ── Admin override ─────────────────────────────────
     if is_admin:
@@ -1532,6 +1610,8 @@ def approve_leave(request, leave_id):
             user=leave.employee,
             message="Your leave request was force-approved by Admin."
         )
+        if is_ajax:
+            return JsonResponse({"success": True, "message": "Admin override: Leave approved.", "status": "APPROVED"})
         messages.success(request, "Admin override: Leave approved.")
         return redirect(request.META.get("HTTP_REFERER", "/"))
 
@@ -1541,15 +1621,24 @@ def approve_leave(request, leave_id):
         if role_name in ('TL', 'HR', 'Manager') and leave.employee != voter:
             leave.approvers.add(voter)
         else:
-            messages.error(request, "You are not an approver for this leave.")
+            error_msg = "You are not an approver for this leave."
+            if is_ajax:
+                return JsonResponse({"success": False, "error": error_msg}, status=403)
+            messages.error(request, error_msg)
             return redirect(request.META.get("HTTP_REFERER", "/"))
 
     if leave.employee == voter:
-        messages.error(request, "You cannot approve your own leave request.")
+        error_msg = "You cannot approve your own leave request."
+        if is_ajax:
+            return JsonResponse({"success": False, "error": error_msg}, status=403)
+        messages.error(request, error_msg)
         return redirect(request.META.get("HTTP_REFERER", "/"))
 
     if leave.final_status != 'PENDING':
-        messages.info(request, f"This leave is already {leave.final_status}.")
+        info_msg = f"This leave is already {leave.final_status}."
+        if is_ajax:
+            return JsonResponse({"success": False, "message": info_msg, "status": leave.final_status})
+        messages.info(request, info_msg)
         return redirect(request.META.get("HTTP_REFERER", "/"))
 
     # Check already voted
@@ -1559,7 +1648,10 @@ def approve_leave(request, leave_id):
         (role_name == 'Manager' and leave.manager_voted)
     )
     if already_voted:
-        messages.warning(request, "You have already voted on this leave.")
+        warning_msg = "You have already voted on this leave."
+        if is_ajax:
+            return JsonResponse({"success": False, "message": warning_msg})
+        messages.warning(request, warning_msg)
         return redirect(request.META.get("HTTP_REFERER", "/"))
 
     # ── Record the APPROVE vote ───────────────────────────────────
@@ -1573,7 +1665,10 @@ def approve_leave(request, leave_id):
         leave.manager_approved = True; leave.manager_voted = True
         leave.manager_acted_at = timezone.now()
     else:
-        messages.error(request, "You don't have voting rights.")
+        error_msg = "You don't have voting rights."
+        if is_ajax:
+            return JsonResponse({"success": False, "error": error_msg}, status=403)
+        messages.error(request, error_msg)
         return redirect(request.META.get("HTTP_REFERER", "/"))
 
     leave.approval_count += 1
@@ -1628,6 +1723,9 @@ def approve_leave(request, leave_id):
             message=f"{voter.get_full_name()} ({role_name}) approved your leave. Waiting for: {wait_str}"
         )
 
+    if is_ajax:
+        msg = f"Leave APPROVED! ({reason})" if decision == 'APPROVED' else (f"Leave REJECTED — {reason}" if decision == 'REJECTED' else f"Approval recorded. Still waiting for: {wait_str}")
+        return JsonResponse({"success": True, "message": msg, "status": leave.final_status or 'PENDING'})
     return redirect(request.META.get("HTTP_REFERER", "/"))
 
 
@@ -1713,6 +1811,8 @@ def reject_leave(request, leave_id):
     role_name = get_user_role(voter)
     is_admin  = request.user.is_superuser or role_name == "Admin"
 
+    is_ajax   = request.headers.get('x-requested-with') == 'XMLHttpRequest'
+
     if is_admin:
         leave.status       = "REJECTED"
         leave.final_status = "REJECTED"
@@ -1721,6 +1821,8 @@ def reject_leave(request, leave_id):
             user=leave.employee,
             message="Your leave request was force-rejected by Admin."
         )
+        if is_ajax:
+            return JsonResponse({"success": True, "message": "Admin override: Leave rejected.", "status": "REJECTED"})
         messages.warning(request, "Admin override: Leave rejected.")
         return redirect(request.META.get("HTTP_REFERER", "/"))
 
@@ -1729,15 +1831,23 @@ def reject_leave(request, leave_id):
         if role_name in ('TL', 'HR', 'Manager') and leave.employee != voter:
             leave.approvers.add(voter)
         else:
-            messages.error(request, "You are not an approver for this leave.")
+            error_msg = "You are not an approver for this leave."
+            if is_ajax:
+                return JsonResponse({"success": False, "error": error_msg}, status=403)
+            messages.error(request, error_msg)
             return redirect(request.META.get("HTTP_REFERER", "/"))
 
     if leave.employee == voter:
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({"success": False, "error": "You cannot reject your own leave request."})
         messages.error(request, "You cannot reject your own leave request.")
         return redirect(request.META.get("HTTP_REFERER", "/"))
 
     if leave.final_status != 'PENDING':
-        messages.info(request, f"This leave is already {leave.final_status}.")
+        info_msg = f"This leave is already {leave.final_status}."
+        if is_ajax:
+            return JsonResponse({"success": False, "message": info_msg, "status": leave.final_status})
+        messages.info(request, info_msg)
         return redirect(request.META.get("HTTP_REFERER", "/"))
 
     already_voted = (
@@ -1746,7 +1856,10 @@ def reject_leave(request, leave_id):
         (role_name == 'Manager' and leave.manager_voted)
     )
     if already_voted:
-        messages.warning(request, "You have already voted on this leave.")
+        warning_msg = "You have already voted on this leave."
+        if is_ajax:
+            return JsonResponse({"success": False, "message": warning_msg})
+        messages.warning(request, warning_msg)
         return redirect(request.META.get("HTTP_REFERER", "/"))
 
     # ── Record the REJECT vote ────────────────────────────────────
@@ -1760,7 +1873,10 @@ def reject_leave(request, leave_id):
         leave.manager_rejected = True; leave.manager_voted = True
         leave.manager_acted_at = timezone.now()
     else:
-        messages.error(request, "You don't have voting rights.")
+        error_msg = "You don't have voting rights."
+        if is_ajax:
+            return JsonResponse({"success": False, "error": error_msg}, status=403)
+        messages.error(request, error_msg)
         return redirect(request.META.get("HTTP_REFERER", "/"))
 
     leave.rejection_count += 1
@@ -1816,6 +1932,9 @@ def reject_leave(request, leave_id):
             message=f"{voter.get_full_name()} ({role_name}) rejected your leave. Waiting for: {wait_str}"
         )
 
+    if is_ajax:
+        msg = f"Leave REJECTED! ({reason})" if decision == 'REJECTED' else (f"Leave APPROVED! ({reason})" if decision == 'APPROVED' else f"Rejection recorded. Still waiting for: {wait_str}")
+        return JsonResponse({"success": True, "message": msg, "status": leave.final_status or 'PENDING'})
     return redirect(request.META.get("HTTP_REFERER", "/"))
 
 
@@ -1897,7 +2016,10 @@ def create_employee(request):
         password = request.POST.get("password")
 
         if User.objects.filter(username=username).exists():
-            messages.error(request, "Username already exists.")
+            error_msg = "Username already exists."
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({"success": False, "error": error_msg}, status=400)
+            messages.error(request, error_msg)
             return redirect("admin_dashboard" if request.user.is_superuser else "hr_dashboard")
 
         dept_id       = request.POST.get("department_id")
@@ -1944,17 +2066,43 @@ def create_employee(request):
 
         messages.success(request, "Employee created successfully.")
 
+        is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+        if is_ajax:
+            return JsonResponse({
+                "success": True, 
+                "message": "Employee created successfully.",
+                "employee": {
+                    "id": new_emp.id,
+                    "name": new_emp.get_full_name() or new_emp.username,
+                    "email": new_emp.email,
+                    "role": new_emp.role.name if new_emp.role else "—",
+                    "department": new_emp.department.name if new_emp.department else None,
+                    "is_active": new_emp.is_active
+                }
+            })
+
     return redirect("admin_dashboard" if request.user.is_superuser else "hr_dashboard")
 
 
 @login_required
 def toggle_employee_status(request, user_id):
     employee = get_object_or_404(User, id=user_id)
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+    
     if request.method == "POST" and (
         request.user.is_superuser or get_user_role(request.user) == "Admin"
     ):
         employee.is_active = not employee.is_active
         employee.save()
+        if is_ajax:
+            return JsonResponse({
+                "success": True, 
+                "message": f"Status updated for {employee.get_full_name() or employee.username}",
+                "is_active": employee.is_active
+            })
+            
+    if is_ajax:
+        return JsonResponse({"success": False, "error": "Invalid request"}, status=400)
     return redirect(request.META.get("HTTP_REFERER", "/"))
 
 
@@ -2056,6 +2204,11 @@ def holiday_create(request):
             created_by       = request.user,
         )
         messages.success(request, f"Holiday '{name}' created successfully!")
+        
+        is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+        if is_ajax:
+            return JsonResponse({"success": True, "message": f"Holiday '{name}' created successfully."})
+            
         if "save_and_add" in request.POST:
             return redirect("holiday_create")
         return redirect("holiday_list")
@@ -2102,6 +2255,11 @@ def holiday_edit(request, holiday_id):
         holiday.is_active          = request.POST.get("is_active") == "on"
         holiday.save()
         messages.success(request, f"Holiday '{holiday.name}' updated successfully!")
+        
+        is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+        if is_ajax:
+            return JsonResponse({"success": True, "message": f"Holiday '{holiday.name}' updated successfully."})
+            
         return redirect("holiday_list")
 
     context = {
@@ -2121,6 +2279,11 @@ def holiday_delete(request, holiday_id):
         name = holiday.name
         holiday.delete()
         messages.success(request, f"Holiday '{name}' deleted successfully!")
+        
+        is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+        if is_ajax:
+            return JsonResponse({"success": True, "message": f"Holiday '{name}' deleted."})
+            
     return redirect("holiday_list")
 
 
@@ -2192,6 +2355,15 @@ def holiday_toggle_status(request, holiday_id):
     holiday.save()
     status_word = "activated" if holiday.is_active else "deactivated"
     messages.success(request, f"Holiday '{holiday.name}' {status_word}.")
+    
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+    if is_ajax:
+        return JsonResponse({
+            "success": True, 
+            "message": f"Holiday '{holiday.name}' {status_word}.",
+            "is_active": holiday.is_active
+        })
+        
     return redirect("holiday_list")
 
 
@@ -2432,6 +2604,9 @@ def admin_leave_type_save(request):
             f"📋 Allocation: {created} new rows created, {updated} existing rows updated."
         )
 
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+    if is_ajax:
+        return JsonResponse({"success": True, "message": f"Leave type '{name}' saved successfully."})
     return redirect("admin_leave_policy")
 
 
@@ -2451,6 +2626,13 @@ def admin_leave_type_toggle(request, lt_id):
         request,
         f"Leave type '{lt.name}' {'activated ✅' if lt.is_active else 'deactivated ⛔'}."
     )
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+    if is_ajax:
+        return JsonResponse({
+            "success": True, 
+            "message": f"Leave type '{lt.name}' {'activated' if lt.is_active else 'deactivated'}.",
+            "is_active": lt.is_active
+        })
     return redirect("admin_leave_policy")
 
 
@@ -2487,6 +2669,9 @@ def admin_policy_save(request):
 
     verb = "updated" if policy_id else "created"
     messages.success(request, f"✅ Policy '{policy.name}' {verb} successfully!")
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+    if is_ajax:
+        return JsonResponse({"success": True, "message": f"Policy '{policy.name}' {verb} successfully."})
     return redirect("admin_leave_policy")
 
 
@@ -2518,6 +2703,12 @@ def admin_apply_to_all_employees(request):
         f"{total_created} new allocations created, "
         f"{total_updated} existing allocations updated."
     )
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+    if is_ajax:
+        return JsonResponse({
+            "success": True, 
+            "message": f"Sync complete! {total_created} new, {total_updated} updated."
+        })
     return redirect("admin_leave_policy")
 
 
@@ -2605,6 +2796,9 @@ def admin_leave_type_delete(request, lt_id):
     name = lt.name
     lt.delete()
     messages.success(request, f"✅ Leave type '{name}' deleted successfully.")
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+    if is_ajax:
+        return JsonResponse({"success": True, "message": f"Leave type '{name}' deleted."})
     return redirect("admin_leave_policy")
 
 
@@ -2628,6 +2822,13 @@ def admin_policy_toggle(request, policy_id):
     policy.save()
     status = "activated ✅" if policy.is_active else "deactivated ⛔"
     messages.success(request, f"Policy '{policy.name}' {status}.")
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+    if is_ajax:
+        return JsonResponse({
+            "success": True, 
+            "message": f"Policy '{policy.name}' {status}.",
+            "is_active": policy.is_active
+        })
     return redirect("admin_leave_policy")
 
 
@@ -2671,6 +2872,9 @@ def admin_policy_delete(request, policy_id):
     name = policy.name
     policy.delete()
     messages.success(request, f"✅ Policy '{name}' deleted successfully.")
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+    if is_ajax:
+        return JsonResponse({"success": True, "message": f"Policy '{name}' deleted."})
     return redirect("admin_leave_policy")
 
 

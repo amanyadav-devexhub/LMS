@@ -213,7 +213,7 @@
       </div>
       <div class="al-card-body">
         <form method="POST" action="{% url 'apply_leave' %}"
-              id="leaveForm" enctype="multipart/form-data">
+              id="leaveForm" enctype="multipart/form-data" class="ajax-form">
           {% csrf_token %}
 
           <!-- ★ DYNAMIC Leave Type Cards from EmployeeLeaveAllocation -->
@@ -727,16 +727,6 @@ zone.addEventListener('dragover',  () => zone.classList.add('drag'));
 zone.addEventListener('dragleave', () => zone.classList.remove('drag'));
 zone.addEventListener('drop',      () => zone.classList.remove('drag'));
 
-/* ── Form submit ── */
-document.getElementById('leaveForm').addEventListener('submit', function(e) {
-  const dur = document.querySelector('input[name="duration"]:checked').value;
-  const sd  = document.getElementById('start_date').value;
-  const ed  = document.getElementById('end_date');
-  if (dur === 'HALF' || dur === 'SHORT') {
-    ed.readOnly = false;
-    ed.value = sd;
-  }
-  if (document.getElementById('submitBtn').disabled) e.preventDefault();
-});
+// Form submit is handled by global .ajax-form handler in base.html
 </script>
 {% endblock %}

@@ -134,14 +134,14 @@
                             <a href="{% url 'holiday_edit' holiday.id %}" class="dropdown-item" style="display: block; padding: 8px 15px; color: var(--text); text-decoration: none;">
                                 <i class="fa-solid fa-edit"></i> Edit
                             </a>
-                            <form method="POST" action="{% url 'holiday_toggle_status' holiday.id %}" style="display: block;">
+                            <form method="POST" action="{% url 'holiday_toggle_status' holiday.id %}" class="ajax-form" style="display: block;">
                                 {% csrf_token %}
                                 <button type="submit" class="dropdown-item" style="width: 100%; text-align: left; padding: 8px 15px; background: none; border: none; cursor: pointer;">
                                     <i class="fa-solid fa-{% if holiday.is_active %}eye-slash{% else %}eye{% endif %}"></i>
                                     {% if holiday.is_active %}Deactivate{% else %}Activate{% endif %}
                                 </button>
                             </form>
-                            <form method="POST" action="{% url 'holiday_delete' holiday.id %}" style="display: block;" onsubmit="return confirm('Delete {{ holiday.name }}?')">
+                            <form method="POST" action="{% url 'holiday_delete' holiday.id %}" class="ajax-form delete-form" style="display: block;" onsubmit="return confirm('Delete {{ holiday.name }}?')">
                                 {% csrf_token %}
                                 <button type="submit" class="dropdown-item" style="width: 100%; text-align: left; padding: 8px 15px; background: none; border: none; cursor: pointer; color: var(--danger);">
                                     <i class="fa-solid fa-trash"></i> Delete
@@ -174,10 +174,37 @@ function toggleDropdown(id) {
 
 // Close dropdowns when clicking outside
 document.addEventListener('click', function(event) {
-    if (!event.target.closest('.dropdown')) {
-        document.querySelectorAll('.dropdown-menu').forEach(menu => {
-            menu.style.display = 'none';
-        });
+    }
+});
+
+// Handle AJAX success updates
+$(document).on('ajax:success', '.ajax-form', function(e, data) {
+    if (data.success) {
+        const form = $(this);
+        
+        // Handle Delete
+        if (form.hasClass('delete-form')) {
+            form.closest('.card').fadeOut(400, function() {
+                $(this).remove();
+                if ($('.grid-3 .card').length === 0) {
+                   window.location.reload(); // Show empty state
+                }
+            });
+            return;
+        }
+
+        // Handle Toggle (Active/Inactive)
+        if (data.hasOwnProperty('is_active')) {
+            const isActive = data.is_active;
+            const btn = form.find('button[type="submit"]');
+            
+            // Update Icon and Text
+            btn.find('i').removeClass('fa-eye fa-eye-slash').addClass(isActive ? 'fa-eye-slash' : 'fa-eye');
+            btn.contents().last()[0].textContent = isActive ? ' Deactivate' : ' Activate';
+            
+            // Optional: visual cue on the item card (e.g. opacity)
+            form.closest('.card').css('opacity', isActive ? '1' : '0.6');
+        }
     }
 });
 </script>

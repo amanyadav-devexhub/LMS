@@ -1,0 +1,39 @@
+{% if my_leaves_page %}
+    {% for leave in my_leaves_page %}
+    <div class="lr">
+        <div class="lrav" style="background:#6c757d;">{{ leave.leave_type|first }}</div>
+        <div class="lr-info">
+            <div class="lr-nm">{{ leave.leave_type|capfirst }}</div>
+            <div class="lr-mt">{{ leave.start_date|date:"d M Y" }} {% if leave.end_date != leave.start_date %}→ {{ leave.end_date|date:"d M Y" }}{% endif %}</div>
+        </div>
+        {% if leave.status == 'APPROVED' %}<span class="chip ch-gn">Approved</span>
+        {% elif leave.status == 'REJECTED' %}<span class="chip ch-rd">Rejected</span>
+        {% else %}<span class="chip ch-am">Pending</span>{% endif %}
+    </div>
+    {% endfor %}
+    
+    {% if my_leaves_page.has_other_pages %}
+    <div class="pgn" id="myleaves-pagination">
+        <span style="font-size:11px;color:var(--text-muted);">Page {{ my_leaves_page.number }} of {{ my_leaves_page.paginator.num_pages }}</span>
+        <div style="display:flex;gap:4px;">
+            {% if my_leaves_page.has_previous %}
+                <a href="?mypage={{ my_leaves_page.previous_page_number }}&tab=history" class="pb ajax-pagination" data-target="myleaves-list">
+                    <i class="fa-solid fa-chevron-left"></i>
+                </a>
+            {% else %}
+                <span class="pb off"><i class="fa-solid fa-chevron-left"></i></span>
+            {% endif %}
+            
+            {% if my_leaves_page.has_next %}
+                <a href="?mypage={{ my_leaves_page.next_page_number }}&tab=history" class="pb ajax-pagination" data-target="myleaves-list">
+                    <i class="fa-solid fa-chevron-right"></i>
+                </a>
+            {% else %}
+                <span class="pb off"><i class="fa-solid fa-chevron-right"></i></span>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+{% else %}
+    <div class="emp"><div class="emp-ttl">No Leaves</div></div>
+{% endif %}

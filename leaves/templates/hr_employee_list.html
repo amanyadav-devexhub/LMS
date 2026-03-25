@@ -291,118 +291,51 @@
     {% endif %}
 </form>
 
-<!-- ── Result count ── -->
-<div class="result-bar animate-in delay-1">
-    <div class="result-count">
-        Showing <span>{{ result_count }}</span> employee{{ result_count|pluralize }}
-        {% if search_query %}for "<span>{{ search_query }}</span>"{% endif %}
-    </div>
-    {% if search_query or dept_filter or role_filter or status_filter %}
-    <div style="font-size:12px; color:var(--text-faint);">
-        <i class="fa-solid fa-filter" style="margin-right:5px;"></i>Filters active
-    </div>
-    {% endif %}
+<div id="employee-list-container" class="animate-in delay-2">
+    {% include "partials/hr_employee_table.html" %}
 </div>
 
-<!-- ── Employee table ── -->
-<div class="emp-card animate-in delay-2">
-    <div class="emp-table-wrap">
-        <table class="emp-table">
-            <thead>
-                <tr>
-                    <th>Employee</th>
-                    <th>Role</th>
-                    <th>Department</th>
-                    <th>Joined</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for item in employee_data %}
-                {% with emp=item.emp %}
-                <tr onclick="window.location='{% url 'employee_detail' emp.pk %}'">
-                    <td>
-                        <div class="emp-cell">
-                            <div class="emp-avatar av-{{ forloop.counter0|divisibleby:5|yesno:'0,1,2,3,4'|default:forloop.counter0 }}">
-                                {{ emp.first_name|slice:":1"|upper|default:emp.username|slice:":1"|upper }}
-                            </div>
-                            <div>
-                                <div class="emp-name">{{ emp.get_full_name|default:emp.username }}</div>
-                                <div class="emp-email">{{ emp.email }}</div>
-                            </div>
-                        </div>
-                    </td>
-                    <td>
-                        {% if item.role == 'HR' %}
-                            <span class="role-badge rb-hr"><i class="fa-solid fa-users-gear"></i> {{ item.role }}</span>
-                        {% elif item.role == 'Manager' %}
-                            <span class="role-badge rb-manager"><i class="fa-solid fa-briefcase"></i> {{ item.role }}</span>
-                        {% elif item.role == 'TL' %}
-                            <span class="role-badge rb-tl"><i class="fa-solid fa-code-branch"></i> {{ item.role }}</span>
-                        {% elif item.role == 'Employee' %}
-                            <span class="role-badge rb-employee"><i class="fa-solid fa-user-tie"></i> {{ item.role }}</span>
-                        {% else %}
-                            <span class="role-badge rb-default">{{ item.role }}</span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        <span style="font-size:13px; color:var(--text-muted);">
-                            {{ item.department }}
-                        </span>
-                    </td>
-                    <td>
-                        <span style="font-size:12.5px; color:var(--text-muted);">
-                            {{ emp.date_joined|date:"d M Y" }}
-                        </span>
-                    </td>
-                    <td>
-                        {% if item.on_leave %}
-                            <span class="status-badge sb-leave">
-                                <span class="sb-dot"></span> On Leave
-                            </span>
-                        {% elif emp.is_active %}
-                            <span class="status-badge sb-active">
-                                <span class="sb-dot"></span> Active
-                            </span>
-                        {% else %}
-                            <span class="status-badge sb-inactive">
-                                <span class="sb-dot"></span> Inactive
-                            </span>
-                        {% endif %}
-                    </td>
-                    <td onclick="event.stopPropagation()">
-                        <div class="act-cell">
-                            <a href="{% url 'profile_detail' emp.pk %}"
-                               class="tbl-btn view" title="View Profile">
-                                <i class="fa-solid fa-eye"></i>
-                            </a>
-                        </div>
-                    </td>
-                </tr>
-                {% endwith %}
-                {% empty %}
-                <tr>
-                    <td colspan="6">
-                        <div class="emp-empty">
-                            <div class="emp-empty-icon">
-                                <i class="fa-solid fa-users-slash"></i>
-                            </div>
-                            <div class="emp-empty-title">No employees found</div>
-                            <div class="emp-empty-sub">
-                                {% if search_query %}
-                                    No results for "{{ search_query }}". Try a different search.
-                                {% else %}
-                                    No employees match the selected filters.
-                                {% endif %}
-                            </div>
-                        </div>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</div>
+<script>
+$(document).ready(function() {
+    const $container = $('#employee-list-container');
+    const $form = $('.emp-toolbar');
 
+    function updateResults(url) {
+        $container.css('opacity', '0.5');
+        fetch(url, {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                $container.html(data.html).css('opacity', '1');
+                window.history.pushState({}, '', url);
+            }
+        })
+        .catch(err => {
+            console.error('Update error:', err);
+            $container.css('opacity', '1');
+        });
+    }
+
+    // AJAX Filter
+    $form.on('submit', function(e) {
+        e.preventDefault();
+        const url = $form.attr('action') || window.location.pathname;
+        const params = $form.serialize();
+        updateResults(url + (url.includes('?') ? '&' : '?') + params);
+    });
+
+    // Auto-filter on select change
+    $('.filter-select').on('change', function() {
+        $form.submit();
+    });
+
+    // AJAX Pagination
+    $(document).on('click', '.ajax-pagination', function(e) {
+        e.preventDefault();
+        updateResults($(this).attr('href'));
+    });
+});
+</script>
 {% endblock %}

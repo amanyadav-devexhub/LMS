@@ -1,0 +1,84 @@
+{% if leaves %}
+    {% for leave in leaves %}
+    <div class="lr">
+        <div class="lrav">{{ leave.employee.first_name|first|upper }}{{ leave.employee.last_name|first|upper }}</div>
+        <div class="lr-info">
+            <div class="lr-nm">{{ leave.employee.get_full_name|default:leave.employee.username }}</div>
+            <div class="lr-mt">
+                {{ leave.leave_type|capfirst }} ·
+                {% if leave.duration == "FULL" %}Full Day
+                {% elif leave.duration == "HALF" %}Half Day
+                {% elif leave.duration == "SHORT" %}Short ({{ leave.short_hours }}h)
+                {% else %}{{ leave.duration }}{% endif %}
+                · {{ leave.start_date|date:"d M Y" }}{% if leave.start_date != leave.end_date %} → {{ leave.end_date|date:"d M Y" }}{% endif %}
+            </div>
+            {% if leave.reason %}
+            <div class="lr-mt" style="margin-top: 4px; color: var(--text-muted);">
+                <i class="fa-regular fa-message"></i> {{ leave.reason|truncatechars:60 }}
+            </div>
+            {% endif %}
+            {% if leave.paid_days > 0 or leave.unpaid_days > 0 %}
+            <div class="lr-mt" style="margin-top: 2px;">
+                {% if leave.paid_days > 0 %}<span style="color:var(--success);">💰 {{ leave.paid_days }} paid</span>{% endif %}
+                {% if leave.unpaid_days > 0 %}<span style="color:var(--danger); margin-left: 8px;">⚠️ {{ leave.unpaid_days }} unpaid</span>{% endif %}
+            </div>
+            {% endif %}
+        </div>
+        
+        <div class="lr-acts">
+            {% if leave.final_status == 'PENDING' %}
+                {% if not leave.tl_voted %}
+                    <form method="POST" action="{% url 'approve_leave' leave.id %}" class="ajax-form" style="margin:0;display:inline;">
+                        {% csrf_token %}
+                        <button class="ab ab-ok" title="Approve"><i class="fa-solid fa-check"></i></button>
+                    </form>
+                    <form method="POST" action="{% url 'reject_leave' leave.id %}" class="ajax-form" style="margin:0;display:inline;">
+                        {% csrf_token %}
+                        <button class="ab ab-no" title="Reject"
+                            onclick="return confirm('Reject leave for {{ leave.employee.first_name }}?')">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </form>
+                {% else %}
+                    <span class="chip ch-in">✓ Voted</span>
+                {% endif %}
+            {% else %}
+                {% if leave.final_status == 'APPROVED' %}
+                    <span class="chip ch-gn">Approved</span>
+                {% elif leave.final_status == 'REJECTED' %}
+                    <span class="chip ch-rd">Rejected</span>
+                {% endif %}
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+    
+    {% if leaves.has_other_pages %}
+    <div class="pgn" id="pending-pagination">
+        <span class="pgn-info">{{ leaves.start_index }}–{{ leaves.end_index }} of {{ leaves.paginator.count }}</span>
+        <div class="pgn-btns">
+            {% if leaves.has_previous %}
+                <a href="?page={{ leaves.previous_page_number }}&tab=pending" class="pb ajax-pagination" data-target="pending-list" data-param="page">
+                    <i class="fa-solid fa-chevron-left"></i>
+                </a>
+            {% else %}
+                <span class="pb off"><i class="fa-solid fa-chevron-left"></i></span>
+            {% endif %}
+            
+            {% if leaves.has_next %}
+                <a href="?page={{ leaves.next_page_number }}&tab=pending" class="pb ajax-pagination" data-target="pending-list" data-param="page">
+                    <i class="fa-solid fa-chevron-right"></i>
+                </a>
+            {% else %}
+                <span class="pb off"><i class="fa-solid fa-chevron-right"></i></span>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+{% else %}
+<div class="emp">
+    <div class="emp-ico"><i class="fa-solid fa-check-double"></i></div>
+    <div class="emp-ttl">All Caught Up!</div>
+    <div class="emp-sub">No pending leave requests from your team.</div>
+</div>
+{% endif %}
