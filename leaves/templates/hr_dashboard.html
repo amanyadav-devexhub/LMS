@@ -312,59 +312,100 @@
 </div>
 
 
+
 <!-- ════════════════════════════════
      TWO PANELS: Pending + On Leave
 ════════════════════════════════ -->
 <div class="grid-2 animate-in delay-2">
 
-  <!-- Pending Approvals -->
-  <div class="panel">
-    <div class="ph">
-      <div class="ph-title">
-        <div class="ph-icon"><i class="fa-solid fa-file-circle-exclamation"></i></div>
-        Pending Approvals
-      </div>
-      {% if pending_count > 0 %}
-      <span class="badge badge-pending">{{ pending_count }} waiting</span>
-      {% else %}
-      <span class="badge badge-approved">All clear</span>
-      {% endif %}
+<!-- ════════════════════════════════
+     PENDING APPROVALS SECTION
+════════════════════════════════ -->
+<div class="panel">
+  <div class="ph">
+    <div class="ph-title">
+      <div class="ph-icon"><i class="fa-solid fa-file-circle-exclamation"></i></div>
+      Pending Approvals
     </div>
-
-    <div class="scroll-3">
-      {% for leave in recent_pending %}
-      <div class="pr">
-        <div class="pr-av">{{ leave.employee.first_name|first|upper }}{{ leave.employee.last_name|first|upper }}</div>
-        <div class="pr-info">
-          <div class="pr-name">{{ leave.employee.get_full_name|default:leave.employee.username }}</div>
-          <div class="pr-meta">{{ leave.leave_type }} · {{ leave.duration }} · {{ leave.start_date }}</div>
-        </div>
-        <div class="pr-acts">
-          <form method="POST" action="{% url 'approve_leave' leave.id %}" style="margin:0;">
-            {% csrf_token %}
-            <button type="submit" class="btn btn-success btn-sm" title="Approve"><i class="fa-solid fa-check"></i></button>
-          </form>
-          <form method="POST" action="{% url 'reject_leave' leave.id %}" style="margin:0;">
-            {% csrf_token %}
-            <button type="submit" class="btn btn-danger btn-sm" title="Reject" onclick="return confirm('Reject?')"><i class="fa-solid fa-xmark"></i></button>
-          </form>
-        </div>
-      </div>
-      {% empty %}
-      <div class="empty-state" style="padding:40px 20px;">
-        <div class="empty-icon"><i class="fa-solid fa-inbox"></i></div>
-        <div class="empty-title">All Clear!</div>
-        <p style="font-size:12px;color:var(--text-muted);margin-top:4px;">No pending approvals.</p>
-      </div>
-      {% endfor %}
-    </div>
-
-    <div class="pf">
-      <a href="{% url 'hr_pending_leaves' %}">View all requests <i class="fa-solid fa-arrow-right" style="font-size:10px;"></i></a>
-    </div>
+    {% if pending_count > 0 %}
+    <span class="badge badge-pending">{{ pending_count }} waiting</span>
+    {% else %}
+    <span class="badge badge-approved">All clear</span>
+    {% endif %}
   </div>
 
-  <!-- On Leave Today -->
+  <div style="overflow-x: auto;">
+    {% if recent_pending %}
+    <table style="width:100%;border-collapse:collapse;">
+        <thead>
+            <tr>
+                <th style="padding:9px 14px;text-align:left;font-size:9.5px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--aqua-deep);background:linear-gradient(90deg,rgba(0,198,212,.04),transparent);border-bottom:1px solid var(--border-mid);">Employee</th>
+                <th style="padding:9px 14px;text-align:left;font-size:9.5px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--aqua-deep);background:linear-gradient(90deg,rgba(0,198,212,.04),transparent);border-bottom:1px solid var(--border-mid);">Dept</th>
+                <th style="padding:9px 14px;text-align:left;font-size:9.5px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--aqua-deep);background:linear-gradient(90deg,rgba(0,198,212,.04),transparent);border-bottom:1px solid var(--border-mid);">Type</th>
+                <th style="padding:9px 14px;text-align:left;font-size:9.5px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--aqua-deep);background:linear-gradient(90deg,rgba(0,198,212,.04),transparent);border-bottom:1px solid var(--border-mid);">Duration</th>
+                <th style="padding:9px 14px;text-align:left;font-size:9.5px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--aqua-deep);background:linear-gradient(90deg,rgba(0,198,212,.04),transparent);border-bottom:1px solid var(--border-mid);">Dates</th>
+                <th style="padding:9px 14px;text-align:left;font-size:9.5px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--aqua-deep);background:linear-gradient(90deg,rgba(0,198,212,.04),transparent);border-bottom:1px solid var(--border-mid);">Reason</th>
+                <th style="padding:9px 14px;text-align:left;font-size:9.5px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--aqua-deep);background:linear-gradient(90deg,rgba(0,198,212,.04),transparent);border-bottom:1px solid var(--border-mid);">Applied</th>
+                <th style="padding:9px 14px;text-align:left;font-size:9.5px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--aqua-deep);background:linear-gradient(90deg,rgba(0,198,212,.04),transparent);border-bottom:1px solid var(--border-mid);">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for leave in recent_pending %}
+            <tr style="border-bottom:1px solid var(--border);">
+                <td style="padding:11px 14px;font-size:12.5px;vertical-align:middle;">
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <div class="pr-av">{{ leave.employee.first_name|first|upper }}{{ leave.employee.last_name|first|upper }}</div>
+                        <div>
+                            <div style="font-weight:700;font-size:12.5px;">{{ leave.employee.get_full_name|default:leave.employee.username }}</div>
+                            <div style="font-size:11px;color:var(--text-muted);">{{ leave.employee.email }}</div>
+                        </div>
+                    </div>
+                </td>
+                <td style="padding:11px 14px;font-size:12.5px;color:var(--text-mid);vertical-align:middle;">{{ leave.employee.department.name|default:"—" }}</td>
+                <td style="padding:11px 14px;vertical-align:middle;"><span class="badge badge-info">{{ leave.leave_type }}</span></td>
+                <td style="padding:11px 14px;font-size:12.5px;color:var(--text-mid);vertical-align:middle;">{{ leave.duration }}</td>
+                <td style="padding:11px 14px;font-size:12.5px;color:var(--text-mid);vertical-align:middle;white-space:nowrap;">{{ leave.start_date|date:"d M" }}{% if leave.end_date and leave.end_date != leave.start_date %} → {{ leave.end_date|date:"d M Y" }}{% endif %}</td>
+                <td style="padding:11px 14px;font-size:12.5px;color:var(--text-mid);vertical-align:middle;max-width:150px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ leave.reason|default:"—" }}</td>
+                <td style="padding:11px 14px;font-size:12.5px;color:var(--text-mid);vertical-align:middle;white-space:nowrap;">{{ leave.created_at|date:"d M Y" }}</td>
+                <td style="padding:11px 14px;vertical-align:middle;">
+                    <div style="display:flex;gap:5px;">
+                        {% if leave.final_status == 'PENDING' and not leave.hr_voted %}
+                            <form method="POST" action="{% url 'approve_leave' leave.id %}" class="ajax-form" style="display:inline;">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-success btn-sm"><i class="fa-solid fa-check"></i> Approve</button>
+                            </form>
+                            <form method="POST" action="{% url 'reject_leave' leave.id %}" class="ajax-form" style="display:inline;">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Reject this leave request?')"><i class="fa-solid fa-xmark"></i> Reject</button>
+                            </form>
+                        {% elif leave.hr_voted %}
+                            <span class="badge badge-secondary">✓ Voted</span>
+                        {% elif leave.final_status == 'APPROVED' %}
+                            <span class="badge badge-approved">Approved</span>
+                        {% elif leave.final_status == 'REJECTED' %}
+                            <span class="badge badge-rejected">Rejected</span>
+                        {% endif %}
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state" style="padding:40px 20px;">
+      <div class="empty-icon"><i class="fa-solid fa-inbox"></i></div>
+      <div class="empty-title">All Clear!</div>
+      <p style="font-size:12px;color:var(--text-muted);margin-top:4px;">No pending approvals.</p>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="pf">
+    <a href="{% url 'hr_pending_leaves' %}">View all requests <i class="fa-solid fa-arrow-right" style="font-size:10px;"></i></a>
+  </div>
+</div>
+
+  <!-- On Leave Today (keep as is) -->
   <div class="panel">
     <div class="ph">
       <div class="ph-title">
@@ -399,5 +440,45 @@
   </div>
 
 </div>
+
+{% block extra_scripts %}
+<script>
+
+// Handle AJAX success to remove the row
+$(document).on('ajax:success', '.ajax-form', function(e, data) {
+    if (data.success) {
+        const row = $(this).closest('.pr');
+        row.fadeOut(400, function() {
+            $(this).remove();
+            
+            // Update Stat Cards and Badges
+            updateCount($('.sc[style*="#f5a623"] .sc-val')); // Pending Approvals card
+            updateCount($('.b-metric-val[style*="var(--warning)"]')); // Banner metric
+            updateCount($('.b-pill strong').eq(1)); // Banner pill
+            
+            // Check if queue is empty
+            if ($('.scroll-3 .pr').length === 0) {
+                $('.scroll-3').html(`
+                    <div class="empty-state" style="padding:40px 20px;">
+                        <div class="empty-icon"><i class="fa-solid fa-inbox"></i></div>
+                        <div class="empty-title">All Clear!</div>
+                        <p style="font-size:12px;color:var(--text-muted);margin-top:4px;">No pending approvals.</p>
+                    </div>
+                `);
+                $('.badge-pending').removeClass('badge-pending').addClass('badge-approved').text('All clear');
+            }
+        });
+    }
+});
+
+function updateCount(el) {
+    if (el.length) {
+        let count = parseInt(el.text());
+        if (!isNaN(count) && count > 0) el.text(count - 1);
+    }
+}
+
+</script>
+{% endblock %}
 
 {% endblock %}

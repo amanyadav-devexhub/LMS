@@ -1,0 +1,667 @@
+{% extends "base.html" %}
+{% block title %}Leave Request Details — LeaveSetu{% endblock %}
+{% block page_title %}Leave Request Details{% endblock %}
+
+{% block extra_head %}
+<style>
+.detail-container {
+    max-width: 1000px;
+    margin: 0 auto;
+}
+.back-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    text-decoration: none;
+    font-size: 13px;
+    margin-bottom: 20px;
+    transition: all 0.2s;
+}
+.back-button:hover {
+    background: var(--aqua-glass);
+    border-color: var(--aqua);
+    color: var(--aqua-deep);
+}
+.detail-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-bottom: 24px;
+    box-shadow: var(--shadow-xs);
+}
+.card-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border);
+    background: linear-gradient(90deg, rgba(0,198,212,0.05), transparent);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+.card-header h2 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 16px;
+    border-radius: 30px;
+    font-size: 13px;
+    font-weight: 600;
+}
+.status-approved {
+    background: rgba(5,201,138,0.1);
+    color: #05c98a;
+    border: 1px solid rgba(5,201,138,0.3);
+}
+.status-rejected {
+    background: rgba(240,64,88,0.1);
+    color: #f04058;
+    border: 1px solid rgba(240,64,88,0.3);
+}
+.status-pending {
+    background: rgba(245,166,35,0.1);
+    color: #f5a623;
+    border: 1px solid rgba(245,166,35,0.3);
+}
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+    padding: 24px;
+}
+.info-item {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+}
+.info-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.info-value {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1.4;
+}
+.info-value.reason {
+    font-weight: normal;
+    line-height: 1.6;
+    white-space: pre-wrap;
+}
+.approval-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 24px;
+}
+.approval-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    transition: all 0.2s;
+}
+.approval-item:hover {
+    border-color: var(--border-mid);
+}
+.approval-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.approval-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--aqua-deep), var(--aqua));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 18px;
+    color: white;
+}
+.approval-info h4 {
+    margin: 0 0 4px 0;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text);
+}
+.approval-info p {
+    margin: 0;
+    font-size: 12px;
+    color: var(--text-muted);
+}
+.approval-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    font-size: 13px;
+}
+.approval-status .approved {
+    color: #05c98a;
+}
+.approval-status .rejected {
+    color: #f04058;
+}
+.approval-status .pending {
+    color: #f5a623;
+}
+
+/* Attachment Styles */
+.attachment-section {
+    padding: 20px 24px;
+    border-top: 1px solid var(--border);
+    background: var(--surface2);
+}
+.attachment-header {
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.attachment-header i {
+    font-size: 18px;
+    color: var(--aqua-deep);
+}
+.attachment-header h3 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+}
+.attachment-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+    transition: all 0.2s;
+}
+.attachment-card:hover {
+    border-color: var(--border-mid);
+    box-shadow: var(--shadow);
+}
+.attachment-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+}
+.attachment-icon {
+    width: 48px;
+    height: 48px;
+    background: rgba(0,198,212,0.1);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    color: var(--aqua-deep);
+}
+.attachment-details {
+    flex: 1;
+}
+.attachment-name {
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 4px;
+    word-break: break-all;
+}
+.attachment-meta {
+    font-size: 11px;
+    color: var(--text-muted);
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+.attachment-actions {
+    display: flex;
+    gap: 8px;
+}
+.attachment-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: var(--aqua-glass);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--aqua-deep);
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 600;
+    transition: all 0.2s;
+    cursor: pointer;
+}
+.attachment-link:hover {
+    background: var(--aqua-deep);
+    color: white;
+    border-color: var(--aqua-deep);
+    transform: translateY(-2px);
+}
+.no-attachment {
+    text-align: center;
+    padding: 40px;
+    color: var(--text-muted);
+}
+.no-attachment i {
+    font-size: 48px;
+    margin-bottom: 12px;
+    opacity: 0.5;
+}
+.paid-badge {
+    background: rgba(5,201,138,0.1);
+    color: #05c98a;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    display: inline-block;
+}
+.unpaid-badge {
+    background: rgba(240,64,88,0.1);
+    color: #f04058;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    display: inline-block;
+    margin-left: 8px;
+}
+.action-buttons {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    padding: 0 24px 24px 24px;
+}
+.btn {
+    padding: 10px 24px;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+.btn-success {
+    background: rgba(5,201,138,0.1);
+    color: #05c98a;
+    border: 1px solid rgba(5,201,138,0.3);
+}
+.btn-success:hover {
+    background: #05c98a;
+    color: white;
+    transform: translateY(-2px);
+}
+.btn-danger {
+    background: rgba(240,64,88,0.1);
+    color: #f04058;
+    border: 1px solid rgba(240,64,88,0.3);
+}
+.btn-danger:hover {
+    background: #f04058;
+    color: white;
+    transform: translateY(-2px);
+}
+.btn-secondary {
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border);
+}
+.btn-secondary:hover {
+    background: var(--surface);
+    transform: translateY(-2px);
+}
+@media (max-width: 768px) {
+    .info-grid {
+        grid-template-columns: 1fr;
+    }
+    .approval-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+    .action-buttons {
+        flex-direction: column;
+    }
+    .action-buttons form {
+        width: 100%;
+    }
+    .btn {
+        width: 100%;
+        justify-content: center;
+    }
+    .attachment-card {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .attachment-actions {
+        width: 100%;
+    }
+    .attachment-link {
+        flex: 1;
+        justify-content: center;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="detail-container">
+    <a href="javascript:history.back()" class="back-button">
+        <i class="fa-solid fa-arrow-left"></i> Back to Dashboard
+    </a>
+    
+    <div class="detail-card">
+        <div class="card-header">
+            <h2>
+                <i class="fa-regular fa-calendar-check"></i>
+                Leave Request #{{ leave.id }}
+            </h2>
+            <span class="status-badge status-{{ leave.final_status|lower }}">
+                {% if leave.final_status == 'APPROVED' %}
+                    <i class="fa-solid fa-check-circle"></i> Approved
+                {% elif leave.final_status == 'REJECTED' %}
+                    <i class="fa-solid fa-times-circle"></i> Rejected
+                {% else %}
+                    <i class="fa-solid fa-clock"></i> Pending
+                {% endif %}
+            </span>
+        </div>
+        
+        <div class="info-grid">
+            <div class="info-item">
+                <div class="info-label">
+                    <i class="fa-regular fa-user"></i> Employee
+                </div>
+                <div class="info-value">
+                    <strong>{{ leave.employee.get_full_name|default:leave.employee.username }}</strong><br>
+                    <span style="font-size: 13px; color: var(--text-muted);">{{ leave.employee.email }}</span>
+                </div>
+            </div>
+            
+            <div class="info-item">
+                <div class="info-label">
+                    <i class="fa-regular fa-building"></i> Department
+                </div>
+                <div class="info-value">
+                    {{ leave.employee.department.name|default:"—" }}
+                </div>
+            </div>
+            
+            <div class="info-item">
+                <div class="info-label">
+                    <i class="fa-regular fa-tag"></i> Leave Type
+                </div>
+                <div class="info-value">
+                    {{ leave.get_leave_type_display|default:leave.leave_type }}
+                </div>
+            </div>
+            
+            <div class="info-item">
+                <div class="info-label">
+                    <i class="fa-regular fa-clock"></i> Duration
+                </div>
+                <div class="info-value">
+                    {% if leave.duration == "FULL" %}
+                        Full Day
+                    {% elif leave.duration == "HALF" %}
+                        Half Day
+                    {% elif leave.duration == "SHORT" %}
+                        Short Leave ({{ leave.short_hours }} hours)
+                    {% else %}
+                        {{ leave.duration }}
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="info-item">
+                <div class="info-label">
+                    <i class="fa-regular fa-calendar-alt"></i> Start Date
+                </div>
+                <div class="info-value">
+                    {{ leave.start_date|date:"l, j F Y" }}
+                </div>
+            </div>
+            
+            <div class="info-item">
+                <div class="info-label">
+                    <i class="fa-regular fa-calendar-alt"></i> End Date
+                </div>
+                <div class="info-value">
+                    {{ leave.end_date|date:"l, j F Y" }}
+                </div>
+            </div>
+            
+            <div class="info-item">
+                <div class="info-label">
+                    <i class="fa-regular fa-sun"></i> Total Days
+                </div>
+                <div class="info-value">
+                    {{ total_days|floatformat:1 }} day(s)
+                </div>
+            </div>
+            
+            <div class="info-item">
+                <div class="info-label">
+                    <i class="fa-regular fa-money-bill-1"></i> Paid/Unpaid
+                </div>
+                <div class="info-value">
+                    {% if leave.paid_days > 0 %}
+                        <span class="paid-badge">💰 {{ leave.paid_days|floatformat:1 }} paid days</span>
+                    {% endif %}
+                    {% if leave.unpaid_days > 0 %}
+                        <span class="unpaid-badge">⚠️ {{ leave.unpaid_days|floatformat:1 }} unpaid days</span>
+                    {% endif %}
+                    {% if leave.paid_days == 0 and leave.unpaid_days == 0 %}
+                        <span class="unpaid-badge">Pending calculation</span>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="info-item">
+                <div class="info-label">
+                    <i class="fa-regular fa-calendar-plus"></i> Applied On
+                </div>
+                <div class="info-value">
+                    {{ leave.created_at|date:"l, j F Y, h:i A" }}
+                </div>
+            </div>
+            
+            {% if leave.updated_at != leave.created_at %}
+            <div class="info-item">
+                <div class="info-label">
+                    <i class="fa-regular fa-pen-to-square"></i> Last Updated
+                </div>
+                <div class="info-value">
+                    {{ leave.updated_at|date:"l, j F Y, h:i A" }}
+                </div>
+            </div>
+            {% endif %}
+            
+            <div class="info-item" style="grid-column: span 2;">
+                <div class="info-label">
+                    <i class="fa-regular fa-message"></i> Reason for Leave
+                </div>
+                <div class="info-value reason">
+                    {{ leave.reason|default:"No reason provided"|linebreaks }}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Attachment Section -->
+        <div class="attachment-section">
+            <div class="attachment-header">
+                <i class="fa-regular fa-paperclip"></i>
+                <h3>Attachments</h3>
+            </div>
+            
+            {% if leave.attachment %}
+                {% with file_name=leave.attachment.name|cut:"leave_attachments/" %}
+                <div class="attachment-card">
+                    <div class="attachment-info">
+                        <div class="attachment-icon">
+                            {% with file_ext=file_name|slice:"-4:" %}
+                                {% if file_ext|lower == '.pdf' %}
+                                    <i class="fa-regular fa-file-pdf"></i>
+                                {% elif file_ext|lower == '.jpg' or file_ext|lower == '.jpeg' or file_ext|lower == '.png' or file_ext|lower == '.gif' %}
+                                    <i class="fa-regular fa-file-image"></i>
+                                {% elif file_ext|lower == '.doc' or file_ext|lower == '.docx' %}
+                                    <i class="fa-regular fa-file-word"></i>
+                                {% elif file_ext|lower == '.xls' or file_ext|lower == '.xlsx' %}
+                                    <i class="fa-regular fa-file-excel"></i>
+                                {% else %}
+                                    <i class="fa-regular fa-file"></i>
+                                {% endif %}
+                            {% endwith %}
+                        </div>
+                        <div class="attachment-details">
+                            <div class="attachment-name">{{ file_name }}</div>
+                            <div class="attachment-meta">
+                                <span><i class="fa-regular fa-clock"></i> Uploaded: {{ leave.created_at|date:"d M Y" }}</span>
+                                <span><i class="fa-regular fa-hard-drive"></i> 
+                                    {% if leave.attachment.size < 1024 %}
+                                        {{ leave.attachment.size }} B
+                                    {% elif leave.attachment.size < 1048576 %}
+                                        {{ leave.attachment.size|filesizeformat }}
+                                    {% else %}
+                                        {{ leave.attachment.size|filesizeformat }}
+                                    {% endif %}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="attachment-actions">
+                        <a href="{{ leave.attachment.url }}" target="_blank" class="attachment-link">
+                            <i class="fa-regular fa-eye"></i> Preview
+                        </a>
+                        <a href="{{ leave.attachment.url }}" download class="attachment-link">
+                            <i class="fa-regular fa-download"></i> Download
+                        </a>
+                    </div>
+                </div>
+                {% endwith %}
+            {% else %}
+                <div class="no-attachment">
+                    <i class="fa-regular fa-paperclip"></i>
+                    <p>No attachment uploaded for this leave request.</p>
+                </div>
+            {% endif %}
+        </div>
+        
+        <div class="card-header" style="border-bottom: 1px solid var(--border); margin-top: 0;">
+            <h2 style="margin: 0; font-size: 16px;">
+                <i class="fa-solid fa-users"></i> Approval Status
+            </h2>
+        </div>
+        
+        <div class="approval-grid">
+            {% for approver in approvers %}
+            <div class="approval-item">
+                <div class="approval-left">
+                    <div class="approval-avatar">
+                        {{ approver.name|first|upper }}
+                    </div>
+                    <div class="approval-info">
+                        <h4>{{ approver.name }}</h4>
+                        <p>{{ approver.role }}</p>
+                        <p style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">
+                            {{ approver.email }}
+                        </p>
+                    </div>
+                </div>
+                <div class="approval-status">
+                    {% if approver.vote == 'approved' %}
+                        <i class="fa-solid fa-circle-check" style="color: #05c98a; font-size: 20px;"></i>
+                        <span class="approved">Approved</span>
+                        {% if approver.acted_at %}
+                            <span style="font-size: 11px; color: var(--text-muted); margin-left: 8px;">
+                                ({{ approver.acted_at }})
+                            </span>
+                        {% endif %}
+                    {% elif approver.vote == 'rejected' %}
+                        <i class="fa-solid fa-circle-xmark" style="color: #f04058; font-size: 20px;"></i>
+                        <span class="rejected">Rejected</span>
+                        {% if approver.acted_at %}
+                            <span style="font-size: 11px; color: var(--text-muted); margin-left: 8px;">
+                                ({{ approver.acted_at }})
+                            </span>
+                        {% endif %}
+                    {% else %}
+                        <i class="fa-regular fa-clock" style="color: #f5a623; font-size: 20px;"></i>
+                        <span class="pending">Pending</span>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+            
+            {% if not approvers %}
+            <div class="info-item" style="grid-column: span 2; text-align: center; color: var(--text-muted);">
+                <i class="fa-regular fa-user"></i> No approvers assigned yet
+            </div>
+            {% endif %}
+        </div>
+        
+        {% if can_approve %}
+        <div class="action-buttons">
+            <a href="javascript:history.back()" class="btn btn-secondary">
+                <i class="fa-solid fa-times"></i> Cancel
+            </a>
+            {% if not user_has_voted %}
+                <form method="POST" action="{% url 'approve_leave' leave.id %}" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-success">
+                        <i class="fa-solid fa-check"></i> Approve Leave
+                    </button>
+                </form>
+                <form method="POST" action="{% url 'reject_leave' leave.id %}" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger" onclick="return confirm('Are you sure you want to reject this leave request?')">
+                        <i class="fa-solid fa-xmark"></i> Reject Leave
+                    </button>
+                </form>
+            {% else %}
+                <div class="btn btn-secondary" style="cursor: default; background: rgba(0,198,212,0.1);">
+                    <i class="fa-solid fa-check-double"></i> You have already voted
+                </div>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

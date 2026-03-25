@@ -3,6 +3,16 @@
 {% block page_title %}Pending Leave Approvals{% endblock %}
 
 {% block content %}
+<style>
+.clickable-row {
+    cursor: pointer;
+    transition: background 0.2s;
+}
+.clickable-row:hover {
+    background: rgba(0,198,212,0.05);
+}
+</style>
+
 <div class="card">
     <div class="table-header">
         <div class="table-title">
@@ -12,62 +22,56 @@
         <span class="badge badge-pending">{{ pending_count }} pending</span>
     </div>
     
-    <div class="table-container">
-        <table>
-            <thead>
-                <tr>
-                    <th>Employee</th>
-                    <th>Department</th>
-                    <th>Leave Type</th>
-                    <th>Duration</th>
-                    <th>Dates</th>
-                    <th>Reason</th>
-                    <th>Applied On</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for leave in leaves %}
-                <tr>
-                    <td>
-                        <div style="display: flex; align-items: center; gap: 10px;">
-                            <div class="avatar">{{ leave.employee.first_name|first|upper }}{{ leave.employee.last_name|first|upper }}</div>
-                            <div>
-                                <div style="font-weight: 700;">{{ leave.employee.get_full_name|default:leave.employee.username }}</div>
-                                <div style="font-size: 11px; color: var(--text-muted);">{{ leave.employee.email }}</div>
-                            </div>
-                        </div>
-                    </td>
-                    <td>{{ leave.employee.department.name|default:"—" }}</td>
-                    <td><span class="badge badge-info">{{ leave.leave_type }}</span></td>
-                    <td>{{ leave.duration }}</td>
-                    <td>{{ leave.start_date|date:"d M" }}{% if leave.end_date and leave.end_date != leave.start_date %} → {{ leave.end_date|date:"d M Y" }}{% endif %}</td>
-                    <td style="max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ leave.reason|default:"—" }}</td>
-                    <td>{{ leave.created_at|date:"d M Y" }}</td>
-                    <td>
-                        <div style="display: flex; gap: 5px;">
-                            <form method="POST" action="{% url 'approve_leave' leave.id %}" style="display: inline;">
-                                {% csrf_token %}
-                                <button type="submit" class="btn btn-success btn-sm"><i class="fa-solid fa-check"></i> Approve</button>
-                            </form>
-                            <form method="POST" action="{% url 'reject_leave' leave.id %}" style="display: inline;">
-                                {% csrf_token %}
-                                <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Reject this leave request?')"><i class="fa-solid fa-xmark"></i> Reject</button>
-                            </form>
-                        </div>
-                    </td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="8" class="empty-state" style="padding: 40px;">
-                        <div class="empty-icon"><i class="fa-solid fa-circle-check" style="color: var(--success);"></i></div>
-                        <div class="empty-title">All Clear!</div>
-                        <p>No pending leave approvals at the moment.</p>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    <div class="table-container" id="hr-pending-container">
+        {% include "partials/hr_pending_leaves_table.html" %}
     </div>
 </div>
+
+<script>
+$(document).ready(function() {
+    // Handle AJAX Pagination
+    $(document).on('click', '.ajax-pagination', function(e) {
+        e.preventDefault();
+        const $container = $('#hr-pending-container');
+        const url = $(this).attr('href');
+
+        $container.css('opacity', '0.5');
+        fetch(url, {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                $container.html(data.html).css('opacity', '1');
+                window.history.replaceState({}, '', url);
+            }
+        })
+        .catch(err => {
+            console.error('Pagination error:', err);
+            $container.css('opacity', '1');
+        });
+    });
+
+    // Stop event propagation for action buttons so they don't trigger the row click
+    $(document).on('click', '.clickable-row form', function(e) {
+        e.stopPropagation();
+    });
+
+    // Handle AJAX success to remove the row
+    $(document).on('ajax:success', '.ajax-form', function(e, data) {
+        if (data.success) {
+            $(this).closest('tr').fadeOut(400, function() {
+                $(this).remove();
+                
+                // Update count badge
+                const badge = $('.badge-pending');
+                let count = parseInt(badge.text());
+                if (!isNaN(count) && count > 0) {
+                    badge.text((count - 1) + ' pending');
+                }
+            });
+        }
+    });
+});
+</script>
 {% endblock %}

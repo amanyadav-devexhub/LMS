@@ -4,7 +4,7 @@
 
 {% block extra_head %}
 <style>
-/* ── Hero banner ── */
+/* Hero Banner */
 .mgr-hero {
     background: linear-gradient(135deg, #1a1a2e 0%, #16213e 55%, #0f3460 100%);
     border-radius: var(--radius);
@@ -25,12 +25,12 @@
 .hero-label {
     display: flex; align-items: center; gap: 8px;
     font-size: 9px; font-weight: 800; letter-spacing: 2.5px;
-    text-transform: uppercase; color: var(--aqua);
+    text-transform: uppercase; color: #0d6efd;
     margin-bottom: 9px; opacity: .75;
 }
 .hero-label::before {
     content: ''; width: 22px; height: 1.5px;
-    background: var(--aqua); border-radius: 2px;
+    background: #0d6efd; border-radius: 2px;
 }
 .hero-name {
     font-size: 23px; font-weight: 800; color: #fff;
@@ -61,12 +61,12 @@
 .hn { text-align: center; }
 .hn-val { font-size: 27px; font-weight: 800; color: #fff; line-height: 1; }
 .hn-val.am { color: var(--warning); }
-.hn-val.aq { color: var(--aqua-light); }
+.hn-val.aq { color: #0dcaf0; }
 .hn-lbl { font-size: 9px; font-weight: 700; letter-spacing: 1.5px;
     text-transform: uppercase; color: rgba(255,255,255,.30); margin-top: 3px; }
 .hn-div { width: 1px; height: 38px; background: rgba(255,255,255,.08); }
 
-/* ── Stat row ── */
+/* Stat Row */
 .stat-row {
     display: grid; grid-template-columns: repeat(4, 1fr);
     gap: 14px; margin-bottom: 22px;
@@ -99,12 +99,12 @@
 .s-val { font-size: 26px; font-weight: 800; color: var(--text); letter-spacing: -1px; line-height: 1; }
 .s-lbl { font-size: 11px; color: var(--text-muted); margin-top: 4px; font-weight: 500; }
 
-/* ── Panels ── */
+/* Panels */
 .mgr-panel { display: none; animation: pu .26s ease both; }
 .mgr-panel.show { display: block; }
 @keyframes pu { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
 
-/* ── Section card ── */
+/* Section Card */
 .sc {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -130,93 +130,155 @@
 .sc-ttl { font-size: 13.5px; font-weight: 800; color: var(--text); }
 .sc-sub { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
 
-/* ── Leave rows ── */
+/* Leave Rows */
 .lr {
-    display: flex; align-items: center; gap: 12px;
-    padding: 11px 20px; border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 15px 20px;
+    border-bottom: 1px solid var(--border);
     transition: background .12s;
 }
 .lr:last-child { border-bottom: none; }
 .lr:hover { background: rgba(13, 110, 253, 0.025); }
 .lrav {
-    width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    flex-shrink: 0;
     background: linear-gradient(135deg, #0d6efd, #0dcaf0);
-    display: flex; align-items: center; justify-content: center;
-    font-weight: 800; font-size: 11px; color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 11px;
+    color: #fff;
 }
-.lr-info { flex: 1; min-width: 0; }
-.lr-nm { font-size: 13px; font-weight: 700; color: var(--text); }
-.lr-mt { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
-.lr-acts { display: flex; gap: 5px; flex-shrink: 0; }
-
+.lr-info {
+    flex: 1;
+    min-width: 0;
+}
+.lr-nm {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+}
+.lr-mt {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 1px;
+}
+.lr-acts {
+    display: flex;
+    gap: 5px;
+    flex-shrink: 0;
+    align-items: center;
+}
 .ab {
-    width: 28px; height: 28px; border-radius: 7px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 10px; cursor: pointer;
-    border: 1px solid; transition: all .15s; background: none;
+    width: 28px;
+    height: 28px;
+    border-radius: 7px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    cursor: pointer;
+    border: 1px solid;
+    transition: all .15s;
+    background: none;
 }
-.ab-ok { border-color: rgba(5, 201, 138, 0.30); color: #047a52; background: rgba(5, 201, 138, 0.08); }
-.ab-ok:hover { background: rgba(5, 201, 138, 0.18); }
-.ab-no { border-color: rgba(240, 64, 88, 0.25); color: #b01530; background: rgba(240, 64, 88, 0.07); }
-.ab-no:hover { background: rgba(240, 64, 88, 0.16); }
+.ab-ok {
+    border-color: rgba(5, 201, 138, 0.30);
+    color: #047a52;
+    background: rgba(5, 201, 138, 0.08);
+}
+.ab-ok:hover {
+    background: rgba(5, 201, 138, 0.18);
+}
+.ab-no {
+    border-color: rgba(240, 64, 88, 0.25);
+    color: #b01530;
+    background: rgba(240, 64, 88, 0.07);
+}
+.ab-no:hover {
+    background: rgba(240, 64, 88, 0.16);
+}
 
-/* ── Table ── */
-.tt { width: 100%; border-collapse: collapse; }
+/* Table */
+.tt {
+    width: 100%;
+    border-collapse: collapse;
+}
 .tt thead th {
-    padding: 9px 18px; text-align: left;
-    font-size: 9.5px; font-weight: 700;
-    letter-spacing: 1.2px; text-transform: uppercase;
+    padding: 9px 18px;
+    text-align: left;
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
     color: #4b5563;
     background: linear-gradient(90deg, rgba(13, 110, 253, 0.05), rgba(13, 110, 253, 0.02));
     border-bottom: 1px solid var(--border-mid);
 }
-.tt tbody tr { border-bottom: 1px solid var(--border); transition: background .12s; }
-.tt tbody tr:hover { background: rgba(13, 110, 253, 0.025); }
-.tt tbody td { padding: 11px 18px; font-size: 12.5px; color: var(--text-mid); vertical-align: middle; }
-
-/* ── Balance bar ── */
-.bw { display: flex; align-items: center; gap: 7px; }
-.bt { flex: 1; height: 5px; border-radius: 3px; background: var(--border); overflow: hidden; min-width: 44px; }
-.bf { height: 100%; border-radius: 3px; }
-
-/* ── Shared profile styling ── */
-.prof-banner {
-    height: 140px;
-    background: linear-gradient(135deg, #1a1a2e 0%, #0d6efd 100%);
-    border-radius: var(--radius) var(--radius) 0 0;
-    position: relative; overflow: hidden;
+.tt tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background .12s;
 }
-.prof-avatar-row {
-    background: var(--surface); padding: 0 28px 22px;
-    display: flex; align-items: flex-end; gap: 20px; flex-wrap: wrap;
-    border-radius: 0 0 var(--radius) var(--radius);
-    border: 1px solid var(--border); border-top: none;
+.tt tbody tr:hover {
+    background: rgba(13, 110, 253, 0.025);
 }
-.prof-av-wrap { position: relative; margin-top: -48px; flex-shrink: 0; }
-.prof-av {
-    width: 96px; height: 96px; border-radius: 50%;
-    background: linear-gradient(135deg, #1a1a2e, #0d6efd);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 30px; font-weight: 800; color: #fff;
-    border: 4px solid var(--surface);
-    box-shadow: 0 8px 30px rgba(13,110,253,0.3);
+.tt tbody td {
+    padding: 11px 18px;
+    font-size: 12.5px;
+    color: var(--text-mid);
+    vertical-align: middle;
 }
-.prof-info { flex: 1; padding-top: 14px; min-width: 0; }
-.prof-name { font-size: 20px; font-weight: 800; color: var(--text); letter-spacing: -.3px; margin-bottom: 5px; }
-.prof-meta { display: flex; flex-wrap: wrap; gap: 10px; font-size: 12px; color: var(--text-muted); font-weight: 500; }
 
-/* ── Section labels ── */
+/* Balance Bar */
+.bw {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+.bt {
+    flex: 1;
+    height: 5px;
+    border-radius: 3px;
+    background: var(--border);
+    overflow: hidden;
+    min-width: 44px;
+}
+.bf {
+    height: 100%;
+    border-radius: 3px;
+}
+
+/* Section Labels */
 .sec-label {
-    font-size: 10px; font-weight: 800; letter-spacing: 1.5px;
-    text-transform: uppercase; color: #4b5563;
-    margin: 24px 0 12px 4px; display: flex; align-items: center; gap: 10px;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: #4b5563;
+    margin: 24px 0 12px 4px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
-.sec-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+.sec-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+}
 
-/* ── Badges ── */
+/* Chips */
 .chip {
-    padding: 3px 10px; border-radius: 20px;
-    font-size: 10px; font-weight: 800; white-space: nowrap;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 10px;
+    font-weight: 800;
+    white-space: nowrap;
 }
 .ch-am { background: rgba(245, 166, 35, 0.10); color: #905700; border: 1px solid rgba(245, 166, 35, 0.25); }
 .ch-in { background: rgba(13, 110, 253, 0.10); color: #0d6efd; border: 1px solid rgba(13, 110, 253, 0.22); }
@@ -224,33 +286,133 @@
 .ch-rd { background: rgba(240, 64, 88, 0.09); color: #b01530; border: 1px solid rgba(240, 64, 88, 0.20); }
 .ch-gn { background: rgba(5, 201, 138, 0.09); color: #047a52; border: 1px solid rgba(5, 201, 138, 0.22); }
 
-/* Empty state */
-.emp { text-align: center; padding: 44px 24px; }
-.emp-ico { font-size: 36px; color: #0d6efd; opacity: .25; margin-bottom: 10px; }
-.emp-ttl { font-size: 15px; font-weight: 800; color: var(--text); margin-bottom: 4px; }
-.emp-sub { font-size: 12px; color: var(--text-muted); }
+/* Empty State */
+.emp {
+    text-align: center;
+    padding: 44px 24px;
+}
+.emp-ico {
+    font-size: 36px;
+    color: #0d6efd;
+    opacity: .25;
+    margin-bottom: 10px;
+}
+.emp-ttl {
+    font-size: 15px;
+    font-weight: 800;
+    color: var(--text);
+    margin-bottom: 4px;
+}
+.emp-sub {
+    font-size: 12px;
+    color: var(--text-muted);
+}
 
 /* Pagination */
 .pgn {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 12px 20px; border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px;
+    border-top: 1px solid var(--border);
     background: linear-gradient(90deg, rgba(13, 110, 110, 0.02), transparent);
 }
 .pb {
-    width: 28px; height: 28px; border-radius: 7px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 11px; font-weight: 700; text-decoration: none;
-    border: 1px solid var(--border); color: var(--text-muted);
+    width: 28px;
+    height: 28px;
+    border-radius: 7px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    text-decoration: none;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
 }
-.pb.on { background: #0d6efd; color: #fff; border-color: transparent; }
-.pb.off { opacity: .3; pointer-events: none; }
+.pb.on {
+    background: #0d6efd;
+    color: #fff;
+    border-color: transparent;
+}
+.pb.off {
+    opacity: .3;
+    pointer-events: none;
+}
 
+/* Profile Section */
+.prof-banner {
+    height: 140px;
+    background: linear-gradient(135deg, #1a1a2e 0%, #0d6efd 100%);
+    border-radius: var(--radius) var(--radius) 0 0;
+    position: relative;
+    overflow: hidden;
+}
+.prof-avatar-row {
+    background: var(--surface);
+    padding: 0 28px 22px;
+    display: flex;
+    align-items: flex-end;
+    gap: 20px;
+    flex-wrap: wrap;
+    border-radius: 0 0 var(--radius) var(--radius);
+    border: 1px solid var(--border);
+    border-top: none;
+}
+.prof-av-wrap {
+    position: relative;
+    margin-top: -48px;
+    flex-shrink: 0;
+}
+.prof-av {
+    width: 96px;
+    height: 96px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #1a1a2e, #0d6efd);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 30px;
+    font-weight: 800;
+    color: #fff;
+    border: 4px solid var(--surface);
+    box-shadow: 0 8px 30px rgba(13,110,253,0.3);
+}
+.prof-info {
+    flex: 1;
+    padding-top: 14px;
+    min-width: 0;
+}
+.prof-name {
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--text);
+    letter-spacing: -.3px;
+    margin-bottom: 5px;
+}
+.prof-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    font-size: 12px;
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+@media (max-width: 900px) {
+    .stat-row {
+        grid-template-columns: repeat(2,1fr);
+    }
+    .hero-right {
+        display: none;
+    }
+}
 </style>
 {% endblock %}
 
 {% block content %}
 
-{# ── HERO ── #}
+{# Hero Section #}
 <div class="mgr-hero animate-in">
     <div class="hero-label">Manager Dashboard</div>
     <div class="hero-name">Welcome back, {{ request.user.first_name|default:request.user.username }} 🚀</div>
@@ -275,7 +437,7 @@
     </div>
 </div>
 
-{# ── STATS ── #}
+{# Stat Cards #}
 <div class="stat-row animate-in delay-1">
     <div class="s-card active" id="stat-pending" onclick="switchTab('pending')">
         <div class="s-ico"><i class="fa-solid fa-clock-rotate-left"></i></div>
@@ -294,96 +456,30 @@
     </div>
     <div class="s-card" id="stat-profile" onclick="switchTab('profile')" style="--c:#6c757d;">
         <div class="s-ico"><i class="fa-solid fa-user-gear"></i></div>
-        <div class="s-val"><i class="fa-solid fa-shield-halved" style="font-size:18px;"></i></div>
+        <div class="s-val"><i class="fa-solid fa-shield-halved"></i></div>
         <div class="s-lbl">Account Settings</div>
     </div>
 </div>
 
-{# ── PANEL: PENDING ── #}
+{# PANEL — Pending Requests #}
 <div class="mgr-panel show" id="panel-pending">
-    
-    {% if team_pending %}
-    <div class="sec-label">Requests from My Team</div>
-    <div class="sc">
-        <div class="sc-head">
-            <div class="sc-hl">
-                <div class="sc-ico"><i class="fa-solid fa-star"></i></div>
-                <div class="sc-ttl">Direct Reports</div>
-            </div>
-            <span class="chip ch-am">{{ team_pending|length }} Priority</span>
-        </div>
-        {% for leave in team_pending %}
-        <div class="lr">
-            <div class="lrav" style="background:linear-gradient(135deg,#f5a623,#ff8c00);">{{ leave.employee.first_name|first|upper }}{{ leave.employee.last_name|first|upper }}</div>
-            <div class="lr-info">
-                <div class="lr-nm">{{ leave.employee.get_full_name|default:leave.employee.username }}</div>
-                <div class="lr-mt">{{ leave.leave_type|capfirst }} · {{ leave.start_date }}{% if leave.start_date != leave.end_date %} → {{ leave.end_date }}{% endif %}</div>
-            </div>
-            <div class="lr-acts">
-                <form method="POST" action="{% url 'approve_leave' leave.id %}" style="margin:0;">
-                    {% csrf_token %}<button class="ab ab-ok"><i class="fa-solid fa-check"></i></button>
-                </form>
-                <form method="POST" action="{% url 'reject_leave' leave.id %}" style="margin:0;">
-                    {% csrf_token %}<button class="ab ab-no" onclick="return confirm('Reject this leave?')"><i class="fa-solid fa-xmark"></i></button>
-                </form>
-            </div>
-        </div>
-        {% endfor %}
-    </div>
-    {% endif %}
-
-    <div class="sec-label">All Pending Requests</div>
+    <div class="sec-label">Pending Leave Requests</div>
     <div class="sc">
         <div class="sc-head">
             <div class="sc-hl">
                 <div class="sc-ico"><i class="fa-solid fa-inbox"></i></div>
-                <div class="sc-ttl">Global Leave Queue</div>
+                <div class="sc-ttl">Leave Requests Requiring Your Approval</div>
             </div>
-            <span class="chip ch-in">{{ pending_count }} Total Pending</span>
+            <span class="chip ch-in">{{ pending_count }} Total</span>
         </div>
         
-        {% if pending_page %}
-            {% for leave in pending_page %}
-            <div class="lr">
-                <div class="lrav">{{ leave.employee.first_name|first|upper }}{{ leave.employee.last_name|first|upper }}</div>
-                <div class="lr-info">
-                    <div class="lr-nm">{{ leave.employee.get_full_name|default:leave.employee.username }}</div>
-                    <div class="lr-mt">
-                        <span style="color:#0d6efd;font-weight:700;">{{ leave.employee.department|default:"No Dept" }}</span> · 
-                        {{ leave.leave_type|capfirst }} · {{ leave.start_date }}
-                    </div>
-                </div>
-                <div class="lr-acts">
-                    <form method="POST" action="{% url 'approve_leave' leave.id %}" style="margin:0;">
-                        {% csrf_token %}<button class="ab ab-ok"><i class="fa-solid fa-check"></i></button>
-                    </form>
-                    <form method="POST" action="{% url 'reject_leave' leave.id %}" style="margin:0;">
-                        {% csrf_token %}<button class="ab ab-no" onclick="return confirm('Reject this leave?')"><i class="fa-solid fa-xmark"></i></button>
-                    </form>
-                </div>
-            </div>
-            {% endfor %}
-            
-            {% if pending_page.has_other_pages %}
-            <div class="pgn">
-                <span style="font-size:11px;color:var(--text-muted);">Page {{ pending_page.number }} of {{ pending_page.paginator.num_pages }}</span>
-                <div style="display:flex;gap:4px;">
-                    <a href="?page={{ pending_page.previous_page_number }}&tab=pending" class="pb {% if not pending_page.has_previous %}off{% endif %}"><i class="fa-solid fa-chevron-left"></i></a>
-                    <a href="?page={{ pending_page.next_page_number }}&tab=pending" class="pb {% if not pending_page.has_next %}off{% endif %}"><i class="fa-solid fa-chevron-right"></i></a>
-                </div>
-            </div>
-            {% endif %}
-        {% else %}
-            <div class="emp">
-                <div class="emp-ico"><i class="fa-solid fa-check-double"></i></div>
-                <div class="emp-ttl">Queue is Empty</div>
-                <div class="emp-sub">No pending leave requests at the moment.</div>
-            </div>
-        {% endif %}
+        <div id="pending-list">
+            {% include "partials/mgr_pending_leaves.html" %}
+        </div>
     </div>
 </div>
 
-{# ── PANEL: MY TEAM ── #}
+{# PANEL — My Team #}
 <div class="mgr-panel" id="panel-team">
     <div class="sc">
         <div class="sc-head">
@@ -403,8 +499,7 @@
                     <th style="text-align:center;">Pending</th>
                     <th>Casual Bal</th>
                     <th>Sick Bal</th>
-                </tr>
-            </thead>
+                </thead>
             <tbody>
                 {% for item in team_data %}
                 <tr>
@@ -457,7 +552,7 @@
             <div class="lrav" style="background:linear-gradient(135deg,#f04058,#b01530);">{{ leave.employee.first_name|first|upper }}</div>
             <div class="lr-info">
                 <div class="lr-nm">{{ leave.employee.get_full_name|default:leave.employee.username }}</div>
-                <div class="lr-mt">{{ leave.leave_type|capfirst }} · Returns {{ leave.end_date }}</div>
+                <div class="lr-mt">{{ leave.leave_type|capfirst }} · Returns {{ leave.end_date|date:"d M Y" }}</div>
             </div>
             <span class="chip ch-rd">Away</span>
         </div>
@@ -466,7 +561,7 @@
     {% endif %}
 </div>
 
-{# ── PANEL: HISTORY ── #}
+{# PANEL — History #}
 <div class="mgr-panel" id="panel-history">
     <div class="sc">
         <div class="sc-head">
@@ -475,75 +570,27 @@
                 <div class="sc-ttl">Team history ({{ current_year }})</div>
             </div>
         </div>
-        {% if team_history_page %}
-            <table class="tt">
-                <thead>
-                    <tr><th>Employee</th><th>Date</th><th>Type</th><th>Status</th></tr>
-                </thead>
-                <tbody>
-                    {% for leave in team_history_page %}
-                    <tr>
-                        <td><strong>{{ leave.employee.first_name }}</strong></td>
-                        <td>{{ leave.start_date }}</td>
-                        <td>{{ leave.leave_type|capfirst }}</td>
-                        <td>
-                            {% if leave.status == 'APPROVED' %}<span class="chip ch-gn">Approved</span>
-                            {% elif leave.status == 'REJECTED' %}<span class="chip ch-rd">Rejected</span>
-                            {% else %}<span class="chip ch-am">Pending</span>{% endif %}
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-            {% if team_history_page.has_other_pages %}
-            <div class="pgn">
-                <span>{{ team_history_page.start_index }}–{{ team_history_page.end_index }} of {{ team_history_page.paginator.count }}</span>
-                <div style="display:flex;gap:4px;">
-                    <a href="?hpage={{ team_history_page.previous_page_number }}&tab=history" class="pb {% if not team_history_page.has_previous %}off{% endif %}"><i class="fa-solid fa-chevron-left"></i></a>
-                    <a href="?hpage={{ team_history_page.next_page_number }}&tab=history" class="pb {% if not team_history_page.has_next %}off{% endif %}"><i class="fa-solid fa-chevron-right"></i></a>
-                </div>
-            </div>
-            {% endif %}
-        {% else %}
-            <div class="emp"><div class="emp-ttl">No Activity Recorded</div></div>
-        {% endif %}
-    </div>
-
-    <div class="sec-label">My Own Leaves</div>
-    <div class="sc">
-        {% if my_leaves_page %}
-            {% for leave in my_leaves_page %}
-            <div class="lr">
-                <div class="lrav" style="background:#6c757d;">{{ leave.leave_type|first }}</div>
-                <div class="lr-info">
-                    <div class="lr-nm">{{ leave.leave_type|capfirst }}</div>
-                    <div class="lr-mt">{{ leave.start_date }}</div>
-                </div>
-                {% if leave.status == 'APPROVED' %}<span class="chip ch-gn">Approved</span>
-                {% elif leave.status == 'REJECTED' %}<span class="chip ch-rd">Rejected</span>
-                {% else %}<span class="chip ch-am">Pending</span>{% endif %}
-            </div>
-            {% endfor %}
-        {% endif %}
+        <div id="history-list">
+            {% include "partials/mgr_team_history.html" %}
+        </div>
     </div>
 </div>
 
-{# ── PANEL: PROFILE ── #}
+{# PANEL — Profile #}
 <div class="mgr-panel" id="panel-profile">
     <div class="prof-banner"></div>
     <div class="prof-avatar-row">
         <div class="prof-av-wrap">
             <div class="prof-av">
-                {% if request.user.avatar %}<img src="{{ request.user.avatar.url }}">
-                {% else %}{{ request.user.first_name|first|upper }}{{ request.user.last_name|first|upper }}{% endif %}
+                {{ request.user.first_name|first|upper }}{{ request.user.last_name|first|upper }}
             </div>
         </div>
         <div class="prof-info">
             <div class="prof-name">{{ request.user.get_full_name|default:request.user.username }}</div>
             <div class="prof-meta">
-                <div class="prof-meta-item"><i class="fa-solid fa-envelope"></i> {{ request.user.email }}</div>
-                <div class="prof-meta-item"><i class="fa-solid fa-briefcase"></i> {{ profile.designation|default:"Manager" }}</div>
-                <div class="prof-meta-item"><i class="fa-solid fa-building"></i> {{ profile.department|default:"Management" }}</div>
+                <div><i class="fa-solid fa-envelope"></i> {{ request.user.email }}</div>
+                <div><i class="fa-solid fa-briefcase"></i> Manager</div>
+                <div><i class="fa-solid fa-building"></i> {{ profile.department|default:"Management" }}</div>
             </div>
         </div>
     </div>
@@ -580,28 +627,70 @@
 
 <script>
 function switchTab(tabId) {
-    // Panels
-    document.querySelectorAll('.mgr-panel').forEach(p => p.classList.remove('show'));
+    const panels = document.querySelectorAll('.mgr-panel');
+    panels.forEach(p => p.classList.remove('show'));
     const target = document.getElementById('panel-' + tabId);
     if(target) target.classList.add('show');
 
-    // Stat cards active state
-    document.querySelectorAll('.s-card').forEach(c => c.classList.remove('active'));
+    const cards = document.querySelectorAll('.s-card');
+    cards.forEach(c => c.classList.remove('active'));
     const card = document.getElementById('stat-' + tabId);
     if(card) card.classList.add('active');
 
-    // URL handling
     const url = new URL(window.location);
     url.searchParams.set('tab', tabId);
     window.history.replaceState({}, '', url);
 }
 
-// Global init for tab from URL
-window.addEventListener('DOMContentLoaded', () => {
+$(function() {
     const params = new URLSearchParams(window.location.search);
     const tab = params.get('tab') || 'pending';
     switchTab(tab);
 });
-</script>
 
-{% endblock %}
+// AJAX Pagination
+$(document).on('click', '.ajax-pagination', function(e) {
+    e.preventDefault();
+    const $link = $(this);
+    const url = $link.attr('href');
+    const targetId = $link.data('target');
+    const $target = $('#' + targetId);
+
+    $target.css('opacity', '0.5');
+
+    fetch(url, {
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            $target.html(data.html).css('opacity', '1');
+            window.history.replaceState({}, '', url);
+        }
+    })
+    .catch(err => {
+        console.error('Pagination error:', err);
+        $target.css('opacity', '1');
+    });
+});
+
+// Handle AJAX success for forms
+$(document).on('ajax:success', '.ajax-form', function(e, data) {
+    if (data.success) {
+        $(this).closest('.lr').fadeOut(400, function() {
+            $(this).remove();
+            
+            // Update Stat Card count
+            const badge = $('#stat-pending .s-val');
+            let count = parseInt(badge.text());
+            if (!isNaN(count) && count > 0) badge.text(count - 1);
+
+            // Update Hero count
+            const heroCount = $('.hn-val').first();
+            let hCount = parseInt(heroCount.text());
+            if (!isNaN(hCount) && hCount > 0) heroCount.text(hCount - 1);
+        });
+    }
+});
+</script>
+{% endblock %}

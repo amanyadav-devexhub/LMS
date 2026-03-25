@@ -307,7 +307,7 @@ table.full tbody tr:hover .row-actions { opacity: 1; }
                class="btn btn-ghost btn-sm" title="View Profile">
               <i class="fa-solid fa-eye"></i>
             </a>
-            <form method="POST" action="{% url 'toggle_employee_status' emp.id %}" style="margin:0;">
+            <form method="POST" action="{% url 'toggle_employee_status' emp.id %}" class="ajax-form" style="margin:0;">
               {% csrf_token %}
               <button type="submit"
                       class="btn btn-sm {% if emp.is_active %}btn-danger{% else %}btn-success{% endif %}"
@@ -412,7 +412,7 @@ table.full tbody tr:hover .row-actions { opacity: 1; }
               class="icon-btn"><i class="fa-solid fa-xmark"></i></button>
     </div>
 
-    <form method="POST" action="{% url 'create_employee' %}">
+    <form method="POST" action="{% url 'create_employee' %}" class="ajax-form refresh-on-success">
       {% csrf_token %}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
         <div class="form-group">
@@ -569,6 +569,43 @@ document.getElementById('create-modal').addEventListener('click', function(e) {
 });
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') document.getElementById('create-modal').style.display = 'none';
+});
+
+// Handle AJAX success updates
+$(document).on('ajax:success', '.ajax-form', function(e, data) {
+    if (data.success) {
+        const form = $(this);
+        
+        // Handle Toggle Updates (Active/Inactive)
+        if (data.hasOwnProperty('is_active')) {
+            const isActive = data.is_active;
+            const row = form.closest('tr');
+            
+            // Update Avatar
+            row.find('.emp-avatar-lg').toggleClass('inactive', !isActive);
+            
+            // Update Toggle Button
+            const btn = form.find('button[type="submit"]');
+            btn.removeClass('btn-danger btn-success').addClass(isActive ? 'btn-danger' : 'btn-success');
+            btn.find('i').removeClass('fa-user-slash fa-user-check').addClass(isActive ? 'fa-user-slash' : 'fa-user-check');
+            btn.html(`<i class="fa-solid ${isActive ? 'fa-user-slash' : 'fa-user-check'}"></i> ${isActive ? 'Deactivate' : 'Activate'}`);
+            
+            // Update Status Badge
+            const badge = row.find('.badge-approved, .badge-rejected');
+            if (isActive) {
+                badge.removeClass('badge-rejected').addClass('badge-approved').html('<i class="fa-solid fa-circle" style="font-size:6px;"></i> Active');
+            } else {
+                badge.removeClass('badge-approved').addClass('badge-rejected').html('<i class="fa-solid fa-circle" style="font-size:6px;"></i> Inactive');
+            }
+        }
+        
+        // Handle Page Refresh for complex saves
+        if (form.hasClass('refresh-on-success')) {
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        }
+    }
 });
 </script>
 

@@ -34,3 +34,4 @@ var/
 *.sqlite3
 db.sqlite3
 PROJECT_DOCS.md
+temp.txt

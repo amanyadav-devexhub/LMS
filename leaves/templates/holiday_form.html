@@ -1,0 +1,259 @@
+{% extends "base.html" %}
+{% block title %}{% if holiday %}Edit Holiday{% else %}Add Holiday{% endif %} — LeaveSetu{% endblock %}
+{% block page_title %}{% if holiday %}Edit Holiday{% else %}Add Holiday{% endif %}{% endblock %}
+
+{% block extra_head %}
+<style>
+.form-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 28px 32px;
+  max-width: 700px;
+  box-shadow: var(--shadow-xs);
+}
+.form-section-title {
+  font-size: 12px; font-weight: 700;
+  letter-spacing: 1.2px; text-transform: uppercase;
+  color: var(--aqua-deep);
+  margin: 22px 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 8px;
+}
+.form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 600px) { .form-row-2 { grid-template-columns: 1fr; } }
+
+.toggle-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 11px 14px;
+  background: var(--surface2);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.18s;
+}
+.toggle-row:hover { border-color: var(--aqua); background: rgba(0,198,212,0.04); }
+.toggle-row-label { font-size: 13px; font-weight: 600; color: var(--text); }
+.toggle-row-hint  { font-size: 11px; color: var(--text-faint); margin-top: 2px; }
+
+.pill-toggle {
+  width: 36px; height: 20px;
+  background: var(--border-mid);
+  border-radius: 10px; position: relative;
+  flex-shrink: 0; transition: background 0.2s;
+}
+.pill-toggle::after {
+  content: '';
+  position: absolute; top: 3px; left: 3px;
+  width: 14px; height: 14px;
+  background: #fff; border-radius: 50%;
+  transition: transform 0.2s;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+}
+.toggle-row.on .pill-toggle { background: var(--aqua); }
+.toggle-row.on .pill-toggle::after { transform: translateX(16px); }
+
+/* Type color dots */
+.type-option {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px; border-radius: var(--radius-xs);
+  cursor: pointer; transition: background 0.14s;
+}
+.type-option:hover { background: var(--surface3); }
+.type-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+.breadcrumb {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px; color: var(--text-muted);
+  margin-bottom: 20px;
+}
+.breadcrumb a { color: var(--aqua-deep); text-decoration: none; font-weight: 600; }
+.breadcrumb a:hover { text-decoration: underline; }
+</style>
+{% endblock %}
+
+
+{% block content %}
+
+<!-- Breadcrumb -->
+<div class="breadcrumb animate-in">
+  <a href="{% url 'holiday_list' %}"><i class="fa-solid fa-calendar-days"></i> Holidays</a>
+  <i class="fa-solid fa-chevron-right" style="font-size:9px;"></i>
+  <span>{% if holiday %}Edit: {{ holiday.name }}{% else %}Add New Holiday{% endif %}</span>
+</div>
+
+<div class="form-card animate-in">
+
+  <!-- Header -->
+  <div style="display:flex;align-items:center;gap:14px;margin-bottom:24px;">
+    <div style="width:46px;height:46px;border-radius:13px;background:linear-gradient(135deg,var(--aqua-deep),var(--aqua));display:flex;align-items:center;justify-content:center;font-size:18px;color:#fff;box-shadow:0 4px 16px rgba(0,198,212,0.4);">
+      <i class="fa-solid fa-calendar-plus"></i>
+    </div>
+    <div>
+      <div style="font-size:16px;font-weight:800;color:var(--text);">
+        {% if holiday %}Edit Holiday{% else %}Add New Holiday{% endif %}
+      </div>
+      <div style="font-size:12px;color:var(--text-muted);">
+        {% if holiday %}Update details for {{ holiday.name }}{% else %}Create a new company or public holiday{% endif %}
+      </div>
+    </div>
+  </div>
+
+  <form method="POST" class="ajax-form redirect-on-success">
+    {% csrf_token %}
+
+    <!-- ── BASIC INFO ── -->
+    <div class="form-section-title"><i class="fa-solid fa-circle-info"></i> Basic Information</div>
+
+    <div class="form-group">
+      <label class="form-label">Holiday Name <span style="color:var(--danger);">*</span></label>
+      <input type="text" name="name" class="form-control" required
+             placeholder="e.g. Diwali, Christmas, Company Foundation Day"
+             value="{{ holiday.name|default:'' }}">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Description</label>
+      <textarea name="description" class="form-control" rows="2"
+                placeholder="Optional — add context about this holiday">{{ holiday.description|default:'' }}</textarea>
+    </div>
+
+    <div class="form-row-2">
+      <div class="form-group">
+        <label class="form-label">Holiday Type <span style="color:var(--danger);">*</span></label>
+        <select name="holiday_type" class="form-control" required>
+          {% for val, label in holiday_types %}
+          <option value="{{ val }}"
+            {% if holiday and holiday.holiday_type == val %}selected
+            {% elif not holiday and val == 'NATIONAL' %}selected{% endif %}>
+            {{ label }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group" id="applicable-group">
+        <label class="form-label">Applicable To</label>
+        <select name="applicable_to_all" class="form-control">
+          <option value="on"  {% if not holiday or holiday.applicable_to_all %}selected{% endif %}>All Employees</option>
+          <option value="off" {% if holiday and not holiday.applicable_to_all %}selected{% endif %}>Specific Departments</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- ── DATES ── -->
+    <div class="form-section-title"><i class="fa-solid fa-calendar"></i> Dates</div>
+
+    <div class="form-row-2">
+      <div class="form-group">
+        <label class="form-label">Start Date <span style="color:var(--danger);">*</span></label>
+        <input type="date" name="date" class="form-control" required
+               value="{{ holiday.date|date:'Y-m-d'|default:today|date:'Y-m-d' }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">End Date <span style="color:var(--text-faint);">(multi-day)</span></label>
+        <input type="date" name="end_date" class="form-control"
+               value="{{ holiday.end_date|date:'Y-m-d'|default:'' }}"
+               placeholder="Leave blank for single-day">
+      </div>
+    </div>
+
+    <!-- ── OPTIONS ── -->
+    <div class="form-section-title"><i class="fa-solid fa-sliders"></i> Options</div>
+
+    <div style="display:flex;flex-direction:column;gap:10px;">
+
+      <!-- Recurring -->
+      <label class="toggle-row {% if holiday and holiday.is_recurring %}on{% endif %}"
+             id="row-recurring"
+             onclick="toggleRow(this, 'chk-recurring')">
+        <input type="checkbox" name="is_recurring" id="chk-recurring"
+               {% if holiday and holiday.is_recurring %}checked{% endif %}
+               style="display:none;">
+        <div>
+          <div class="toggle-row-label"><i class="fa-solid fa-rotate" style="color:var(--aqua-deep);margin-right:6px;font-size:11px;"></i>Recurring Every Year</div>
+          <div class="toggle-row-hint">Automatically repeats on the same date each year</div>
+        </div>
+        <div class="pill-toggle"></div>
+      </label>
+
+      <!-- Half day -->
+      <label class="toggle-row {% if holiday and holiday.is_half_day %}on{% endif %}"
+             id="row-halfday"
+             onclick="toggleRow(this, 'chk-halfday'); toggleHalfDayType()">
+        <input type="checkbox" name="is_half_day" id="chk-halfday"
+               {% if holiday and holiday.is_half_day %}checked{% endif %}
+               style="display:none;">
+        <div>
+          <div class="toggle-row-label"><i class="fa-solid fa-circle-half-stroke" style="color:var(--aqua-deep);margin-right:6px;font-size:11px;"></i>Half Day Holiday</div>
+          <div class="toggle-row-hint">Only half the working day is off</div>
+        </div>
+        <div class="pill-toggle"></div>
+      </label>
+
+      <!-- Half day type selector -->
+      <div id="half-day-type-row" style="display:{% if holiday and holiday.is_half_day %}block{% else %}none{% endif %};padding-left:8px;">
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label">Which half?</label>
+          <select name="half_day_type" class="form-control" style="max-width:260px;">
+            <option value="FIRST_HALF"  {% if holiday and holiday.half_day_type == 'FIRST_HALF'  %}selected{% endif %}>First Half (Morning)</option>
+            <option value="SECOND_HALF" {% if holiday and holiday.half_day_type == 'SECOND_HALF' %}selected{% endif %}>Second Half (Afternoon)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Active (edit only) -->
+      {% if holiday %}
+      <label class="toggle-row {% if holiday.is_active %}on{% endif %}"
+             id="row-active"
+             onclick="toggleRow(this, 'chk-active')">
+        <input type="checkbox" name="is_active" id="chk-active"
+               {% if holiday.is_active %}checked{% endif %}
+               style="display:none;">
+        <div>
+          <div class="toggle-row-label"><i class="fa-solid fa-circle-check" style="color:var(--success);margin-right:6px;font-size:11px;"></i>Active</div>
+          <div class="toggle-row-hint">Inactive holidays are hidden from employees</div>
+        </div>
+        <div class="pill-toggle"></div>
+      </label>
+      {% endif %}
+
+    </div>
+
+    <!-- ── ACTIONS ── -->
+    <div style="display:flex;gap:10px;margin-top:26px;flex-wrap:wrap;">
+      <button type="submit" class="btn btn-primary">
+        <i class="fa-solid fa-floppy-disk"></i>
+        {% if holiday %}Save Changes{% else %}Create Holiday{% endif %}
+      </button>
+      {% if not holiday %}
+      <button type="submit" name="save_and_add" value="1" class="btn btn-ghost">
+        <i class="fa-solid fa-plus"></i> Save & Add Another
+      </button>
+      {% endif %}
+      <a href="{% url 'holiday_list' %}" class="btn btn-ghost">
+        <i class="fa-solid fa-xmark"></i> Cancel
+      </a>
+    </div>
+
+  </form>
+</div>
+
+{% endblock %}
+
+
+{% block extra_scripts %}
+<script>
+function toggleRow(rowEl, checkId) {
+  const chk = document.getElementById(checkId);
+  chk.checked = !chk.checked;
+  rowEl.classList.toggle('on', chk.checked);
+}
+
+function toggleHalfDayType() {
+  const chk = document.getElementById('chk-halfday');
+  document.getElementById('half-day-type-row').style.display =
+    chk.checked ? 'block' : 'none';
+}
+</script>
+{% endblock %}

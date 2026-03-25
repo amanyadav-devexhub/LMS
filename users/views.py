@@ -1,6 +1,9 @@
 from django.db import models as django_models
 from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth import authenticate, login as auth_login, logout
+from django.contrib.auth import authenticate, login as auth_login, logout, get_user_model
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.tokens import default_token_generator
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str
@@ -15,10 +18,8 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
-from django.contrib.auth import get_user_model
-from django.contrib.auth.decorators import login_required
-from django.contrib import messages
-from django.views.decorators.csrf import csrf_exempt
+from django.conf import settings
+from django.http import JsonResponse
 from django.utils.crypto import get_random_string
 
 from .models import (
@@ -71,7 +72,7 @@ def login_view(request):
     if user is None:
         return Response({"error": "Password is incorrect"}, status=status.HTTP_401_UNAUTHORIZED)
 
-    auth_login(request, user)
+    # auth_login(request, user)  # Removed: requires SessionMiddleware
     refresh = RefreshToken.for_user(user)
 
     role_redirect_map = {
@@ -83,16 +84,39 @@ def login_view(request):
     }
     redirect_url = role_redirect_map.get(user.role.name if user.role else '', "/dashboard/")
 
-    return Response({
+    response = Response({
         "access":   str(refresh.access_token),
         "refresh":  str(refresh),
         "redirect": redirect_url,
     }, status=status.HTTP_200_OK)
 
+    # Set cookies
+    response.set_cookie(
+        'access_token',
+        str(refresh.access_token),
+        httponly=True,
+        secure=not settings.DEBUG,
+        samesite='Lax',
+        max_age=3600 # 1 hour
+    )
+    response.set_cookie(
+        'refresh_token',
+        str(refresh),
+        httponly=True,
+        secure=not settings.DEBUG,
+        samesite='Lax',
+        max_age=86400 # 1 day
+    )
+
+    return response
+
 
 def user_logout(request):
-    logout(request)
-    return redirect("login")
+    # logout(request)           # Removed: requires SessionMiddleware
+    response = redirect("login")
+    response.delete_cookie('access_token')
+    response.delete_cookie('refresh_token')
+    return response
 
 
 # ══════════════════════════════════════════════════════════════
@@ -673,6 +697,11 @@ def department_create(request):
                     pass
             dept.save()
             messages.success(request, f'Department "{name}" created successfully!')
+            
+            is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+            if is_ajax:
+                return JsonResponse({"success": True, "message": f'Department "{name}" created successfully.'})
+                
     return redirect('department_list')
 
 
@@ -695,6 +724,11 @@ def department_edit(request, pk):
             dept.hr   = User.objects.get(pk=hr_id) if hr_id else None
             dept.save()
             messages.success(request, f'Department "{name}" updated successfully!')
+            
+            is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+            if is_ajax:
+                return JsonResponse({"success": True, "message": f'Department "{name}" updated successfully.'})
+                
     return redirect('department_list')
 
 
@@ -710,6 +744,11 @@ def department_delete(request, pk):
         User.objects.filter(department=dept).update(department=None)
         dept.delete()
         messages.success(request, f'Department "{name}" deleted successfully!')
+        
+        is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+        if is_ajax:
+            return JsonResponse({"success": True, "message": f'Department "{name}" deleted.'})
+            
     return redirect('department_list')
 
 
@@ -789,6 +828,11 @@ def role_create(request):
         else:
             Role.objects.create(name=name)
             messages.success(request, f'Role "{name}" created successfully!')
+            
+            is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+            if is_ajax:
+                return JsonResponse({"success": True, "message": f'Role "{name}" created successfully.'})
+                
     return redirect('role_list')
 
 
@@ -809,6 +853,11 @@ def role_edit(request, pk):
             role.name = name
             role.save()
             messages.success(request, f'Role "{old_name}" renamed to "{name}".')
+            
+            is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+            if is_ajax:
+                return JsonResponse({"success": True, "message": f'Role renamed to "{name}".'})
+                
     return redirect('role_list')
 
 
@@ -827,6 +876,11 @@ def role_delete(request, pk):
         RolePermission.objects.filter(role=role).delete()
         role.delete()
         messages.success(request, f'Role "{name}" deleted.')
+        
+        is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+        if is_ajax:
+            return JsonResponse({"success": True, "message": f'Role "{name}" deleted.'})
+            
     return redirect('role_list')
 
 
@@ -889,6 +943,10 @@ def role_permission_save(request):
             perm.save()
 
         messages.success(request, f'Permissions for "{role.name}" saved successfully!')
+
+        is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+        if is_ajax:
+            return JsonResponse({"success": True, "message": f'Permissions for "{role.name}" saved successfully!'})
 
     from django.urls import reverse
     return redirect(reverse('role_permission_list') + f'?role={role_id}')
@@ -972,6 +1030,71 @@ def assign_role(request):
             else:
                 target.reporting_manager = None
 
+            # ===== NEW: Auto-assign manager for TL if not specified =====
+            if new_role.name == "TL" and not reporting_manager_id:
+                # Try to find a Manager in the same department
+                if target.department:
+                    manager = User.objects.filter(
+                        department=target.department,
+                        role__name='Manager'
+                    ).first()
+                    
+                    if manager:
+                        target.reporting_manager = manager
+                        messages.info(
+                            request,
+                            f"Auto-assigned {manager.get_full_name() or manager.email} as manager for {target.get_full_name() or target.email}"
+                        )
+                    else:
+                        # Try to find any Manager in the company
+                        default_manager = User.objects.filter(role__name='Manager').first()
+                        if default_manager:
+                            target.reporting_manager = default_manager
+                            messages.warning(
+                                request,
+                                f"No Manager found in {target.department.name}. Assigned default manager {default_manager.get_full_name() or default_manager.email}"
+                            )
+                        else:
+                            messages.warning(
+                                request,
+                                f"No Manager found in the system. Please create a Manager user first."
+                            )
+                else:
+                    # No department assigned
+                    default_manager = User.objects.filter(role__name='Manager').first()
+                    if default_manager:
+                        target.reporting_manager = default_manager
+                        messages.warning(
+                            request,
+                            f"User has no department. Assigned default manager {default_manager.get_full_name() or default_manager.email}"
+                        )
+                    else:
+                        messages.warning(
+                            request,
+                            f"No Manager found in the system. Please create a Manager user first."
+                        )
+
+            # ===== Also auto-assign TL to Employee if missing =====
+            if new_role.name == "Employee" and not reporting_manager_id:
+                # Try to find a TL in the same department
+                if target.department:
+                    tl = User.objects.filter(
+                        department=target.department,
+                        role__name='TL'
+                    ).first()
+                    
+                    if tl:
+                        target.reporting_manager = tl
+                        messages.info(
+                            request,
+                            f"Auto-assigned TL {tl.get_full_name() or tl.email} for {target.get_full_name() or target.email}"
+                        )
+                    else:
+                        messages.warning(
+                            request,
+                            f"No TL found in {target.department.name}. Please assign manually."
+                        )
+
             target.save()
 
             messages.success(
@@ -989,6 +1112,10 @@ def assign_role(request):
         except Exception as e:
             messages.error(request, f"Error updating user: {str(e)}")
 
+        is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+        if is_ajax:
+            return JsonResponse({"success": True, "message": "Role assignment updated successfully."})
+            
         return redirect('assign_role')
 
     return render(request, 'assign_role.html', {
@@ -1021,4 +1148,9 @@ def assign_role_bulk(request):
             messages.success(request, f'Assigned "{new_role.name}" to {count} employee(s) in {dept.name}.')
         except (Department.DoesNotExist, Role.DoesNotExist):
             messages.error(request, "Invalid department or role.")
+
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+    if is_ajax:
+        return JsonResponse({"success": True, "message": "Bulk assignment completed."})
+        
     return redirect('assign_role')

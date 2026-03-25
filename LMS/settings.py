@@ -31,28 +31,31 @@ ALLOWED_HOSTS = ['testserver', 'localhost', '127.0.0.1']
 # Application definition
 
 INSTALLED_APPS = [
-    'django.contrib.admin',
+    # 'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
-    'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'users',
     'leaves',
     'rest_framework',
+    'rest_framework_simplejwt',
 ]
 
 AUTH_USER_MODEL = 'users.User'
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
+    # 'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
+    # 'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'LMS.jwt_middleware.JWTCookieMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+
 
 ROOT_URLCONF = 'LMS.urls'
 
@@ -134,6 +137,15 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.IsAuthenticated',
     ),
 }
+
+from datetime import timedelta
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
+    'AUTH_HEADER_TYPES': ('Bearer',),
+}
 # settings.py
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
@@ -148,3 +160,6 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = "saniyatanyal1@gmail.com"
 EMAIL_HOST_PASSWORD = "yibiguqicxrtuwxv"
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+
+# MUST stay here to avoid session-based default storage since SessionMiddleware is disabled
+MESSAGE_STORAGE = 'django.contrib.messages.storage.cookie.CookieStorage'

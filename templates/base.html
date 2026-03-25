@@ -7,6 +7,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.6.4/axios.min.js"></script>
     <style>
         :root {
             --aqua:        #00c6d4;
@@ -445,6 +447,7 @@
             </a>
 
             <div class="nav-label">Access Control</div>
+
             <a href="{% url 'role_list' %}" class="nav-item {% if request.resolver_match.url_name == 'role_list' %}active{% endif %}">
                 <span class="nav-icon"><i class="fa-solid fa-shield-halved"></i></span>
                 <span class="nav-text">Roles</span>
@@ -457,7 +460,27 @@
                 <span class="nav-icon"><i class="fa-solid fa-user-shield"></i></span>
                 <span class="nav-text">Assign Roles</span>
             </a>
-
+            
+            <div class="nav-label">Leave Management</div>
+ 
+            <a href="{% url 'admin_leave_policy' %}"
+            class="nav-item {% if request.resolver_match.url_name == 'admin_leave_policy' %}active{% endif %}">
+                <span class="nav-icon"><i class="fa-solid fa-sliders"></i></span>
+                <span class="nav-text">Leave Types & Policy</span>
+            </a>
+            
+            <a href="{% url 'holiday_list' %}"
+            class="nav-item {% if request.resolver_match.url_name == 'holiday_list' %}active{% endif %}">
+                <span class="nav-icon"><i class="fa-solid fa-calendar-days"></i></span>
+                <span class="nav-text">Holidays</span>
+            </a>
+            
+            <a href="{% url 'hr_leave_analytics' %}"
+            class="nav-item {% if request.resolver_match.url_name == 'hr_leave_analytics' %}active{% endif %}">
+                <span class="nav-icon"><i class="fa-solid fa-chart-pie"></i></span>
+                <span class="nav-text">Leave Analytics</span>
+            </a>
+ 
             <div class="nav-label">Account</div>
             <a href="{% url 'notifications' %}" class="nav-item {% if request.resolver_match.url_name == 'notifications' %}active{% endif %}">
                 <span class="nav-icon"><i class="fa-solid fa-bell"></i></span>
@@ -622,11 +645,20 @@
             </a>
 
         {# ── EMPLOYEE ── #}
+        {# ── EMPLOYEE ── #}
         {% else %}
             <div class="nav-label">Main</div>
-            <a href="{% url 'employee_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'employee_dashboard' %}active{% endif %}">
+            <a href="{% url 'employee_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'employee_dashboard' and not request.GET.tab or request.GET.tab == 'overview' %}active{% endif %}">
                 <span class="nav-icon"><i class="fa-solid fa-gauge-high"></i></span>
                 <span class="nav-text">Dashboard</span>
+            </a>
+            <a href="{% url 'employee_dashboard' %}?tab=history" class="nav-item {% if request.resolver_match.url_name == 'employee_dashboard' and request.GET.tab == 'history' %}active{% endif %}">
+                <span class="nav-icon"><i class="fa-solid fa-clock-rotate-left"></i></span>
+                <span class="nav-text">Leave History</span>
+            </a>
+            <a href="{% url 'employee_leave_balance' %}" class="nav-item {% if request.resolver_match.url_name == 'employee_leave_balance' %}active{% endif %}">
+                <span class="nav-icon"><i class="fa-solid fa-wallet"></i></span>
+                <span class="nav-text">Leave Balance</span>
             </a>
             <a href="{% url 'apply_leave' %}" class="nav-item {% if request.resolver_match.url_name == 'apply_leave' %}active{% endif %}">
                 <span class="nav-icon"><i class="fa-solid fa-paper-plane"></i></span>
@@ -726,11 +758,114 @@
 </div>
 
 <script>
+// Sidebar and UI helpers
 function toggleSidebar(){document.getElementById('sidebar').classList.toggle('open');document.getElementById('sidebarOverlay').classList.toggle('show');}
 function closeSidebar(){document.getElementById('sidebar').classList.remove('open');document.getElementById('sidebarOverlay').classList.remove('show');}
 function togglePd(){document.getElementById('pdMenu').classList.toggle('open');}
+
 document.addEventListener('click',function(e){const w=document.getElementById('pdWrap');const m=document.getElementById('pdMenu');if(w&&m&&!w.contains(e.target))m.classList.remove('open');});
 document.addEventListener('keydown',function(e){if(e.key==='Escape'){document.getElementById('pdMenu')?.classList.remove('open');closeSidebar();}});
+
+// Global AJAX Setup (jQuery)
+$.ajaxSetup({
+    beforeSend: function(xhr, settings) {
+        // Add CSRF token for all but safe methods
+        if (!/^(GET|HEAD|OPTIONS|TRACE)$/i.test(settings.type)) {
+            xhr.setRequestHeader("X-CSRFToken", "{{ csrf_token }}");
+        }
+        // If we want to send JWT in header as well (optional since we use cookies)
+        const token = localStorage.getItem('accessToken');
+        if (token) {
+            xhr.setRequestHeader("Authorization", "Bearer " + token);
+        }
+    }
+});
+
+$(document).ajaxError(function(event, jqXHR, ajaxSettings, thrownError) {
+    if (jqXHR.status === 401) {
+        // Token might be expired. Handle redirect to login.
+        console.log("Unauthorized access. Redirecting to login...");
+        window.location.href = "{% url 'login' %}";
+    }
+});
+
+// Global Axios Setup
+axios.defaults.headers.common['X-CSRFToken'] = "{{ csrf_token }}";
+const token = localStorage.getItem('accessToken');
+if (token) {
+    axios.defaults.headers.common['Authorization'] = "Bearer " + token;
+}
+
+axios.interceptors.response.use(
+    response => response,
+    error => {
+        if (error.response && error.response.status === 401) {
+            window.location.href = "{% url 'login' %}";
+        }
+        return Promise.reject(error);
+    }
+);
+
+// --- GLOBAL AJAX FORM HANDLER ---
+function showToast(message, type = 'success') {
+    let container = document.querySelector('.messages-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.className = 'messages-container';
+        document.body.appendChild(container);
+    }
+    const iconMap = { 'error': 'circle-xmark', 'success': 'circle-check', 'warning': 'triangle-exclamation', 'info': 'circle-info' };
+    const icon = iconMap[type] || 'circle-info';
+    const toast = document.createElement('div');
+    toast.className = `alert alert-${type} animate-in`;
+    toast.innerHTML = `<i class="fa-solid fa-${icon}"></i> ${message}`;
+    container.appendChild(toast);
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateX(20px)';
+        setTimeout(() => toast.remove(), 500);
+    }, 4000);
+}
+
+$(document).on('submit', '.ajax-form', function(e) {
+    e.preventDefault();
+    const $form = $(this);
+    const url = $form.attr('action') || window.location.href;
+    const method = $form.attr('method') || 'POST';
+    const formData = new FormData(this);
+
+    // Disable buttons to prevent double click
+    const $btn = $form.find('button[type="submit"]');
+    const originalBtnHtml = $btn.html();
+    $btn.prop('disabled', true).html('<i class="fa-solid fa-spinner fa-spin"></i>');
+
+    axios({
+        method: method,
+        url: url,
+        data: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json'
+        }
+    }).then(response => {
+        if (response.data.success) {
+            showToast(response.data.message || 'Success', 'success');
+            if (response.data.redirect) {
+                setTimeout(() => window.location.href = response.data.redirect, 800);
+            } else if (response.data.reload !== false) {
+                // If reload is not explicitly false, we reload by default to see changes
+                setTimeout(() => window.location.reload(), 1000);
+            }
+        } else {
+            showToast(response.data.error || 'Action failed', 'error');
+            $btn.prop('disabled', false).html(originalBtnHtml);
+        }
+    }).catch(error => {
+        const msg = error.response?.data?.error || error.response?.data?.message || 'An error occurred';
+        showToast(msg, 'error');
+        $btn.prop('disabled', false).html(originalBtnHtml);
+    });
+});
 </script>
 {% block extra_scripts %}{% endblock %}
 </body>

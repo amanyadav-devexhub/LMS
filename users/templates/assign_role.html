@@ -252,7 +252,7 @@ table.assign-table tbody tr:hover td { background: var(--surface2); }
         <h3>Bulk Assign by Department</h3>
         <p>Assign a role to all employees in a department at once. Admin users will be skipped.</p>
     </div>
-    <form method="post" action="{% url 'assign_role_bulk' %}" class="bulk-controls">
+    <form method="post" action="{% url 'assign_role_bulk' %}" class="bulk-controls ajax-form redirect-on-success">
         {% csrf_token %}
         <select name="department_id" class="bulk-select" required>
             <option value="">Select Department</option>
@@ -356,7 +356,7 @@ table.assign-table tbody tr:hover td { background: var(--surface2); }
 
                 <!-- Assign new role -->
                <td>
-                    <form method="post" action="{% url 'assign_role' %}">
+                    <form method="post" action="{% url 'assign_role' %}" class="ajax-form redirect-on-success">
                     {% csrf_token %}
 
                     <input type="hidden" name="user_id" value="{{ user.pk }}">
