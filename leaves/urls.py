@@ -21,9 +21,9 @@ urlpatterns = [
     path('hr/employees/<int:pk>/edit/', views.employee_detail, name='hr_employee_edit'),
 
     # ── Leave actions ─────────────────────────────────────────────
-    path('leave/apply/',                     views.apply_leave,   name='apply_leave'),
-    path('leave/approve/<int:leave_id>/',    views.approve_leave, name='approve_leave'),
-    path('leave/reject/<int:leave_id>/',     views.reject_leave,  name='reject_leave'),
+    path('apply/', views.apply_leave, name='apply_leave'),
+    path('approve_leave/<int:leave_id>/', views.approve_leave, name='approve_leave'),
+    path('reject/leave/<int:leave_id>/', views.reject_leave, name='reject_leave'),
 
     # ── Employee management ───────────────────────────────────────
     path('employee/list/',                        views.employee_list,          name='employee_list'),
@@ -42,7 +42,6 @@ urlpatterns = [
 
     # ── Search ────────────────────────────────────────────────────
     path('admin/employees/search/', views.employee_search_json, name='employee_search_json'),
-    path('admin/employees/search/', views.employee_search_json, name='admin_employee_search'),
 
     # ── Holidays ──────────────────────────────────────────────────
     path('holidays/',                         views.holiday_list,          name='holiday_list'),

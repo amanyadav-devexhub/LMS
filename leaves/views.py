@@ -10,6 +10,7 @@
 #   ★ manager_dashboard()   — team balance from admin-configured leave types
 #   All other views unchanged
 # ═══════════════════════════════════════════════════════════════════
+from django.views.decorators.csrf import csrf_exempt
 
 # ── Standard library ────────────────────────────────────────────────
 from datetime import date, datetime, timedelta
@@ -230,7 +231,6 @@ def _hr_base_context(request):
 # ════════════════════════════════════════════════════════════════════
 #  ★ EMPLOYEE DASHBOARD — updated to use new balance system
 # ════════════════════════════════════════════════════════════════════
-
 @login_required
 def employee_dashboard(request):
     from django.template.loader import render_to_string
@@ -438,7 +438,7 @@ def employee_leave_balance(request):
 # ════════════════════════════════════════════════════════════════════
 #  ★ APPLY LEAVE — updated to check EmployeeLeaveAllocation balance
 # ════════════════════════════════════════════════════════════════════
-
+@csrf_exempt 
 @login_required
 def apply_leave(request):
     if request.method == "POST":
@@ -1612,7 +1612,7 @@ def employee_list(request):
 # ════════════════════════════════════════════════════════════════════
 #  LIVE SEARCH AJAX (unchanged)
 # ════════════════════════════════════════════════════════════════════
-
+@csrf_exempt
 @login_required
 def employee_search_json(request):
     if not request.user.is_superuser and not (
@@ -2300,7 +2300,7 @@ def holiday_list(request):
     }
     return render(request, "holiday_list.html", context)
 
-
+@csrf_exempt
 @login_required
 def holiday_create(request):
     if not HOLIDAYS_ENABLED:
@@ -2662,7 +2662,7 @@ def admin_leave_policy(request):
     }
     return render(request, "admin_leave_policy.html", context)
 
-
+@csrf_exempt
 @login_required
 def admin_leave_type_save(request):
     if not request.user.is_superuser and not (
