@@ -715,7 +715,7 @@ def tl_dashboard(request):
     if get_user_role(request.user) != "TL":
         return redirect("employee_dashboard")
 
-    today        = date.today()
+    today        = date.today() 
     current_year = timezone.now().year
 
     team_members = User.objects.filter(
@@ -725,6 +725,7 @@ def tl_dashboard(request):
     all_pending = LeaveRequest.objects.filter(
         tl_voted=False,
         manager_voted=False,
+        # final_status="PENDING", 
         employee__reporting_manager=request.user
     ).select_related("employee").order_by("-created_at")
 
@@ -960,33 +961,93 @@ def hr_leave_analytics(request):
     if role not in ("HR", "Admin", "Manager") and not request.user.is_superuser:
         return redirect("employee_dashboard")
 
+    today        = date.today()
     current_year = timezone.now().year
+    current_month= today.month
 
-    monthly_data = []
-    for month in range(1, 13):
-        count = LeaveRequest.objects.filter(
-            start_date__year=current_year,
-            start_date__month=month
-        ).count()
-        monthly_data.append(count)
+    # ── Monthly totals (all statuses + approved only) ────────────
+    monthly_all      = []
+    monthly_approved = []
+    monthly_rejected = []
+    monthly_pending  = []
+    for m in range(1, 13):
+        qs = LeaveRequest.objects.filter(
+            start_date__year=current_year, start_date__month=m)
+        monthly_all.append(qs.count())
+        monthly_approved.append(qs.filter(final_status="APPROVED").count())
+        monthly_rejected.append(qs.filter(final_status="REJECTED").count())
+        monthly_pending.append(qs.filter(final_status="PENDING").count())
 
-    casual_count = LeaveRequest.objects.filter(
-        status="APPROVED", start_date__year=current_year, leave_type="CASUAL"
+    # ── Leave type breakdown (dynamic from LeaveTypeConfig if available) ──
+    type_labels = []
+    type_counts = []
+    type_colors = []
+
+    if POLICY_ENABLED:
+        try:
+            for lt in LeaveTypeConfig.objects.filter(is_active=True).order_by("name"):
+                cnt = LeaveRequest.objects.filter(
+                    final_status="APPROVED",
+                    start_date__year=current_year,
+                    leave_type=lt.code
+                ).count()
+                if cnt > 0:
+                    type_labels.append(lt.name)
+                    type_counts.append(cnt)
+                    type_colors.append(lt.color)
+        except Exception:
+            pass
+
+    # Fallback to hardcoded if no type data
+    if not type_labels:
+        for code, label, color in [
+            ("CASUAL","Casual Leave","#00c6d4"),
+            ("Casual","Casual Leave","#00c6d4"),
+            ("SICK","Sick Leave","#05c98a"),
+            ("Sick","Sick Leave","#05c98a"),
+            ("URGENT","Urgent Leave","#f5a623"),
+            ("Urgent","Urgent Leave","#f5a623"),
+            ("MARRIED","Married Leave","#0d9488"),
+            ("Married","Married Leave","#0d9488"),
+        ]:
+            cnt = LeaveRequest.objects.filter(
+                final_status="APPROVED",
+                start_date__year=current_year,
+                leave_type=code
+            ).count()
+            if cnt > 0 and label not in type_labels:
+                type_labels.append(label)
+                type_counts.append(cnt)
+                type_colors.append(color)
+
+    # ── Overall counts ────────────────────────────────────────────
+    total_this_year  = LeaveRequest.objects.filter(start_date__year=current_year).count()
+    approved_count   = LeaveRequest.objects.filter(final_status="APPROVED", start_date__year=current_year).count()
+    rejected_count   = LeaveRequest.objects.filter(final_status="REJECTED", start_date__year=current_year).count()
+    pending_total    = LeaveRequest.objects.filter(final_status="PENDING",  start_date__year=current_year).count()
+
+    # ── On leave today ────────────────────────────────────────────
+    on_leave_today = LeaveRequest.objects.filter(
+        final_status="APPROVED",
+        start_date__lte=today,
+        end_date__gte=today,
     ).count()
-    sick_count = LeaveRequest.objects.filter(
-        status="APPROVED", start_date__year=current_year, leave_type="SICK"
-    ).count()
 
-    approved_count = LeaveRequest.objects.filter(
-        status="APPROVED", start_date__year=current_year).count()
-    rejected_count = LeaveRequest.objects.filter(
-        status="REJECTED", start_date__year=current_year).count()
-    pending_total  = LeaveRequest.objects.filter(
-        status="PENDING",  start_date__year=current_year).count()
+    # ── This month ────────────────────────────────────────────────
+    this_month_total    = LeaveRequest.objects.filter(
+        start_date__year=current_year, start_date__month=current_month).count()
+    this_month_approved = LeaveRequest.objects.filter(
+        final_status="APPROVED",
+        start_date__year=current_year, start_date__month=current_month).count()
 
+    # ── Approval rate ─────────────────────────────────────────────
+    decided = approved_count + rejected_count
+    approval_rate = round((approved_count / decided * 100), 1) if decided else 0
+
+    # ── Top leave takers ─────────────────────────────────────────
     top_takers = (
         LeaveRequest.objects
-        .filter(status="APPROVED", start_date__year=current_year)
+        .filter(final_status="APPROVED", start_date__year=current_year)
         .values("employee", "employee__first_name", "employee__last_name",
                 "employee__department__name")
         .annotate(total_days=Sum(
@@ -1000,26 +1061,70 @@ def hr_leave_analytics(request):
         .order_by("-total_days")[:8]
     )
 
+    # ── Department breakdown ──────────────────────────────────────
     dept_leave_data = (
         LeaveRequest.objects
-        .filter(status="APPROVED", start_date__year=current_year)
+        .filter(final_status="APPROVED", start_date__year=current_year)
         .values("employee__department__name")
         .annotate(count=Count("id"))
         .order_by("-count")[:8]
     )
+    dept_labels = [d["employee__department__name"] or "Unknown" for d in dept_leave_data]
+    dept_counts = [d["count"] for d in dept_leave_data]
+
+    # ── Weekly trend (last 8 weeks) ───────────────────────────────
+    # ── Weekly trend (last 8 weeks) ───────────────────────────────
+    from datetime import timedelta
+    week_labels = []
+    week_counts = []
+    for i in range(7, -1, -1):
+        week_start = today - timedelta(days=today.weekday() + 7*i)
+        week_end   = week_start + timedelta(days=6)
+        cnt = LeaveRequest.objects.filter(
+            start_date__gte=week_start, start_date__lte=week_end
+        ).count()
+        week_labels.append(week_start.strftime("%d %b").lstrip("0"))  # ✅ FIXED
+        week_counts.append(cnt)
+
+    # ── Casual / sick for backward compat ────────────────────────
+    casual_count = sum(c for l, c in zip(type_labels, type_counts) if "Casual" in l)
+    sick_count   = sum(c for l, c in zip(type_labels, type_counts) if "Sick"   in l)
 
     context = {
         **_hr_base_context(request),
-        "monthly_data":    monthly_data,
-        "casual_count":    casual_count,
-        "sick_count":      sick_count,
-        "type_data":       [casual_count, sick_count],
-        "approved_count":  approved_count,
-        "rejected_count":  rejected_count,
-        "pending_total":   pending_total,
-        "top_takers":      top_takers,
-        "dept_leave_data": list(dept_leave_data),
-        "current_year":    current_year,
+        # Totals
+        "total_this_year":    total_this_year,
+        "approved_count":     approved_count,
+        "rejected_count":     rejected_count,
+        "pending_total":      pending_total,
+        "on_leave_today":     on_leave_today,
+        "this_month_total":   this_month_total,
+        "this_month_approved":this_month_approved,
+        "approval_rate":      approval_rate,
+        "current_year":       current_year,
+        # Line chart — monthly
+        "monthly_all":        monthly_all,
+        "monthly_approved":   monthly_approved,
+        "monthly_rejected":   monthly_rejected,
+        "monthly_pending":    monthly_pending,
+        # Donut chart — leave types
+        "type_labels":        type_labels,
+        "type_counts":        type_counts,
+        "type_colors":        type_colors,
+        # Bar chart — departments
+        "dept_labels":        dept_labels,
+        "dept_counts":        dept_counts,
+        # Weekly sparkline
+        "week_labels":        week_labels,
+        "week_counts":        week_counts,
+        # Top takers table
+        "top_takers":         top_takers,
+        # Legacy
+        "casual_count":       casual_count,
+        "sick_count":         sick_count,
+        "type_data":          type_counts,
+        "monthly_data":       monthly_all,
+        "dept_leave_data":    list(dept_leave_data),
     }
     return render(request, "hr_leave_analytics.html", context)
 
@@ -2086,41 +2191,38 @@ def reject_leave(request, leave_id):
 # ════════════════════════════════════════════════════════════════════
 def _evaluate_leave_decision(leave):
     """
-    Returns ('APPROVED'|'REJECTED'|'PENDING', reason_string)
-    
-    VOTING DECISION ENGINE:
-    1. Manager's vote is FINAL (overrides HR + TL completely)
-       - Manager approves → APPROVED immediately
-       - Manager rejects → REJECTED immediately
-    
-    2. If Manager hasn't acted:
-       - EITHER HR or TL rejects → REJECTED immediately
-       - BOTH HR AND TL must approve → APPROVED
-       - Otherwise → PENDING (waiting for more votes)
+    FIXED: Only finalize when both HR and TL have voted
     """
-    
-    # ── Rule 1: Manager's vote is FINAL ─────────────────────────────
+    # Rule 1: Manager's vote is FINAL
     if leave.manager_voted:
         if leave.manager_approved:
             return 'APPROVED', 'Manager approved (Final decision)'
         else:
             return 'REJECTED', 'Manager rejected (Final decision)'
     
-    # ── Rule 2: Manager hasn't voted ────────────────────────────────
-    # Check for any rejection first
-    if leave.hr_rejected or leave.tl_rejected:
-        return 'REJECTED', f"{'HR' if leave.hr_rejected else 'TL'} rejected the request"
+    # Rule 2: Manager hasn't voted - need both HR and TL to vote
+    both_voted = leave.tl_voted and leave.hr_voted
     
-    # Check for both approvals
+    if not both_voted:
+        # Still waiting for votes
+        waiting_for = []
+        if not leave.tl_voted:
+            waiting_for.append('TL')
+        if not leave.hr_voted:
+            waiting_for.append('HR')
+        return 'PENDING', f"Waiting for {', '.join(waiting_for)} approval"
+    
+    # Both have voted - now evaluate
     if leave.hr_approved and leave.tl_approved:
         return 'APPROVED', 'Both HR and TL approved'
+    elif leave.hr_rejected or leave.tl_rejected:
+        if leave.hr_rejected:
+            return 'REJECTED', 'HR rejected the request'
+        else:
+            return 'REJECTED', 'TL rejected the request'
     
-    # Otherwise, it's still pending
-    waiting_for = []
-    if not leave.hr_voted: waiting_for.append('HR')
-    if not leave.tl_voted: waiting_for.append('TL')
-    
-    return 'PENDING', f"Waiting for {', '.join(waiting_for)} approval"
+    return 'PENDING', 'Awaiting decision'
+
 
 # ════════════════════════════════════════════════════════════════════
 #  NOTIFICATIONS (unchanged)
@@ -3409,3 +3511,4 @@ def leave_detail_page(request, leave_id):
     }
     
     return render(request, 'leave_detail.html', context)
+
