@@ -163,3 +163,8 @@ DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 # MUST stay here to avoid session-based default storage since SessionMiddleware is disabled
 MESSAGE_STORAGE = 'django.contrib.messages.storage.cookie.CookieStorage'
+
+
+
+LOGIN_URL = 'login'
+LOGIN_REDIRECT_URL = '/dashboard/'

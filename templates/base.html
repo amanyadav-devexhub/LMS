@@ -433,14 +433,7 @@
                 <span class="nav-icon"><i class="fa-solid fa-users"></i></span>
                 <span class="nav-text">All Employees</span>
             </a>
-            <a href="{% url 'employee_list' %}?tab=active" class="nav-item {% if request.resolver_match.url_name == 'employee_list' and request.GET.tab == 'active' %}active{% endif %}">
-                <span class="nav-icon"><i class="fa-solid fa-user-check"></i></span>
-                <span class="nav-text">Active Employees</span>
-            </a>
-            <a href="{% url 'employee_list' %}?tab=inactive" class="nav-item {% if request.resolver_match.url_name == 'employee_list' and request.GET.tab == 'inactive' %}active{% endif %}">
-                <span class="nav-icon"><i class="fa-solid fa-user-slash"></i></span>
-                <span class="nav-text">Inactive Employees</span>
-            </a>
+        
             <a href="{% url 'department_list' %}" class="nav-item {% if request.resolver_match.url_name == 'department_list' %}active{% endif %}">
                 <span class="nav-icon"><i class="fa-solid fa-building"></i></span>
                 <span class="nav-text">Departments</span>

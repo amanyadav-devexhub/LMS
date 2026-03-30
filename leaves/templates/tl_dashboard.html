@@ -249,6 +249,14 @@
     vertical-align: middle;
 }
 
+/* ADDED: Clickable row styles */
+.clickable-row {
+    cursor: pointer;
+}
+.clickable-row:hover {
+    background: rgba(0,198,212,0.05) !important;
+}
+
 /* Balance Bar */
 .bw {
     display: flex;
@@ -462,7 +470,7 @@
             </thead>
             <tbody>
             {% for leave in on_leave_today %}
-                <tr>
+                <tr class="clickable-row" data-href="{% url 'leave_detail' leave.id %}">
                     <td>
                         <div style="display:flex;align-items:center;gap:9px;">
                             <div class="lrav" style="width:30px;height:30px;font-size:10px;background:linear-gradient(135deg,#9b1226,#f04058);">
@@ -604,6 +612,24 @@
 </div>
 
 <script>
+// ADDED: Handle row clicks for leave details
+$(document).on('click', '.clickable-row', function(e) {
+    // Don't trigger if clicking on a button or form element
+    if (e.target.tagName === 'BUTTON' || 
+        e.target.tagName === 'A' || 
+        e.target.closest('button') || 
+        e.target.closest('a') ||
+        e.target.closest('.ajax-form')) {
+        return;
+    }
+    
+    const url = $(this).data('href');
+    if (url) {
+        window.location.href = url;
+    }
+});
+
+// Keep existing functions
 function switchTab(tabId) {
     const panels = document.querySelectorAll('.tl-panel');
     panels.forEach(p => p.classList.remove('show'));

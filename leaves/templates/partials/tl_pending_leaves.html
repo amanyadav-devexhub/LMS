@@ -10,11 +10,10 @@
             <th>Reason</th>
             <th>Applied On</th>
             <th>Actions</th>
-        </tr>
-    </thead>
+        </thead>
     <tbody>
         {% for leave in leaves %}
-        <tr>
+        <tr class="clickable-row" data-href="{% url 'leave_detail' leave.id %}">
             <td>
                 <div style="display: flex; align-items: center; gap: 10px;">
                     <div class="lrav" style="width:32px;height:32px;font-size:10px;">{{ leave.employee.first_name|first|upper }}{{ leave.employee.last_name|first|upper }}</div>
@@ -33,11 +32,11 @@
             <td>
                 <div style="display: flex; gap: 5px;">
                     {% if leave.final_status == 'PENDING' and not leave.tl_voted %}
-                        <form method="POST" action="{% url 'approve_leave' leave.id %}" class="ajax-form" style="display: inline;">
+                        <form method="POST" action="{% url 'approve_leave' leave.id %}" class="ajax-form" style="display: inline;" onclick="event.stopPropagation()">
                             {% csrf_token %}
                             <button type="submit" class="btn btn-success btn-sm"><i class="fa-solid fa-check"></i> Approve</button>
                         </form>
-                        <form method="POST" action="{% url 'reject_leave' leave.id %}" class="ajax-form" style="display: inline;">
+                        <form method="POST" action="{% url 'reject_leave' leave.id %}" class="ajax-form" style="display: inline;" onclick="event.stopPropagation()">
                             {% csrf_token %}
                             <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Reject this leave request?')"><i class="fa-solid fa-xmark"></i> Reject</button>
                         </form>

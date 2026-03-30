@@ -10,20 +10,20 @@ urlpatterns = [
     path('admin_dashboard/',    views.admin_dashboard,    name='admin_dashboard'),
 
     # ── HR pages ─────────────────────────────────────────────────
-    path('hr/pending/',        views.hr_pending_leaves,   name='hr_pending_leaves'),
-    path('hr/analytics/',      views.hr_leave_analytics,  name='hr_leave_analytics'),
-    path('hr/on-leave-today/', views.hr_on_leave_today,   name='hr_on_leave_today'),
-    path('hr/new-joiners/',    views.hr_new_joiners,      name='hr_new_joiners'),
-    path('hr/departments/',    views.hr_departments,      name='hr_departments'),
-    path('hr/my-balance/',     views.hr_my_leave_balance, name='hr_my_leave_balance'),
+    path('pending/',        views.hr_pending_leaves,   name='hr_pending_leaves'),
+    path('analytics/',      views.hr_leave_analytics,  name='hr_leave_analytics'),
+    path('on-leave-today/', views.hr_on_leave_today,   name='hr_on_leave_today'),
+    path('new-joiners/',    views.hr_new_joiners,      name='hr_new_joiners'),
+    path('departments/',    views.hr_departments,      name='hr_departments'),
+    path('my-balance/',     views.hr_my_leave_balance, name='hr_my_leave_balance'),
     path('hr/employees/',      views.hr_employee_list,    name='hr_employee_list'),
     path('hr/employees/<int:pk>/',      views.employee_detail, name='hr_employee_detail'),
     path('hr/employees/<int:pk>/edit/', views.employee_detail, name='hr_employee_edit'),
 
     # ── Leave actions ─────────────────────────────────────────────
-    path('leave/apply/',                     views.apply_leave,   name='apply_leave'),
-    path('leave/approve/<int:leave_id>/',    views.approve_leave, name='approve_leave'),
-    path('leave/reject/<int:leave_id>/',     views.reject_leave,  name='reject_leave'),
+    path('apply/', views.apply_leave, name='apply_leave'),
+    path('approve_leave/<int:leave_id>/', views.approve_leave, name='approve_leave'),
+    path('reject/leave/<int:leave_id>/', views.reject_leave, name='reject_leave'),
 
     # ── Employee management ───────────────────────────────────────
     path('employee/list/',                        views.employee_list,          name='employee_list'),
@@ -42,7 +42,6 @@ urlpatterns = [
 
     # ── Search ────────────────────────────────────────────────────
     path('admin/employees/search/', views.employee_search_json, name='employee_search_json'),
-    path('admin/employees/search/', views.employee_search_json, name='admin_employee_search'),
 
     # ── Holidays ──────────────────────────────────────────────────
     path('holidays/',                         views.holiday_list,          name='holiday_list'),
@@ -98,12 +97,11 @@ urlpatterns = [
          views.admin_apply_to_all_employees,
          name='admin_apply_to_all_employees'),
 
-    # API — active leave types + employee remaining balance (JSON)
+    # API — active leave types + employee remaining balance (JSON)                
     path('api/leave-types/',
          views.api_leave_types,
          name='api_leave_types'),
 
-     
 
      
 ]

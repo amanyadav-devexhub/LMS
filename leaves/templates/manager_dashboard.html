@@ -223,15 +223,24 @@
 .tt tbody tr {
     border-bottom: 1px solid var(--border);
     transition: background .12s;
+    cursor: pointer;
 }
 .tt tbody tr:hover {
-    background: rgba(13, 110, 253, 0.025);
+    background: rgba(13, 110, 253, 0.05);
 }
 .tt tbody td {
     padding: 11px 18px;
     font-size: 12.5px;
     color: var(--text-mid);
     vertical-align: middle;
+}
+
+/* Clickable row style */
+.clickable-row {
+    cursor: pointer;
+}
+.clickable-row:hover {
+    background: rgba(13, 110, 253, 0.05) !important;
 }
 
 /* Balance Bar */
@@ -513,25 +522,25 @@
                                 <div style="font-size:10px;color:var(--text-muted);">{{ item.member.email }}</div>
                             </div>
                         </div>
-                    </td>
-                    <td>
+                     </div>
+                     <td>
                         {% if item.is_on_leave %}<span class="chip ch-rd">On Leave</span>
                         {% else %}<span class="chip ch-gn">Available</span>{% endif %}
-                    </td>
+                     </div>
                     <td style="text-align:center;font-weight:800;color:var(--warning);">{{ item.pending }}</td>
-                    <td>
+                     <td
                         <div class="bw">
                             <div class="bt"><div class="bf" style="background:#0d6efd;width:{% widthratio item.casual_balance 12 100 %}%;"></div></div>
                             <span style="font-weight:700;font-size:11px;">{{ item.casual_balance }}</span>
                         </div>
-                    </td>
-                    <td>
+                     </div>
+                     <td
                         <div class="bw">
                             <div class="bt"><div class="bf" style="background:#0dcaf0;width:{% widthratio item.sick_balance 10 100 %}%;"></div></div>
                             <span style="font-weight:700;font-size:11px;">{{ item.sick_balance }}</span>
                         </div>
-                    </td>
-                </tr>
+                     </div>
+                 </tr>
                 {% endfor %}
             </tbody>
         </table>
@@ -548,7 +557,7 @@
     <div class="sec-label">Team Out Today</div>
     <div class="sc">
         {% for leave in team_on_leave %}
-        <div class="lr">
+        <div class="lr clickable-row" data-href="{% url 'leave_detail' leave.id %}" style="cursor: pointer;">
             <div class="lrav" style="background:linear-gradient(135deg,#f04058,#b01530);">{{ leave.employee.first_name|first|upper }}</div>
             <div class="lr-info">
                 <div class="lr-nm">{{ leave.employee.get_full_name|default:leave.employee.username }}</div>
@@ -646,6 +655,25 @@ $(function() {
     const params = new URLSearchParams(window.location.search);
     const tab = params.get('tab') || 'pending';
     switchTab(tab);
+});
+
+// Handle click on clickable rows (for pending leaves and team on leave)
+$(document).ready(function() {
+    $(document).on('click', '.clickable-row', function(e) {
+        // Don't trigger if clicking on a button or form element
+        if (e.target.tagName === 'BUTTON' || 
+            e.target.tagName === 'A' || 
+            e.target.closest('button') || 
+            e.target.closest('a') ||
+            e.target.closest('.ajax-form')) {
+            return;
+        }
+        
+        const url = $(this).data('href');
+        if (url) {
+            window.location.href = url;
+        }
+    });
 });
 
 // AJAX Pagination

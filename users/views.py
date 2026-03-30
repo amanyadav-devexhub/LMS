@@ -76,11 +76,11 @@ def login_view(request):
     refresh = RefreshToken.for_user(user)
 
     role_redirect_map = {
-        "Admin":    "/leave/admin_dashboard/",
-        "HR":       "/leave/hr_dashboard/",
-        "TL":       "/leave/tl_dashboard/",
-        "Employee": "/leave/employee_dashboard/",
-        "Manager":  "/leave/manager_dashboard/",
+        "Admin":    "/admin_dashboard/",
+        "HR":       "/hr_dashboard/",
+        "TL":       "/tl_dashboard/",
+        "Employee": "/employee_dashboard/",
+        "Manager":  "/manager_dashboard/",
     }
     redirect_url = role_redirect_map.get(user.role.name if user.role else '', "/dashboard/")
 
@@ -525,14 +525,14 @@ def dashboard_update_api(request):
 @api_view(['GET', 'POST'])
 @permission_classes([AllowAny])
 def forgot_password(request):
-    
+ 
     if request.method == 'GET':
         return render(request, 'forgot_password.html')
-
+ 
     email = request.data.get('email')
     if not email:
         return Response({"error": "Email is required"}, status=status.HTTP_400_BAD_REQUEST)
-
+ 
     try:
         user  = User.objects.get(email=email)
         uid   = urlsafe_base64_encode(force_bytes(user.pk))
@@ -813,7 +813,7 @@ def role_list(request):
         'roles': roles, 'total_roles': roles.count(), 'total_users': User.objects.count(),
     })
 
-
+@csrf_exempt
 @login_required
 def role_create(request):
     if not _is_admin(request):
@@ -951,7 +951,7 @@ def role_permission_save(request):
     from django.urls import reverse
     return redirect(reverse('role_permission_list') + f'?role={role_id}')
 
-
+@csrf_exempt
 @login_required
 def assign_role(request):
     if not _is_hr_or_admin(request):
