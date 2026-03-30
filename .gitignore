@@ -29,7 +29,7 @@ var/
 # Django specific
 *.log
 *.pot
-*.pyc   
+*.pyc
 *.pyo
 *.sqlite3
 db.sqlite3
