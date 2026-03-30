@@ -31,43 +31,49 @@
 $(document).ready(function () {
 
     // ─── Helper: decrement both page badge + sidebar badge ───────────────────
-    function decrementBadge() {
-        // Page badge
-        const $badge = $('#pending-badge');
-        let count = parseInt($badge.text());
-        if (!isNaN(count) && count > 0) {
-            count -= 1;
-            $badge.text(count + ' pending');
+    function decrementBadge() {   // <── REPLACE THIS WHOLE FUNCTION
+        // ── Page header badge ──────────────────────────────────────────
+        const $pageBadge = $('#pending-badge');
+        let pageCount = parseInt($pageBadge.text());
+        if (!isNaN(pageCount) && pageCount > 0) {
+            $pageBadge.text((pageCount - 1) + ' pending');
         }
 
-        // Sidebar badge (update the li[data-section="pending"] badge if present)
-        const $sidebarBadge = $('.sidebar-badge[data-key="pending"]');
-        let sCount = parseInt($sidebarBadge.text());
-        if (!isNaN(sCount) && sCount > 0) {
-            $sidebarBadge.text(sCount - 1);
+        // ── Sidebar badge ──────────────────────────────────────────────
+        const $sidebarBadge = $('.nav-item .nav-text')
+            .filter(function () {
+                return $(this).text().trim() === 'Pending Approvals';
+            })
+            .closest('.nav-item')
+            .find('.nav-badge');
+
+        if ($sidebarBadge.length) {
+            let sCount = parseInt($sidebarBadge.text());
+            if (!isNaN(sCount) && sCount > 0) {
+                sCount -= 1;
+                if (sCount === 0) {
+                    $sidebarBadge.remove();
+                } else {
+                    $sidebarBadge.text(sCount);
+                }
+            }
         }
-    }
+    }   // <── END OF FUNCTION
 
     // ─── AJAX Pagination ──────────────────────────────────────────────────────
     $(document).on('click', '.ajax-pagination', function (e) {
-        e.preventDefault();
-        const $container = $('#hr-pending-container');
-        const url = $(this).attr('href');
+    // ... rest of your code stays the same
+```
 
-        $container.css('opacity', '0.5');
-        fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-            .then(res => res.json())
-            .then(data => {
-                if (data.success) {
-                    $container.html(data.html).css('opacity', '1');
-                    window.history.replaceState({}, '', url);
-                }
-            })
-            .catch(err => {
-                console.error('Pagination error:', err);
-                $container.css('opacity', '1');
-            });
-    });
+So the full structure of your script should be:
+```
+$(document).ready(function () {
+    function decrementBadge() { ... }   ← paste here
+    $(document).on('click', '.ajax-pagination', ...)
+    $(document).on('submit', '.ajax-form', ...)
+    $(document).on('click', '.clickable-row form, ...', ...)
+    function getCookie(name) { ... }
+});
 
     // ─── AJAX Form Submission (approve / reject) ──────────────────────────────
     // Intercept ALL .ajax-form submits inside the container (works after re-render too)
