@@ -60,9 +60,18 @@ class User(AbstractUser):
 
     phone = models.CharField(max_length=15, blank=True, null=True)
 
+    designation = models.CharField(max_length=150, blank=True, null=True)
+
     date_of_joining = models.DateField(null=True, blank=True)
 
     is_senior = models.BooleanField(default=False)
+
+    # ── Avatar (profile photo) ──
+    avatar = models.ImageField(
+        upload_to='avatars/',
+        null=True,
+        blank=True
+    )
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = ["username"]
@@ -79,8 +88,13 @@ class SalaryDetails(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
 
     basic_salary = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    hra = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    bonus = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    hra          = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    bonus        = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
+    # Net / in-hand salary (HR sets this directly)
+    salary_in_hand = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0
+    )
 
     def __str__(self):
         return f"Salary - {self.user.email}"
@@ -93,9 +107,9 @@ class BankDetails(models.Model):
 
     user = models.OneToOneField(User, on_delete=models.CASCADE)
 
-    bank_name = models.CharField(max_length=200)
-    account_number = models.CharField(max_length=50)
-    ifsc_code = models.CharField(max_length=20)
+    bank_name      = models.CharField(max_length=200, blank=True, null=True)
+    account_number = models.CharField(max_length=50,  blank=True, null=True)
+    ifsc_code      = models.CharField(max_length=20,  blank=True, null=True)
 
     def __str__(self):
         return f"Bank - {self.user.email}"
@@ -109,9 +123,8 @@ class VerificationDetails(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
 
     aadhar_number = models.CharField(max_length=20, blank=True, null=True)
-    pan_number = models.CharField(max_length=20, blank=True, null=True)
-
-    is_verified = models.BooleanField(default=False)
+    pan_number    = models.CharField(max_length=20, blank=True, null=True)
+    is_verified   = models.BooleanField(default=False)
 
     def __str__(self):
         return f"Verification - {self.user.email}"
@@ -119,22 +132,73 @@ class VerificationDetails(models.Model):
 
 # -----------------------
 # ADDITIONAL DETAILS
+# (extended with all new profile fields)
 # -----------------------
+
+GENDER_CHOICES = [
+    ('Male',   'Male'),
+    ('Female', 'Female'),
+    ('Other',  'Other'),
+]
+
+MARITAL_CHOICES = [
+    ('Single',  'Single'),
+    ('Married', 'Married'),
+]
+
+BLOOD_GROUP_CHOICES = [
+    ('A+',  'A+'),
+    ('A-',  'A-'),
+    ('B+',  'B+'),
+    ('B-',  'B-'),
+    ('AB+', 'AB+'),
+    ('AB-', 'AB-'),
+    ('O+',  'O+'),
+    ('O-',  'O-'),
+]
+
+
 class AdditionalDetails(models.Model):
 
     user = models.OneToOneField(User, on_delete=models.CASCADE)
 
-    address = models.TextField(blank=True, null=True)
+    # ── Contact ──
+    personal_email   = models.EmailField(blank=True, null=True)
+    alternate_phone  = models.CharField(max_length=15, blank=True, null=True)
+    phone = models.CharField(max_length=15, blank=True, null=True)
 
-    emergency_contact = models.CharField(max_length=15, blank=True, null=True)
+    # ── Personal ──
+    date_of_birth  = models.DateField(null=True, blank=True)
+    gender         = models.CharField(
+        max_length=10, choices=GENDER_CHOICES, blank=True, null=True
+    )
+    marital_status = models.CharField(
+        max_length=10, choices=MARITAL_CHOICES, blank=True, null=True
+    )
+    blood_group    = models.CharField(
+        max_length=5, choices=BLOOD_GROUP_CHOICES, blank=True, null=True
+    )
 
-    notes = models.TextField(blank=True, null=True)
+    # ── Emergency contact ──
+    emergency_contact  = models.CharField(max_length=100, blank=True, null=True)  # name
+    emergency_relation = models.CharField(max_length=50,  blank=True, null=True)
+    emergency_phone    = models.CharField(max_length=15,  blank=True, null=True)
+
+    # ── Address ──
+    current_address   = models.TextField(blank=True, null=True)
+    permanent_address = models.TextField(blank=True, null=True)
+
+    # ── Legacy / misc (kept from original) ──
+    address = models.TextField(blank=True, null=True)  # kept for backwards compat
+    notes   = models.TextField(blank=True, null=True)
 
     def __str__(self):
         return f"Additional - {self.user.email}"
 
 
-
+# -----------------------
+# MODULE CHOICES & ROLE PERMISSIONS
+# -----------------------
 MODULE_CHOICES = [
     ('dashboard',     'Dashboard'),
     ('leaves',        'Leave Management'),
@@ -150,10 +214,10 @@ MODULE_CHOICES = [
 
 class RolePermission(models.Model):
     role   = models.ForeignKey(
-                Role,
-                on_delete=models.CASCADE,
-                related_name='permissions'
-             )
+        Role,
+        on_delete=models.CASCADE,
+        related_name='permissions'
+    )
     module = models.CharField(max_length=50, choices=MODULE_CHOICES)
 
     can_view   = models.BooleanField(default=False)

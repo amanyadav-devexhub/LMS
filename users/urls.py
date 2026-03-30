@@ -1,6 +1,11 @@
 from django.urls import path
 from . import views
 
+from django.conf import settings
+from django.conf.urls.static import static
+
+
+
 urlpatterns = [
     path('', views.home_view, name='home'),  # Root URL
     path('login/', views.login_view, name='login'),
@@ -12,6 +17,7 @@ urlpatterns = [
     path('reset-password/<uidb64>/<token>/', views.ResetPasswordAPIView.as_view(), name='reset_password'),
     # ── Dashboard / Profile page (renders dashboard.html) ──
     path('dashboard/',         views.dashboard_template_view, name='dashboard'),
+    path('profile/<int:user_id>/', views.dashboard_template_view, name='profile_detail'),
 
     # ── Profile form POST handler ──
     path('dashboard/update/',  views.update_profile,          name='update_profile'),
@@ -39,5 +45,8 @@ urlpatterns = [
     path('assign-role/',          views.assign_role,      name='assign_role'),
     path('assign-role/bulk/',     views.assign_role_bulk, name='assign_role_bulk'),
 
+ 
 
 ]
+
+urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

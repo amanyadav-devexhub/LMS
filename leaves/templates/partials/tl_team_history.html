@@ -1,0 +1,62 @@
+{% if history_page.object_list %}
+<table class="tt">
+    <thead>
+        <tr><th>Employee</th><th>Type</th><th>Duration</th><th>From</th><th>To</th><th>Status</th></thead>
+    <tbody>
+    {% for leave in history_page %}
+        <tr class="clickable-row" data-href="{% url 'leave_detail' leave.id %}">
+            <td>
+                <div style="display:flex;align-items:center;gap:9px;">
+                    <div class="lrav" style="width:30px;height:30px;font-size:10px;">
+                        {{ leave.employee.first_name|first|upper }}{{ leave.employee.last_name|first|upper }}
+                    </div>
+                    <div>
+                        <div style="font-weight:700;">{{ leave.employee.get_full_name|default:leave.employee.username }}</div>
+                        <div style="font-size:11px;color:var(--text-muted);">{{ leave.employee.email }}</div>
+                    </div>
+                </div>
+            </td>
+            <td><span class="badge badge-info">{{ leave.leave_type }}</span>{% if not leave.is_paid %} <span class="badge badge-warning">Unpaid</span>{% endif %}</td>
+            <td>{% if leave.duration == "FULL" %}Full Day{% elif leave.duration == "HALF" %}Half Day{% else %}Short{% endif %}</td>
+            <td>{{ leave.start_date|date:"d M Y" }}</td>
+            <td>{{ leave.end_date|date:"d M Y" }}</td>
+            <td>
+                {% if leave.status == "APPROVED" %}<span class="chip ch-gn">Approved</span>
+                {% elif leave.status == "REJECTED" %}<span class="chip ch-rd">Rejected</span>
+                {% else %}<span class="chip ch-am">Pending</span>{% endif %}
+            </td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+
+{% if history_page.has_other_pages %}
+<div class="pgn">
+    <span class="pgn-info">{{ history_page.start_index }}–{{ history_page.end_index }} of {{ history_page.paginator.count }}</span>
+    <div class="pgn-btns">
+        {% if history_page.has_previous %}
+            <a href="?hpage={{ history_page.previous_page_number }}&tab=teamhistory" class="pb ajax-pagination" data-target="teamhistory-list">
+                <i class="fa-solid fa-chevron-left"></i>
+            </a>
+        {% else %}
+            <span class="pb off"><i class="fa-solid fa-chevron-left"></i></span>
+        {% endif %}
+        
+        {% if history_page.has_next %}
+            <a href="?hpage={{ history_page.next_page_number }}&tab=teamhistory" class="pb ajax-pagination" data-target="teamhistory-list">
+                <i class="fa-solid fa-chevron-right"></i>
+            </a>
+        {% else %}
+            <span class="pb off"><i class="fa-solid fa-chevron-right"></i></span>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+{% else %}
+<div class="emp">
+    <div class="emp-ico"><i class="fa-solid fa-clock-rotate-left"></i></div>
+    <div class="emp-ttl">No Team History</div>
+    <div class="emp-sub">No leave requests from your team this year.</div>
+</div>
+{% endif %}

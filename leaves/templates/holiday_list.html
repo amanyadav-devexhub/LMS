@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+{% block title %}Holiday Management — LeaveSetu{% endblock %}
+{% block page_title %}Holiday Calendar {{ current_year }}{% endblock %}
+
+{% block content %}
+<!-- Action Bar -->
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 15px;">
+    <div style="display: flex; gap: 10px;">
+        <a href="{% url 'holiday_create' %}" class="btn btn-primary">
+            <i class="fa-solid fa-plus"></i> Add Holiday
+        </a>
+        <a href="{% url 'holiday_bulk_create' %}" class="btn btn-ghost">
+            <i class="fa-solid fa-layer-group"></i> Bulk Import
+        </a>
+    </div>
+    
+    <!-- Stats -->
+    <div style="display: flex; gap: 15px;">
+        <div style="background: var(--surface2); padding: 8px 15px; border-radius: 30px;">
+            <span style="font-weight: 600;">{{ total_holidays }}</span> Holidays
+        </div>
+        <div style="background: var(--surface2); padding: 8px 15px; border-radius: 30px;">
+            <span style="font-weight: 600;">{{ total_days }}</span> Total Days
+        </div>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="card" style="margin-bottom: 24px;">
+    <div style="padding: 15px 20px;">
+        <form method="get" style="display: flex; gap: 15px; flex-wrap: wrap; align-items: flex-end;">
+            <div style="min-width: 150px;">
+                <label class="form-label">Year</label>
+                <select name="year" class="form-control" onchange="this.form.submit()">
+                    {% for year in years %}
+                    <option value="{{ year|date:'Y' }}" {% if current_year == year|date:'Y'|add:0 %}selected{% endif %}>
+                        {{ year|date:'Y' }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div style="min-width: 150px;">
+                <label class="form-label">Month</label>
+                <select name="month" class="form-control" onchange="this.form.submit()">
+                    <option value="">All Months</option>
+                    {% for m_num, m_name in months %}
+                    <option value="{{ m_num }}" {% if current_month == m_num|stringformat:"i" %}selected{% endif %}>
+                        {{ m_name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div style="min-width: 150px;">
+                <label class="form-label">Type</label>
+                <select name="type" class="form-control" onchange="this.form.submit()">
+                    <option value="">All Types</option>
+                    {% for type_value, type_label in holiday_types %}
+                    <option value="{{ type_value }}" {% if current_type == type_value %}selected{% endif %}>
+                        {{ type_label }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div style="flex: 1; min-width: 200px;">
+                <label class="form-label">Search</label>
+                <input type="text" name="search" class="form-control" placeholder="Search holidays..." value="{{ search_query }}">
+            </div>
+            
+            <div>
+                <button type="submit" class="btn btn-primary">Filter</button>
+                <a href="{% url 'holiday_list' %}" class="btn btn-ghost">Clear</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Upcoming Holidays Banner -->
+{% if upcoming %}
+<div class="card" style="margin-bottom: 24px; background: linear-gradient(135deg, var(--aqua-deep), var(--aqua)); color: white;">
+    <div style="padding: 15px 20px; display: flex; align-items: center; gap: 20px; flex-wrap: wrap;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <i class="fa-solid fa-calendar-day" style="font-size: 24px;"></i>
+            <h3 style="color: white; margin: 0;">Upcoming Holidays</h3>
+        </div>
+        
+        <div style="display: flex; gap: 15px; flex-wrap: wrap; flex: 1;">
+            {% for holiday in upcoming %}
+            <div style="background: rgba(255,255,255,0.15); padding: 8px 15px; border-radius: 30px;">
+                <strong>{{ holiday.date|date:"d M" }}</strong> - {{ holiday.name }}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Calendar View -->
+<div class="grid-3" style="margin-bottom: 24px;">
+    {% for month_data in calendar_data %}
+    <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <h3>{{ month_data.month_name }} {{ current_year }}</h3>
+            <span class="badge badge-info">{{ month_data.count }} holidays</span>
+        </div>
+        
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+            {% for holiday in month_data.holidays %}
+            <div style="display: flex; align-items: center; gap: 10px; padding: 8px; background: var(--surface2); border-radius: 10px;">
+                <div style="width: 40px; height: 40px; background: var(--aqua-glass); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: var(--aqua-deep);">
+                    <i class="fa-solid {{ holiday.icon }}"></i>
+                </div>
+                
+                <div style="flex: 1;">
+                    <div style="font-weight: 700;">{{ holiday.name }}</div>
+                    <div style="font-size: 11px; color: var(--text-muted);">
+                        {{ holiday.date|date:"d M" }}
+                        {% if holiday.end_date and holiday.end_date != holiday.date %}
+                        - {{ holiday.end_date|date:"d M" }}
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div style="display: flex; gap: 5px;">
+                    <span class="badge {{ holiday.color_class }}">{{ holiday.get_holiday_type_display }}</span>
+                    
+                    <div class="dropdown" style="position: relative;">
+                        <button class="btn btn-ghost btn-sm" onclick="toggleDropdown({{ holiday.id }})">
+                            <i class="fa-solid fa-ellipsis"></i>
+                        </button>
+                        <div id="dropdown-{{ holiday.id }}" class="dropdown-menu" style="display: none; position: absolute; right: 0; top: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; min-width: 150px; z-index: 100;">
+                            <a href="{% url 'holiday_edit' holiday.id %}" class="dropdown-item" style="display: block; padding: 8px 15px; color: var(--text); text-decoration: none;">
+                                <i class="fa-solid fa-edit"></i> Edit
+                            </a>
+                            <form method="POST" action="{% url 'holiday_toggle_status' holiday.id %}" class="ajax-form" style="display: block;">
+                                {% csrf_token %}
+                                <button type="submit" class="dropdown-item" style="width: 100%; text-align: left; padding: 8px 15px; background: none; border: none; cursor: pointer;">
+                                    <i class="fa-solid fa-{% if holiday.is_active %}eye-slash{% else %}eye{% endif %}"></i>
+                                    {% if holiday.is_active %}Deactivate{% else %}Activate{% endif %}
+                                </button>
+                            </form>
+                            <form method="POST" action="{% url 'holiday_delete' holiday.id %}" class="ajax-form delete-form" style="display: block;" onsubmit="return confirm('Delete {{ holiday.name }}?')">
+                                {% csrf_token %}
+                                <button type="submit" class="dropdown-item" style="width: 100%; text-align: left; padding: 8px 15px; background: none; border: none; cursor: pointer; color: var(--danger);">
+                                    <i class="fa-solid fa-trash"></i> Delete
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% empty %}
+    <div class="card" style="grid-column: span 3; text-align: center; padding: 60px;">
+        <i class="fa-solid fa-calendar" style="font-size: 48px; color: var(--text-muted); margin-bottom: 15px;"></i>
+        <h3>No Holidays Found</h3>
+        <p style="color: var(--text-muted);">Add your first holiday to get started.</p>
+        <a href="{% url 'holiday_create' %}" class="btn btn-primary" style="margin-top: 15px;">
+            <i class="fa-solid fa-plus"></i> Add Holiday
+        </a>
+    </div>
+    {% endfor %}
+</div>
+
+<script>
+function toggleDropdown(id) {
+    const dropdown = document.getElementById(`dropdown-${id}`);
+    dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
+}
+
+// Close dropdowns when clicking outside
+document.addEventListener('click', function(event) {
+    }
+);
+
+// Handle AJAX success updates
+$(document).on('ajax:success', '.ajax-form', function(e, data) {
+    if (data.success) {
+        const form = $(this);
+        
+        // Handle Delete
+        if (form.hasClass('delete-form')) {
+            form.closest('.card').fadeOut(400, function() {
+                $(this).remove();
+                if ($('.grid-3 .card').length === 0) {
+                   window.location.reload(); // Show empty state
+                }
+            });
+            return;
+        }
+
+        // Handle Toggle (Active/Inactive)
+        if (data.hasOwnProperty('is_active')) {
+            const isActive = data.is_active;
+            const btn = form.find('button[type="submit"]');
+            
+            // Update Icon and Text
+            btn.find('i').removeClass('fa-eye fa-eye-slash').addClass(isActive ? 'fa-eye-slash' : 'fa-eye');
+            btn.contents().last()[0].textContent = isActive ? ' Deactivate' : ' Activate';
+            
+            // Optional: visual cue on the item card (e.g. opacity)
+            form.closest('.card').css('opacity', isActive ? '1' : '0.6');
+        }
+    }
+});
+</script>
+{% endblock %}

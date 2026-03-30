@@ -1,83 +1,711 @@
 {% extends "base.html" %}
-{% block title %}TL Dashboard — LeaveOS{% endblock %}
+{% block title %}TL Dashboard — LeaveSetu{% endblock %}
 {% block page_title %}Team Leader Dashboard{% endblock %}
-{% block nav_tl %}active{% endblock %}
+
+{% block extra_head %}
+<style>
+/* Hero Banner */
+.tl-hero {
+    background: linear-gradient(135deg, var(--ink) 0%, var(--ink-soft) 55%, #082030 100%);
+    border-radius: var(--radius);
+    padding: 26px 30px;
+    margin-bottom: 22px;
+    position: relative;
+    overflow: hidden;
+    border: 1px solid rgba(0,198,212,.15);
+    box-shadow: 0 8px 32px rgba(11,18,33,.22);
+}
+.tl-hero::before {
+    content: '';
+    position: absolute; top: -60px; right: -60px;
+    width: 240px; height: 240px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(0,198,212,.13) 0%, transparent 70%);
+    pointer-events: none;
+}
+.hero-label {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 9px; font-weight: 800; letter-spacing: 2.5px;
+    text-transform: uppercase; color: var(--aqua);
+    margin-bottom: 9px; opacity: .75;
+}
+.hero-label::before {
+    content: ''; width: 22px; height: 1.5px;
+    background: var(--aqua); border-radius: 2px;
+}
+.hero-name {
+    font-size: 23px; font-weight: 800; color: #fff;
+    letter-spacing: -.5px; margin-bottom: 3px;
+}
+.hero-date {
+    font-size: 12px; color: rgba(255,255,255,.36);
+    margin-bottom: 18px;
+}
+.hero-pills { display: flex; gap: 8px; flex-wrap: wrap; }
+.hpill {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 12px; border-radius: 20px;
+    font-size: 11px; font-weight: 700; border: 1px solid;
+    cursor: pointer; transition: opacity .15s;
+}
+.hpill:hover { opacity: .8; }
+.hp-green { background: rgba(5,201,138,.11); border-color: rgba(5,201,138,.28); color: #05c98a; }
+.hp-amber { background: rgba(245,166,35,.11); border-color: rgba(245,166,35,.28); color: var(--warning); }
+.hp-red   { background: rgba(240,64,88,.11);  border-color: rgba(240,64,88,.28);  color: var(--danger); }
+.hpill-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.hero-right {
+    position: absolute; right: 28px; top: 50%;
+    transform: translateY(-50%);
+    display: flex; gap: 26px; align-items: center;
+}
+.hn { text-align: center; }
+.hn-val { font-size: 27px; font-weight: 800; color: #fff; line-height: 1; }
+.hn-val.am { color: var(--warning); }
+.hn-val.aq { color: var(--aqua-light); }
+.hn-lbl { font-size: 9px; font-weight: 700; letter-spacing: 1.5px;
+    text-transform: uppercase; color: rgba(255,255,255,.30); margin-top: 3px; }
+.hn-div { width: 1px; height: 38px; background: rgba(255,255,255,.08); }
+
+/* Stat Row */
+.stat-row {
+    display: grid; grid-template-columns: repeat(4,1fr);
+    gap: 14px; margin-bottom: 22px;
+}
+.s-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 18px 20px;
+    position: relative; overflow: hidden;
+    cursor: pointer; transition: all .2s;
+    box-shadow: var(--shadow-xs);
+}
+.s-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    border-radius: var(--radius) var(--radius) 0 0;
+    background: var(--c, var(--aqua));
+}
+.s-card::after {
+    content: ''; position: absolute; bottom: -22px; right: -22px;
+    width: 80px; height: 80px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(var(--cr,0,198,212),.10) 0%, transparent 70%);
+}
+.s-card:hover  { border-color: var(--border-mid); transform: translateY(-2px); box-shadow: var(--shadow); }
+.s-card.active {
+    border-color: var(--c, var(--aqua));
+    box-shadow: 0 0 0 3px rgba(var(--cr,0,198,212),.12), var(--shadow);
+}
+.s-ico {
+    width: 34px; height: 34px; border-radius: 9px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; margin-bottom: 12px;
+    background: rgba(var(--cr,0,198,212),.10);
+    color: var(--c, var(--aqua));
+    border: 1px solid rgba(var(--cr,0,198,212),.20);
+}
+.s-val { font-size: 26px; font-weight: 800; color: var(--text); letter-spacing: -1px; line-height: 1; }
+.s-lbl { font-size: 11px; color: var(--text-muted); margin-top: 4px; font-weight: 500; }
+
+/* Panels */
+.tl-panel { display: none; animation: pu .26s ease both; }
+.tl-panel.show { display: block; }
+@keyframes pu { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+
+/* Section Card */
+.sc {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: var(--shadow-xs);
+}
+.sc-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 15px 20px; border-bottom: 1px solid var(--border);
+    background: linear-gradient(90deg,rgba(0,198,212,.025),transparent);
+}
+.sc-hl { display: flex; align-items: center; gap: 10px; }
+.sc-ico {
+    width: 30px; height: 30px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; flex-shrink: 0;
+    background: rgba(0,198,212,.10);
+    color: var(--aqua-deep);
+    border: 1px solid rgba(0,198,212,.18);
+}
+.sc-ttl { font-size: 13.5px; font-weight: 800; color: var(--text); }
+.sc-sub { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
+
+.chip {
+    padding: 3px 10px; border-radius: 20px;
+    font-size: 10px; font-weight: 800; white-space: nowrap;
+}
+.ch-am { background: rgba(245,166,35,.10); color: #905700; border: 1px solid rgba(245,166,35,.25); }
+.ch-in { background: rgba(0,198,212,.10); color: var(--aqua-deep); border: 1px solid rgba(0,198,212,.22); }
+.ch-rd { background: rgba(240,64,88,.09); color: #b01530; border: 1px solid rgba(240,64,88,.20); }
+.ch-gn { background: rgba(5,201,138,.09); color: #047a52; border: 1px solid rgba(5,201,138,.22); }
+
+/* Leave Rows */
+.lr {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 15px 20px;
+    border-bottom: 1px solid var(--border);
+    transition: background .12s;
+}
+.lr:last-child { border-bottom: none; }
+.lr:hover { background: rgba(0,198,212,.025); }
+.lrav {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background: linear-gradient(135deg,var(--aqua-deep),var(--aqua));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 11px;
+    color: #fff;
+}
+.lr-info {
+    flex: 1;
+    min-width: 0;
+}
+.lr-nm {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+}
+.lr-mt {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 1px;
+}
+.lr-acts {
+    display: flex;
+    gap: 5px;
+    flex-shrink: 0;
+    align-items: center;
+}
+.ab {
+    width: 28px;
+    height: 28px;
+    border-radius: 7px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    cursor: pointer;
+    border: 1px solid;
+    transition: all .15s;
+    background: none;
+}
+.ab-ok {
+    border-color: rgba(5,201,138,.30);
+    color: #047a52;
+    background: rgba(5,201,138,.08);
+}
+.ab-ok:hover {
+    background: rgba(5,201,138,.18);
+}
+.ab-no {
+    border-color: rgba(240,64,88,.25);
+    color: #b01530;
+    background: rgba(240,64,88,.07);
+}
+.ab-no:hover {
+    background: rgba(240,64,88,.16);
+}
+
+/* Table */
+.tt {
+    width: 100%;
+    border-collapse: collapse;
+}
+.tt thead th {
+    padding: 9px 18px;
+    text-align: left;
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--aqua-deep);
+    background: linear-gradient(90deg,rgba(0,198,212,.05),rgba(0,198,212,.02));
+    border-bottom: 1px solid var(--border-mid);
+}
+.tt tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background .12s;
+}
+.tt tbody tr:last-child {
+    border-bottom: none;
+}
+.tt tbody tr:hover {
+    background: rgba(0,198,212,.025);
+}
+.tt tbody td {
+    padding: 11px 18px;
+    font-size: 12.5px;
+    color: var(--text-mid);
+    vertical-align: middle;
+}
+
+/* ADDED: Clickable row styles */
+.clickable-row {
+    cursor: pointer;
+}
+.clickable-row:hover {
+    background: rgba(0,198,212,0.05) !important;
+}
+
+/* Balance Bar */
+.bw {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+.bt {
+    flex: 1;
+    height: 5px;
+    border-radius: 3px;
+    background: var(--border);
+    overflow: hidden;
+    min-width: 44px;
+}
+.bf {
+    height: 100%;
+    border-radius: 3px;
+}
+
+/* Empty State */
+.emp {
+    text-align: center;
+    padding: 44px 24px;
+}
+.emp-ico {
+    font-size: 36px;
+    color: var(--aqua-light);
+    opacity: .25;
+    margin-bottom: 10px;
+}
+.emp-ttl {
+    font-size: 15px;
+    font-weight: 800;
+    color: var(--text);
+    margin-bottom: 4px;
+}
+.emp-sub {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+/* Pagination */
+.pgn {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px;
+    border-top: 1px solid var(--border);
+    background: linear-gradient(90deg,rgba(0,198,212,.02),transparent);
+}
+.pgn-info {
+    font-size: 11.5px;
+    color: var(--text-muted);
+    font-weight: 500;
+}
+.pgn-btns {
+    display: flex;
+    gap: 3px;
+}
+.pb {
+    width: 28px;
+    height: 28px;
+    border-radius: 7px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    text-decoration: none;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    background: var(--surface2);
+    transition: all .14s;
+}
+.pb:hover {
+    background: var(--aqua-glass);
+    color: var(--aqua-deep);
+    border-color: var(--border-mid);
+}
+.pb.on {
+    background: linear-gradient(135deg,var(--aqua-deep),var(--aqua));
+    color: #fff;
+    border-color: transparent;
+    box-shadow: 0 3px 10px rgba(0,198,212,.35);
+}
+.pb.off {
+    opacity: .30;
+    pointer-events: none;
+}
+
+/* Status Dot */
+.sdot {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 700;
+}
+.sdot::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    flex-shrink: 0;
+}
+
+@media (max-width: 900px) {
+    .stat-row {
+        grid-template-columns: repeat(2,1fr);
+    }
+    .hero-right {
+        display: none;
+    }
+}
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="page-header animate-in">
-  <div class="page-header-top">
-    <div>
-      <h1 class="page-title">Team Leader Dashboard</h1>
-      <p class="page-subtitle">Review and manage your team's leave requests.</p>
+
+{# Hero Section #}
+<div class="tl-hero animate-in">
+    <div class="hero-label"><i class="fa-solid fa-people-group"></i> TL Dashboard</div>
+    <div class="hero-name">Welcome, {{ request.user.first_name|default:request.user.username }} 👋</div>
+    <div class="hero-date">{% now "l, j F Y" %}</div>
+    <div class="hero-pills">
+        <span class="hpill hp-green" onclick="switchTab('balance')">
+            <span class="hpill-dot"></span>{{ team_count }} Active
+        </span>
+        <span class="hpill hp-amber" onclick="switchTab('pending')">
+            <span class="hpill-dot"></span>{{ pending_count }} Pending
+        </span>
+        <span class="hpill hp-red" onclick="switchTab('onleave')">
+            <span class="hpill-dot"></span>{{ on_leave_count }} On Leave
+        </span>
     </div>
-  </div>
+    <div class="hero-right">
+        <div class="hn"><div class="hn-val">{{ team_count }}</div><div class="hn-lbl">Team</div></div>
+        <div class="hn-div"></div>
+        <div class="hn"><div class="hn-val am">{{ pending_count }}</div><div class="hn-lbl">Pending</div></div>
+        <div class="hn-div"></div>
+        <div class="hn"><div class="hn-val aq">{{ approved_count }}</div><div class="hn-lbl">Approved</div></div>
+    </div>
 </div>
 
-<div class="stat-grid">
-  <div class="stat-card animate-in delay-1" style="--stat-color:#ffb347;--stat-rgb:255,179,71;">
-    <div class="stat-icon"><i class="fa-solid fa-clock"></i></div>
-    <div class="stat-value">{{ leaves|length }}</div>
-    <div class="stat-label">Pending Review</div>
-  </div>
+{# Stat Cards #}
+<div class="stat-row animate-in delay-1">
+    <div class="s-card" id="sc-pending" style="--c:#f5a623;--cr:245,166,35;" onclick="switchTab('pending')">
+        <div class="s-ico"><i class="fa-solid fa-clock"></i></div>
+        <div class="s-val">{{ pending_count }}</div>
+        <div class="s-lbl">Pending Review</div>
+    </div>
+    <div class="s-card" id="sc-onleave" style="--c:#f04058;--cr:240,64,88;" onclick="switchTab('onleave')">
+        <div class="s-ico"><i class="fa-solid fa-user-clock"></i></div>
+        <div class="s-val">{{ on_leave_count }}</div>
+        <div class="s-lbl">On Leave Today</div>
+    </div>
+    <div class="s-card" id="sc-balance" style="--c:#00c6d4;--cr:0,198,212;" onclick="switchTab('balance')">
+        <div class="s-ico"><i class="fa-solid fa-wallet"></i></div>
+        <div class="s-val">{{ team_count }}</div>
+        <div class="s-lbl">Leave Balances</div>
+    </div>
+    <div class="s-card" id="sc-myleaves" style="--c:#05c98a;--cr:5,201,138;" onclick="switchTab('myleaves')">
+        <div class="s-ico"><i class="fa-solid fa-circle-user"></i></div>
+        <div class="s-val">{{ my_leave_count }}</div>
+        <div class="s-lbl">My Leaves</div>
+    </div>
 </div>
 
-<div class="table-container animate-in delay-2">
-  <div class="table-header">
-    <h2 class="table-title"><i class="fa-solid fa-inbox" style="color:var(--accent);margin-right:8px;"></i>Pending Leave Requests</h2>
-  </div>
-
-  {% if leaves %}
-  <table>
-    <thead>
-      <tr>
-        <th>Employee</th>
-        <th>Leave Type</th>
-        <th>Duration</th>
-        <th>From</th>
-        <th>To</th>
-        <th>Reason</th>
-        <th>Actions</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for leave in leaves %}
-      <tr>
-        <td>
-          <div style="display:flex;align-items:center;gap:10px;">
-            <div class="avatar">{{ leave.employee.first_name|first|upper }}{{ leave.employee.last_name|first|upper }}</div>
-            <div>
-              <strong>{{ leave.employee.get_full_name|default:leave.employee.username }}</strong>
-              <div style="font-size:11px;color:var(--text-faint);">{{ leave.employee.email }}</div>
+{# PANEL — Pending Requests #}
+<div class="tl-panel show" id="panel-pending">
+    <div class="sc">
+        <div class="sc-head">
+            <div class="sc-hl">
+                <div class="sc-ico"><i class="fa-solid fa-inbox"></i></div>
+                <div>
+                    <div class="sc-ttl">Pending Leave Requests</div>
+                    <div class="sc-sub">Your approval needed</div>
+                </div>
             </div>
-          </div>
-        </td>
-        <td><span class="badge badge-info">{{ leave.leave_type }}</span></td>
-        <td>{{ leave.duration }}</td>
-        <td>{{ leave.start_date }}</td>
-        <td>{{ leave.end_date }}</td>
-        <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ leave.reason|truncatechars:35 }}</td>
-        <td>
-          <div style="display:flex;gap:8px;">
-            <form method="POST" action="{% url 'approve_leave' leave.id %}">
-              {% csrf_token %}
-              <button type="submit" class="btn btn-success btn-sm"><i class="fa-solid fa-check"></i> Approve</button>
-            </form>
-            <form method="POST" action="{% url 'reject_leave' leave.id %}">
-              {% csrf_token %}
-              <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Reject this leave?')"><i class="fa-solid fa-xmark"></i> Reject</button>
-            </form>
-          </div>
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-  {% else %}
-  <div class="empty-state">
-    <div class="empty-icon"><i class="fa-solid fa-check-double"></i></div>
-    <div class="empty-title">All Caught Up!</div>
-    <p>No pending leave requests from your team right now.</p>
-  </div>
-  {% endif %}
+            {% if pending_count > 0 %}<span class="chip ch-am">{{ pending_count }} waiting</span>
+            {% else %}<span class="chip ch-in">All clear</span>{% endif %}
+        </div>
+
+        <div id="pending-list">
+            {% include "partials/tl_pending_leaves.html" %}
+        </div>
+    </div>
 </div>
+
+{# PANEL — On Leave Today #}
+<div class="tl-panel" id="panel-onleave">
+    <div class="sc">
+        <div class="sc-head">
+            <div class="sc-hl">
+                <div class="sc-ico" style="background:rgba(240,64,88,.09);color:#b01530;border-color:rgba(240,64,88,.20);">
+                    <i class="fa-solid fa-calendar-day"></i>
+                </div>
+                <div>
+                    <div class="sc-ttl">On Leave Today</div>
+                    <div class="sc-sub">{% now "j F Y" %}</div>
+                </div>
+            </div>
+            <span class="chip {% if on_leave_count > 0 %}ch-rd{% else %}ch-gn{% endif %}">{{ on_leave_count }} away</span>
+        </div>
+
+        {% if on_leave_today %}
+        <table class="tt">
+            <thead>
+                <tr><th>Employee</th><th>Leave Type</th><th>Duration</th><th>Dates</th></tr>
+            </thead>
+            <tbody>
+            {% for leave in on_leave_today %}
+                <tr class="clickable-row" data-href="{% url 'leave_detail' leave.id %}">
+                    <td>
+                        <div style="display:flex;align-items:center;gap:9px;">
+                            <div class="lrav" style="width:30px;height:30px;font-size:10px;background:linear-gradient(135deg,#9b1226,#f04058);">
+                                {{ leave.employee.first_name|first|upper }}{{ leave.employee.last_name|first|upper }}
+                            </div>
+                            <div>
+                                <div style="font-weight:700;font-size:13px;">{{ leave.employee.get_full_name|default:leave.employee.username }}</div>
+                                <div style="font-size:11px;color:var(--text-muted);">{{ leave.employee.email }}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td><span class="badge badge-info">{{ leave.leave_type }}</span></td>
+                    <td>{% if leave.duration == "FULL" %}Full Day{% elif leave.duration == "HALF" %}Half Day{% else %}Short{% endif %}</td>
+                    <td>{{ leave.start_date|date:"d M" }}{% if leave.end_date != leave.start_date %} → {{ leave.end_date|date:"d M" }}{% endif %}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="emp">
+            <div class="emp-ico"><i class="fa-solid fa-circle-check"></i></div>
+            <div class="emp-ttl">Everyone's In!</div>
+            <div class="emp-sub">No absences today. Full team present.</div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{# PANEL — Leave Balance #}
+<div class="tl-panel" id="panel-balance">
+    <div class="sc">
+        <div class="sc-head">
+            <div class="sc-hl">
+                <div class="sc-ico"><i class="fa-solid fa-wallet"></i></div>
+                <div>
+                    <div class="sc-ttl">Leave Balance Overview</div>
+                    <div class="sc-sub">{{ team_count }} member{{ team_count|pluralize }} · {{ current_year }}</div>
+                </div>
+            </div>
+        </div>
+
+        {% if team_data %}
+        <table class="tt">
+            <thead>
+                <tr>
+                    <th>Member</th><th>Status</th>
+                    <th style="text-align:center;">Total</th>
+                    <th style="text-align:center;">Approved</th>
+                    <th style="text-align:center;">Pending</th>
+                    <th>Casual</th><th>Sick</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for item in team_data %}
+                <tr>
+                    <td>
+                        <div style="display:flex;align-items:center;gap:9px;">
+                            <div class="lrav" style="width:30px;height:30px;font-size:10px;{% if item.is_on_leave %}background:linear-gradient(135deg,#9b1226,#f04058);{% endif %}">
+                                {{ item.member.first_name|first|upper }}{{ item.member.last_name|first|upper }}
+                            </div>
+                            <div>
+                                <div style="font-weight:700;">{{ item.member.get_full_name|default:item.member.username }}</div>
+                                <div style="font-size:11px;color:var(--text-muted);">{{ item.member.email }}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        {% if item.is_on_leave %}<span class="sdot" style="color:var(--warning);">On Leave</span>
+                        {% elif item.member.is_active %}<span class="sdot" style="color:var(--success);">Active</span>
+                        {% else %}<span class="sdot" style="color:var(--text-faint);">Inactive</span>{% endif %}
+                    </td>
+                    <td style="text-align:center;font-weight:700;">{{ item.total_leaves }}</td>
+                    <td style="text-align:center;font-weight:700;color:var(--success);">{{ item.approved }}</td>
+                    <td style="text-align:center;font-weight:700;color:var(--warning);">{{ item.pending }}</td>
+                    <td>
+                        <div class="bw">
+                            <div class="bt"><div class="bf" style="background:#60a5fa;width:{% widthratio item.casual_balance 15 100 %}%;"></div></div>
+                            <span style="font-size:12px;font-weight:700;">{{ item.casual_balance }}</span>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="bw">
+                            <div class="bt"><div class="bf" style="background:#f472b6;width:{% widthratio item.sick_balance 15 100 %}%;"></div></div>
+                            <span style="font-size:12px;font-weight:700;">{{ item.sick_balance }}</span>
+                        </div>
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="emp">
+            <div class="emp-ico"><i class="fa-solid fa-users-slash"></i></div>
+            <div class="emp-ttl">No Team Members</div>
+            <div class="emp-sub">No employees assigned. Contact HR.</div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{# PANEL — My Leaves #}
+<div class="tl-panel" id="panel-myleaves">
+    <div class="sc">
+        <div class="sc-head">
+            <div class="sc-hl">
+                <div class="sc-ico"><i class="fa-solid fa-user-clock"></i></div>
+                <div>
+                    <div class="sc-ttl">My Leave History</div>
+                    <div class="sc-sub">Your personal leave requests</div>
+                </div>
+            </div>
+            <span class="chip ch-in">{{ my_leaves_page.paginator.count }} total</span>
+        </div>
+        <div id="myleaves-list">
+            {% include "partials/tl_my_leaves.html" %}
+        </div>
+    </div>
+</div>
+
+{# PANEL — Team Leave History #}
+<div class="tl-panel" id="panel-teamhistory">
+    <div class="sc">
+        <div class="sc-head">
+            <div class="sc-hl">
+                <div class="sc-ico" style="background:rgba(108,99,255,.10);color:#6c63ff;border-color:rgba(108,99,255,.18);">
+                    <i class="fa-solid fa-clock-rotate-left"></i>
+                </div>
+                <div>
+                    <div class="sc-ttl">Team Leave History</div>
+                    <div class="sc-sub">All team leave requests · {{ current_year }}</div>
+                </div>
+            </div>
+            <span class="chip ch-in">{{ history_page.paginator.count }} total</span>
+        </div>
+        <div id="teamhistory-list">
+            {% include "partials/tl_team_history.html" %}
+        </div>
+    </div>
+</div>
+
+<script>
+// ADDED: Handle row clicks for leave details
+$(document).on('click', '.clickable-row', function(e) {
+    // Don't trigger if clicking on a button or form element
+    if (e.target.tagName === 'BUTTON' || 
+        e.target.tagName === 'A' || 
+        e.target.closest('button') || 
+        e.target.closest('a') ||
+        e.target.closest('.ajax-form')) {
+        return;
+    }
+    
+    const url = $(this).data('href');
+    if (url) {
+        window.location.href = url;
+    }
+});
+
+// Keep existing functions
+function switchTab(tabId) {
+    const panels = document.querySelectorAll('.tl-panel');
+    panels.forEach(p => p.classList.remove('show'));
+    const target = document.getElementById('panel-' + tabId);
+    if(target) target.classList.add('show');
+    
+    const cards = document.querySelectorAll('.s-card');
+    cards.forEach(c => c.classList.remove('active'));
+    const card = document.getElementById('sc-' + tabId);
+    if(card) card.classList.add('active');
+    
+    const url = new URL(window.location);
+    url.searchParams.set('tab', tabId);
+    window.history.replaceState({}, '', url);
+}
+
+$(function() {
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get('tab') || 'pending';
+    switchTab(tab);
+});
+
+// AJAX Pagination
+$(document).on('click', '.ajax-pagination', function(e) {
+    e.preventDefault();
+    const $link = $(this);
+    const url = $link.attr('href');
+    const targetId = $link.data('target');
+    const $target = $('#' + targetId);
+
+    $target.css('opacity', '0.5');
+
+    fetch(url, {
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            $target.html(data.html).css('opacity', '1');
+            // Update URL without reload
+            window.history.replaceState({}, '', url);
+        }
+    })
+    .catch(err => {
+        console.error('Pagination error:', err);
+        $target.css('opacity', '1');
+    });
+});
+
+// Handle AJAX success for forms (approvals/rejections)
+$(document).on('ajax:success', '.ajax-form', function(e, data) {
+    if (data.success) {
+        $(this).closest('.lr').fadeOut(400, function() {
+            $(this).remove();
+            // Update badges
+            const badge = $('#sc-pending .chip.ch-am');
+            if (badge.length) {
+                let countStr = badge.text().match(/\d+/);
+                if (countStr) {
+                    let count = parseInt(countStr[0]);
+                    if (count > 1) {
+                        badge.text((count - 1) + ' waiting');
+                    } else {
+                        badge.removeClass('ch-am').addClass('ch-in').text('All clear');
+                    }
+                }
+            }
+            // Update sidebar badge if it exists
+            const sideBadge = $('.nav-item.active .nav-badge');
+            if (sideBadge.length) {
+                let count = parseInt(sideBadge.text());
+                if (count > 1) sideBadge.text(count - 1);
+                else sideBadge.remove();
+            }
+        });
+    }
+});
+</script>
 {% endblock %}

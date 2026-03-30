@@ -1,0 +1,94 @@
+<div id="leave-history-container">
+    <div class="table-wrapper">
+        <table class="leaves-table">
+            <thead>
+                <tr>
+                    <th>Type</th>
+                    <th>Duration</th>
+                    <th>From</th>
+                    <th>To</th>
+                    <th>Reason</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for leave in leaves %}
+                <tr class="clickable-row" onclick="window.location.href='{% url 'leave_detail' leave.id %}'">
+                    <td>
+                        {% if leave.leave_type == "CASUAL" or leave.leave_type == "Casual" %}
+                            <span class="badge badge-casual">Casual</span>
+                        {% elif leave.leave_type == "SICK" or leave.leave_type == "Sick" %}
+                            <span class="badge badge-sick">Sick</span>
+                        {% else %}
+                            <span class="badge" style="background:rgba(0,198,212,0.07);color:var(--aqua-deep);">{{ leave.leave_type }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if leave.duration == "FULL" %}Full Day
+                        {% elif leave.duration == "HALF" %}Half Day
+                        {% elif leave.duration == "SHORT" %}Short ({{ leave.short_hours }}h)
+                        {% else %}{{ leave.duration }}{% endif %}
+                    </td>
+                    <td class="date-cell">{{ leave.start_date|date:"d M Y" }}</td>
+                    <td class="date-cell">{{ leave.end_date|date:"d M Y" }}</td>
+                    <td class="reason-cell">{{ leave.reason|truncatechars:40|default:"—" }}</td>
+                    <td>
+                        {% if leave.final_status == "APPROVED" %}
+                            <span class="status status-approved"><span class="status-dot approved"></span> Approved</span>
+                        {% elif leave.final_status == "REJECTED" %}
+                            <span class="status status-rejected"><span class="status-dot rejected"></span> Rejected</span>
+                        {% else %}
+                            <span class="status status-pending"><span class="status-dot pending"></span> Pending</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" style="text-align:center;padding:40px;">
+                        <div class="empty-state">
+                            <div class="empty-icon"><i class="fa-regular fa-calendar-xmark"></i></div>
+                            <h4>No Leave History</h4>
+                            <p>You haven't applied for any leaves yet.</p>
+                            <a href="{% url 'apply_leave' %}" class="btn-primary">Apply for Leave</a>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if leaves.has_other_pages %}
+    <div class="pagination-wrap">
+        <span class="pagination-info">
+            Showing <strong>{{ leaves.start_index }}</strong>–<strong>{{ leaves.end_index }}</strong>
+            of <strong>{{ leaves.paginator.count }}</strong>
+        </span>
+        <div class="pagination-btns">
+            {% if leaves.has_previous %}
+                <button class="pg-btn" onclick="loadPage({{ leaves.previous_page_number }})">
+                    <i class="fa-solid fa-chevron-left"></i>
+                </button>
+            {% else %}
+                <span class="pg-btn disabled"><i class="fa-solid fa-chevron-left"></i></span>
+            {% endif %}
+            
+            {% for i in leaves.paginator.page_range %}
+                {% if leaves.number == i %}
+                    <span class="pg-btn active">{{ i }}</span>
+                {% elif i >= leaves.number|add:'-2' and i <= leaves.number|add:'2' %}
+                    <button class="pg-btn" onclick="loadPage({{ i }})">{{ i }}</button>
+                {% endif %}
+            {% endfor %}
+            
+            {% if leaves.has_next %}
+                <button class="pg-btn" onclick="loadPage({{ leaves.next_page_number }})">
+                    <i class="fa-solid fa-chevron-right"></i>
+                </button>
+            {% else %}
+                <span class="pg-btn disabled"><i class="fa-solid fa-chevron-right"></i></span>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+</div>

@@ -1,0 +1,990 @@
+{% extends "base.html" %}
+{% block title %}Leave Analytics — LeaveSetu{% endblock %}
+{% block page_title %}Leave Analytics{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+/* ══════════════════════════════════════════
+   PAGE SHELL
+══════════════════════════════════════════ */
+.an-wrap { display:flex; flex-direction:column; gap:24px; }
+
+.an-header {
+  display:flex; align-items:flex-end; justify-content:space-between;
+  flex-wrap:wrap; gap:12px;
+  padding:22px 28px;
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  box-shadow:var(--shadow-xs);
+  position:relative; overflow:hidden;
+}
+.an-header::before {
+  content:''; position:absolute; inset:0;
+  background:linear-gradient(120deg, rgba(0,198,212,.07) 0%, transparent 55%);
+  pointer-events:none;
+}
+.an-header-left h2 { font-size:22px; font-weight:800; color:var(--text); letter-spacing:-.4px; margin-bottom:4px; }
+.an-header-left p  { font-size:13px; color:var(--text-muted); font-weight:500; }
+.an-header-right { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.live-badge {
+  display:inline-flex; align-items:center; gap:7px;
+  padding:6px 14px; border-radius:30px;
+  background:rgba(5,201,138,.1); border:1px solid rgba(5,201,138,.28);
+  font-size:11.5px; font-weight:700; color:#047a52;
+}
+.live-dot {
+  width:7px; height:7px; border-radius:50%; background:#05c98a;
+  box-shadow:0 0 0 0 rgba(5,201,138,.6);
+  animation:livePing 1.8s ease-in-out infinite;
+}
+@keyframes livePing {
+  0%  { box-shadow:0 0 0 0 rgba(5,201,138,.65); }
+  70% { box-shadow:0 0 0 7px rgba(5,201,138,0); }
+  100%{ box-shadow:0 0 0 0 rgba(5,201,138,0); }
+}
+.year-badge {
+  display:inline-flex; align-items:center; gap:6px;
+  padding:6px 14px; border-radius:30px;
+  background:var(--aqua-glass); border:1px solid var(--border-mid);
+  font-size:12px; font-weight:700; color:var(--aqua-deep);
+}
+
+/* ══════════════════════════════════════════
+   KPI CARDS ROW
+══════════════════════════════════════════ */
+.kpi-row { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; }
+@media(max-width:1100px){ .kpi-row{ grid-template-columns:repeat(2,1fr); } }
+@media(max-width:560px){ .kpi-row{ grid-template-columns:1fr; } }
+
+.kpi-card {
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:22px 20px;
+  position:relative; overflow:hidden;
+  transition:all .24s;
+  box-shadow:var(--shadow-xs);
+}
+.kpi-card:hover { transform:translateY(-4px); box-shadow:var(--shadow); border-color:var(--border-mid); }
+.kpi-card::after {
+  content:''; position:absolute; top:0; left:0; right:0; height:3px;
+  border-radius:var(--radius) var(--radius) 0 0;
+}
+.kpi-card.k-total::after   { background:linear-gradient(90deg,var(--aqua-deep),var(--aqua-light)); }
+.kpi-card.k-approved::after{ background:linear-gradient(90deg,#047a52,#05c98a); }
+.kpi-card.k-rejected::after{ background:linear-gradient(90deg,#b01530,#f04058); }
+.kpi-card.k-pending::after { background:linear-gradient(90deg,#905700,#f5a623); }
+.kpi-card.k-today::after   { background:linear-gradient(90deg,#4338ca,#6366f1); }
+.kpi-card.k-rate::after    { background:linear-gradient(90deg,#0d9488,#2dd4bf); }
+.kpi-card.k-month::after   { background:linear-gradient(90deg,#0d6efd,#60a5fa); }
+.kpi-card.k-onleave::after { background:linear-gradient(90deg,#7c3aed,#a78bfa); }
+
+.kpi-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+.kpi-icon {
+  width:44px; height:44px; border-radius:12px;
+  display:flex; align-items:center; justify-content:center;
+  font-size:18px; transition:all .2s;
+}
+.kpi-card.k-total    .kpi-icon { background:rgba(0,198,212,.1);   color:var(--aqua-deep); }
+.kpi-card.k-approved .kpi-icon { background:rgba(5,201,138,.1);   color:#047a52; }
+.kpi-card.k-rejected .kpi-icon { background:rgba(240,64,88,.1);   color:#b01530; }
+.kpi-card.k-pending  .kpi-icon { background:rgba(245,166,35,.1);  color:#905700; }
+.kpi-card.k-today    .kpi-icon { background:rgba(99,102,241,.1);  color:#4338ca; }
+.kpi-card.k-rate     .kpi-icon { background:rgba(13,148,136,.1);  color:#0d9488; }
+.kpi-card.k-month    .kpi-icon { background:rgba(13,110,253,.1);  color:#0d6efd; }
+.kpi-card.k-onleave  .kpi-icon { background:rgba(124,58,237,.1);  color:#7c3aed; }
+.kpi-card:hover .kpi-icon { transform:scale(1.08) rotate(-4deg); }
+
+.kpi-change {
+  font-size:10.5px; font-weight:700; padding:3px 9px; border-radius:20px;
+}
+.kpi-change.up   { background:rgba(5,201,138,.1); color:#047a52; }
+.kpi-change.warn { background:rgba(245,166,35,.1); color:#905700; }
+.kpi-change.down { background:rgba(240,64,88,.1);  color:#b01530; }
+.kpi-change.neu  { background:var(--aqua-glass); color:var(--aqua-deep); }
+
+.kpi-value { font-size:36px; font-weight:800; color:var(--text); letter-spacing:-1.5px; line-height:1; margin-bottom:4px; }
+.kpi-label { font-size:11.5px; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:.5px; }
+.kpi-sub   { font-size:11px; color:var(--text-faint); margin-top:6px; }
+.kpi-progress { height:4px; background:var(--border); border-radius:4px; overflow:hidden; margin-top:12px; }
+.kpi-progress-fill { height:100%; border-radius:4px; transition:width .8s ease; }
+
+/* ══════════════════════════════════════════
+   CHART CARDS
+══════════════════════════════════════════ */
+.charts-main { display:grid; grid-template-columns:1fr 360px; gap:20px; }
+@media(max-width:1100px){ .charts-main{ grid-template-columns:1fr; } }
+
+.chart-card {
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  overflow:hidden;
+  box-shadow:var(--shadow-xs);
+}
+.chart-card-head {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:18px 24px 14px;
+  border-bottom:1px solid var(--border);
+  background:linear-gradient(90deg, rgba(0,198,212,.03), transparent);
+  flex-wrap:wrap; gap:10px;
+}
+.chart-card-title {
+  display:flex; align-items:center; gap:10px;
+  font-size:15px; font-weight:800; color:var(--text);
+}
+.chart-title-icon {
+  width:32px; height:32px; border-radius:9px;
+  background:linear-gradient(135deg,var(--aqua-deep),var(--aqua));
+  display:flex; align-items:center; justify-content:center;
+  font-size:13px; color:#fff; flex-shrink:0;
+  box-shadow:0 3px 10px rgba(0,198,212,.3);
+}
+.chart-card-body { padding:20px 24px; }
+
+/* Legend dots */
+.legend-row { display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+.legend-item { display:flex; align-items:center; gap:6px; font-size:11.5px; font-weight:600; color:var(--text-muted); cursor:pointer; transition:color .15s; }
+.legend-item:hover { color:var(--text); }
+.leg-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+.leg-line { width:18px; height:3px; border-radius:3px; flex-shrink:0; }
+
+/* Toggle buttons */
+.chart-toggle { display:flex; gap:6px; }
+.ctog {
+  padding:4px 12px; border-radius:20px; font-size:11px; font-weight:700;
+  border:1px solid var(--border); background:var(--surface2); color:var(--text-muted);
+  cursor:pointer; transition:all .15s; font-family:inherit;
+}
+.ctog.active { background:var(--aqua-glass); border-color:var(--border-mid); color:var(--aqua-deep); }
+
+/* ══════════════════════════════════════════
+   BOTTOM ROW
+══════════════════════════════════════════ */
+.bottom-row { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+@media(max-width:900px){ .bottom-row{ grid-template-columns:1fr; } }
+
+/* Top takers table */
+.takers-table { width:100%; border-collapse:collapse; }
+.takers-table th {
+  text-align:left; padding:10px 16px; font-size:10px; font-weight:700;
+  letter-spacing:.9px; text-transform:uppercase; color:var(--aqua-deep);
+  background:linear-gradient(90deg,rgba(0,198,212,.04),transparent);
+  border-bottom:1px solid var(--border-mid);
+}
+.takers-table td { padding:12px 16px; font-size:13px; color:var(--text-mid); border-bottom:1px solid var(--border); vertical-align:middle; }
+.takers-table tr:last-child td { border-bottom:none; }
+.takers-table tbody tr { transition:background .14s; }
+.takers-table tbody tr:hover { background:rgba(0,198,212,.03); }
+
+.rank-badge {
+  width:24px; height:24px; border-radius:50%;
+  display:inline-flex; align-items:center; justify-content:center;
+  font-size:10px; font-weight:800;
+}
+.rank-1 { background:linear-gradient(135deg,#fbbf24,#f59e0b); color:#fff; box-shadow:0 2px 8px rgba(251,191,36,.4); }
+.rank-2 { background:linear-gradient(135deg,#9ca3af,#6b7280); color:#fff; }
+.rank-3 { background:linear-gradient(135deg,#d97706,#b45309); color:#fff; }
+.rank-n { background:var(--aqua-glass); color:var(--aqua-deep); border:1px solid var(--border); }
+
+.emp-av {
+  width:30px; height:30px; border-radius:50%;
+  background:linear-gradient(135deg,var(--aqua-deep),var(--aqua));
+  display:inline-flex; align-items:center; justify-content:center;
+  font-size:10px; font-weight:800; color:#fff; flex-shrink:0; margin-right:8px;
+}
+.days-bar-wrap { display:flex; align-items:center; gap:8px; }
+.days-bar-bg { flex:1; height:5px; background:var(--border); border-radius:5px; overflow:hidden; min-width:60px; }
+.days-bar-fill { height:100%; border-radius:5px; background:linear-gradient(90deg,var(--aqua-deep),var(--aqua-light)); transition:width .8s ease; }
+.days-val { font-size:12px; font-weight:700; color:var(--aqua-deep); white-space:nowrap; }
+
+/* Dept bar chart container */
+#deptBarWrap { position:relative; }
+
+/* Empty state */
+.chart-empty { text-align:center; padding:40px 24px; color:var(--text-muted); font-size:13px; }
+.chart-empty i { font-size:32px; color:var(--aqua-light); margin-bottom:10px; display:block; opacity:.35; }
+
+/* Animate in */
+.an-card { animation:fadeUp .4s ease both; }
+@keyframes fadeUp { from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)} }
+.d1{animation-delay:.06s}.d2{animation-delay:.12s}.d3{animation-delay:.18s}.d4{animation-delay:.24s}
+.d5{animation-delay:.30s}.d6{animation-delay:.36s}.d7{animation-delay:.42s}
+
+/* Refresh indicator */
+#refreshClock { font-size:11px; color:var(--text-faint); font-weight:600; }
+
+/* ══════════════════════════════════════════
+   FIXED LEAVE TYPES CARD
+══════════════════════════════════════════ */
+.leave-types-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  width: 100%;
+}
+
+.donut-wrapper {
+  position: relative;
+  width: 200px;
+  height: 200px;
+  margin: 0 auto;
+}
+
+.donut-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  background: var(--surface);
+  border-radius: 50%;
+  width: 100px;
+  height: 100px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.donut-center .total-approved {
+  font-size: 28px;
+  font-weight: 800;
+  background: linear-gradient(135deg, var(--text), var(--aqua-deep));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  letter-spacing: -1px;
+  line-height: 1;
+}
+
+.donut-center .total-label {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.types-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  width: 100%;
+  margin-top: 8px;
+}
+
+.type-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  transition: all 0.2s ease;
+}
+
+.type-item:hover {
+  transform: translateX(4px);
+  border-color: var(--aqua-deep);
+  background: rgba(0,198,212,0.05);
+}
+
+.type-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+}
+
+.type-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.type-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-mid);
+}
+
+.type-count {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--aqua-deep);
+  background: rgba(0,198,212,0.1);
+  padding: 2px 8px;
+  border-radius: 20px;
+  min-width: 45px;
+  text-align: center;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .types-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .donut-wrapper {
+    width: 160px;
+    height: 160px;
+  }
+  
+  .donut-center {
+    width: 80px;
+    height: 80px;
+  }
+  
+  .donut-center .total-approved {
+    font-size: 22px;
+  }
+}
+
+/* Scrollbar styling */
+.types-grid::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+.types-grid::-webkit-scrollbar-track {
+  background: var(--border);
+  border-radius: 4px;
+}
+
+.types-grid::-webkit-scrollbar-thumb {
+  background: var(--aqua-deep);
+  border-radius: 4px;
+}
+
+/* Ensure canvas is properly sized */
+#donutChart {
+  max-width: 100%;
+  height: auto;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="an-wrap">
+
+  <!-- ══ HEADER ══ -->
+  <div class="an-header an-card">
+    <div class="an-header-left">
+      <h2><i class="fa-solid fa-chart-mixed" style="color:var(--aqua-deep);margin-right:8px;"></i>Leave Analytics</h2>
+      <p>Real-time leave intelligence for {{ current_year }} — auto-refreshes every 60 seconds</p>
+    </div>
+    <div class="an-header-right">
+      <span id="refreshClock"></span>
+      <div class="live-badge"><span class="live-dot"></span> Live</div>
+      <div class="year-badge"><i class="fa-regular fa-calendar"></i> {{ current_year }}</div>
+    </div>
+  </div>
+
+
+  <!-- ══ KPI CARDS ══ -->
+  <div class="kpi-row">
+
+    <div class="kpi-card k-total an-card d1">
+      <div class="kpi-top">
+        <div class="kpi-icon"><i class="fa-solid fa-calendar-days"></i></div>
+        <span class="kpi-change neu">{{ current_year }}</span>
+      </div>
+      <div class="kpi-value">{{ total_this_year }}</div>
+      <div class="kpi-label">Total Requests</div>
+      <div class="kpi-sub">All leave applications this year</div>
+      <div class="kpi-progress"><div class="kpi-progress-fill" style="width:100%;background:linear-gradient(90deg,var(--aqua-deep),var(--aqua-light));"></div></div>
+    </div>
+
+    <div class="kpi-card k-approved an-card d2">
+      <div class="kpi-top">
+        <div class="kpi-icon"><i class="fa-solid fa-circle-check"></i></div>
+        <span class="kpi-change up"><i class="fa-solid fa-arrow-trend-up" style="font-size:9px;"></i> {{ approval_rate }}%</span>
+      </div>
+      <div class="kpi-value">{{ approved_count }}</div>
+      <div class="kpi-label">Approved</div>
+      <div class="kpi-sub">{{ approval_rate }}% approval rate</div>
+      <div class="kpi-progress"><div class="kpi-progress-fill" style="width:{{ approval_rate }}%;background:linear-gradient(90deg,#047a52,#05c98a);"></div></div>
+    </div>
+
+    <div class="kpi-card k-rejected an-card d3">
+      <div class="kpi-top">
+        <div class="kpi-icon"><i class="fa-solid fa-circle-xmark"></i></div>
+        {% if rejected_count > approved_count %}<span class="kpi-change down">High</span>{% else %}<span class="kpi-change up">Low</span>{% endif %}
+      </div>
+      <div class="kpi-value">{{ rejected_count }}</div>
+      <div class="kpi-label">Rejected</div>
+      <div class="kpi-sub">Declined applications</div>
+      <div class="kpi-progress"><div class="kpi-progress-fill" style="width:{% widthratio rejected_count total_this_year 100 %}%;background:linear-gradient(90deg,#b01530,#f04058);"></div></div>
+    </div>
+
+    <div class="kpi-card k-pending an-card d4">
+      <div class="kpi-top">
+        <div class="kpi-icon"><i class="fa-solid fa-hourglass-half"></i></div>
+        {% if pending_total > 5 %}<span class="kpi-change warn">Action needed</span>{% else %}<span class="kpi-change neu">Managed</span>{% endif %}
+      </div>
+      <div class="kpi-value">{{ pending_total }}</div>
+      <div class="kpi-label">Pending</div>
+      <div class="kpi-sub">Awaiting approval decision</div>
+      <div class="kpi-progress"><div class="kpi-progress-fill" style="width:{% widthratio pending_total total_this_year|default:1 100 %}%;background:linear-gradient(90deg,#905700,#f5a623);"></div></div>
+    </div>
+
+    <div class="kpi-card k-today an-card d1">
+      <div class="kpi-top">
+        <div class="kpi-icon"><i class="fa-solid fa-person-walking-arrow-right"></i></div>
+        <span class="kpi-change warn">Today</span>
+      </div>
+      <div class="kpi-value">{{ on_leave_today }}</div>
+      <div class="kpi-label">On Leave Today</div>
+      <div class="kpi-sub">Employees absent right now</div>
+      <div class="kpi-progress"><div class="kpi-progress-fill" style="width:60%;background:linear-gradient(90deg,#4338ca,#6366f1);"></div></div>
+    </div>
+
+    <div class="kpi-card k-rate an-card d2">
+      <div class="kpi-top">
+        <div class="kpi-icon"><i class="fa-solid fa-percent"></i></div>
+        {% if approval_rate >= 70 %}<span class="kpi-change up">Good</span>{% else %}<span class="kpi-change warn">Fair</span>{% endif %}
+      </div>
+      <div class="kpi-value">{{ approval_rate }}<span style="font-size:18px;font-weight:600;color:var(--text-muted);">%</span></div>
+      <div class="kpi-label">Approval Rate</div>
+      <div class="kpi-sub">Of all decided requests</div>
+      <div class="kpi-progress"><div class="kpi-progress-fill" style="width:{{ approval_rate }}%;background:linear-gradient(90deg,#0d9488,#2dd4bf);"></div></div>
+    </div>
+
+    <div class="kpi-card k-month an-card d3">
+      <div class="kpi-top">
+        <div class="kpi-icon"><i class="fa-solid fa-calendar-week"></i></div>
+        <span class="kpi-change neu">This Month</span>
+      </div>
+      <div class="kpi-value">{{ this_month_total }}</div>
+      <div class="kpi-label">Monthly Requests</div>
+      <div class="kpi-sub">{{ this_month_approved }} approved this month</div>
+      <div class="kpi-progress"><div class="kpi-progress-fill" style="width:{% widthratio this_month_total total_this_year|default:1 100 %}%;background:linear-gradient(90deg,#0d6efd,#60a5fa);"></div></div>
+    </div>
+
+    <div class="kpi-card k-onleave an-card d4">
+      <div class="kpi-top">
+        <div class="kpi-icon"><i class="fa-solid fa-layer-group"></i></div>
+        <span class="kpi-change neu">Types</span>
+      </div>
+      <div class="kpi-value">{{ type_labels|length }}</div>
+      <div class="kpi-label">Leave Categories</div>
+      <div class="kpi-sub">Admin-configured leave types</div>
+      <div class="kpi-progress"><div class="kpi-progress-fill" style="width:80%;background:linear-gradient(90deg,#7c3aed,#a78bfa);"></div></div>
+    </div>
+
+  </div>
+
+
+  <!-- ══ MAIN CHARTS ROW ══ -->
+  <div class="charts-main">
+
+    <!-- LINE CHART — Monthly Trends -->
+    <div class="chart-card an-card d5">
+      <div class="chart-card-head">
+        <div class="chart-card-title">
+          <div class="chart-title-icon"><i class="fa-solid fa-chart-line"></i></div>
+          Monthly Trend — {{ current_year }}
+        </div>
+        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+          <div class="legend-row">
+            <div class="legend-item"><span class="leg-line" style="background:#00c6d4;"></span> All</div>
+            <div class="legend-item"><span class="leg-line" style="background:#05c98a;"></span> Approved</div>
+            <div class="legend-item"><span class="leg-line" style="background:#f04058;"></span> Rejected</div>
+            <div class="legend-item"><span class="leg-line" style="background:#f5a623;"></span> Pending</div>
+          </div>
+        </div>
+      </div>
+      <div class="chart-card-body" style="padding-top:16px;">
+        <canvas id="lineChart" height="280" style="max-height: 280px; width: 100%;"></canvas>
+      </div>
+    </div>
+
+    <!-- DONUT CHART — Leave Types (FIXED VERSION) -->
+    <div class="chart-card an-card d6">
+      <div class="chart-card-head">
+        <div class="chart-card-title">
+          <div class="chart-title-icon" style="background:linear-gradient(135deg,#4f46e5,#6366f1);"><i class="fa-solid fa-chart-pie"></i></div>
+          Leave Types Distribution
+        </div>
+        <span style="font-size:11px;font-weight:700;background:var(--aqua-glass);border:1px solid var(--border);color:var(--aqua-deep);padding:3px 10px;border-radius:20px;">
+          {{ type_counts|length }} Types
+        </span>
+      </div>
+      <div class="chart-card-body">
+        {% if type_counts %}
+        <div class="leave-types-container">
+          <div class="donut-wrapper">
+            <canvas id="donutChart" width="200" height="200" style="width: 200px; height: 200px;"></canvas>
+            <div class="donut-center">
+              <div class="total-approved">{{ approved_count }}</div>
+              <div class="total-label">Total Approved</div>
+            </div>
+          </div>
+          
+          <div class="types-grid">
+            {% for label in type_labels %}
+            <div class="type-item">
+              <div class="type-info">
+                <div class="type-color" style="background: {{ type_colors|slice:forloop.counter0|slice:':1'|join:',' }};"></div>
+                <span class="type-name">{{ label }}</span>
+              </div>
+              <span class="type-count">{{ type_counts|slice:forloop.counter0|slice:':1'|join:',' }}</span>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% else %}
+        <div class="chart-empty">
+          <i class="fa-solid fa-chart-pie"></i>
+          <p>No leave type data available yet</p>
+          <small style="display:block; margin-top:8px;">Data will appear when leaves are approved</small>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+  </div>
+
+
+  <!-- ══ BOTTOM ROW ══ -->
+  <div class="bottom-row">
+
+    <!-- TOP TAKERS TABLE -->
+    <div class="chart-card an-card d5">
+      <div class="chart-card-head">
+        <div class="chart-card-title">
+          <div class="chart-title-icon" style="background:linear-gradient(135deg,#b45309,#d97706);"><i class="fa-solid fa-trophy"></i></div>
+          Top Leave Takers
+        </div>
+        <span style="font-size:11px;font-weight:700;background:var(--aqua-glass);border:1px solid var(--border);color:var(--aqua-deep);padding:3px 10px;border-radius:20px;">Top 8</span>
+      </div>
+      <div style="overflow-x:auto;">
+        {% if top_takers %}
+        <table class="takers-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Employee</th>
+              <th>Department</th>
+              <th>Days Taken</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for t in top_takers %}
+            <tr>
+              <td>
+                {% if forloop.counter == 1 %}<span class="rank-badge rank-1">1</span>
+                {% elif forloop.counter == 2 %}<span class="rank-badge rank-2">2</span>
+                {% elif forloop.counter == 3 %}<span class="rank-badge rank-3">3</span>
+                {% else %}<span class="rank-badge rank-n">{{ forloop.counter }}</span>{% endif %}
+              </td>
+              <td>
+                <div style="display:flex;align-items:center;">
+                  <div class="emp-av">{{ t.employee__first_name|first|upper }}{{ t.employee__last_name|first|upper }}</div>
+                  <div>
+                    <div style="font-weight:700;font-size:13px;color:var(--text);">{{ t.employee__first_name }} {{ t.employee__last_name }}</div>
+                  </div>
+                </div>
+              </td>
+              <td><span style="font-size:11.5px;background:var(--aqua-glass);border:1px solid var(--border);color:var(--aqua-deep);padding:3px 9px;border-radius:20px;font-weight:600;">{{ t.employee__department__name|default:"—" }}</span></td>
+              <td>
+                <div class="days-bar-wrap">
+                  <div class="days-bar-bg">
+                    <div class="days-bar-fill" style="width:{% widthratio t.total_days 30 100 %}%;"></div>
+                  </div>
+                  <span class="days-val">{{ t.total_days|floatformat:1 }}d</span>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <div class="chart-empty"><i class="fa-solid fa-trophy"></i>No approved leaves recorded yet</div>
+        {% endif %}
+      </div>
+    </div>
+
+
+    <!-- DEPARTMENT BAR CHART -->
+    <div class="chart-card an-card d6">
+      <div class="chart-card-head">
+        <div class="chart-card-title">
+          <div class="chart-title-icon" style="background:linear-gradient(135deg,#065f46,#059669);"><i class="fa-solid fa-building"></i></div>
+          Leaves by Department
+        </div>
+      </div>
+      <div class="chart-card-body">
+        {% if dept_labels %}
+        <canvas id="deptChart" height="280" style="max-height: 280px; width: 100%;"></canvas>
+        {% else %}
+        <div class="chart-empty"><i class="fa-solid fa-building"></i>No department data yet</div>
+        {% endif %}
+      </div>
+    </div>
+
+  </div>
+
+
+  <!-- ══ WEEKLY SPARKLINE ══ -->
+  <div class="chart-card an-card d7">
+    <div class="chart-card-head">
+      <div class="chart-card-title">
+        <div class="chart-title-icon" style="background:linear-gradient(135deg,#7c3aed,#a78bfa);"><i class="fa-solid fa-wave-square"></i></div>
+        8-Week Activity Trend
+      </div>
+      <span style="font-size:11px;color:var(--text-muted);font-weight:600;">Leave requests submitted each week</span>
+    </div>
+    <div class="chart-card-body">
+      <canvas id="weekChart" height="100" style="max-height: 100px; width: 100%;"></canvas>
+    </div>
+  </div>
+
+</div><!-- end an-wrap -->
+
+
+<!-- ══ CHART.JS DATA (passed from Django) ══ -->
+<script>
+// Data from Django view
+const MONTHLY_ALL      = {{ monthly_all|safe }};
+const MONTHLY_APPROVED = {{ monthly_approved|safe }};
+const MONTHLY_REJECTED = {{ monthly_rejected|safe }};
+const MONTHLY_PENDING  = {{ monthly_pending|safe }};
+const TYPE_LABELS      = {{ type_labels|safe }};
+const TYPE_COUNTS      = {{ type_counts|safe }};
+const TYPE_COLORS      = {{ type_colors|safe }};
+const DEPT_LABELS      = {{ dept_labels|safe }};
+const DEPT_COUNTS      = {{ dept_counts|safe }};
+const WEEK_LABELS      = {{ week_labels|safe }};
+const WEEK_COUNTS      = {{ week_counts|safe }};
+
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+// ── Chart.js global defaults ─────────────────────────────────────
+Chart.defaults.font.family = "'Plus Jakarta Sans', sans-serif";
+Chart.defaults.color = '#5a7d8c';
+
+// CSS var helper
+const cv = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+
+// ── LINE CHART ───────────────────────────────────────────────────
+const lineCtx = document.getElementById('lineChart');
+if (lineCtx) {
+  const lineChart = new Chart(lineCtx, {
+    type: 'line',
+    data: {
+      labels: MONTHS,
+      datasets: [
+        {
+          label: 'All Requests',
+          data: MONTHLY_ALL,
+          borderColor: '#00c6d4',
+          backgroundColor: 'rgba(0,198,212,0.08)',
+          borderWidth: 2.5,
+          fill: true,
+          tension: 0.45,
+          pointRadius: 4,
+          pointBackgroundColor: '#00c6d4',
+          pointBorderColor: '#fff',
+          pointBorderWidth: 2,
+          pointHoverRadius: 6,
+        },
+        {
+          label: 'Approved',
+          data: MONTHLY_APPROVED,
+          borderColor: '#05c98a',
+          backgroundColor: 'rgba(5,201,138,0.06)',
+          borderWidth: 2,
+          fill: true,
+          tension: 0.45,
+          pointRadius: 3,
+          pointBackgroundColor: '#05c98a',
+          pointBorderColor: '#fff',
+          pointBorderWidth: 2,
+          pointHoverRadius: 5,
+        },
+        {
+          label: 'Rejected',
+          data: MONTHLY_REJECTED,
+          borderColor: '#f04058',
+          backgroundColor: 'rgba(240,64,88,0.05)',
+          borderWidth: 2,
+          fill: true,
+          tension: 0.45,
+          pointRadius: 3,
+          pointBackgroundColor: '#f04058',
+          pointBorderColor: '#fff',
+          pointBorderWidth: 2,
+          pointHoverRadius: 5,
+        },
+        {
+          label: 'Pending',
+          data: MONTHLY_PENDING,
+          borderColor: '#f5a623',
+          backgroundColor: 'rgba(245,166,35,0.05)',
+          borderWidth: 2,
+          borderDash: [5,4],
+          fill: false,
+          tension: 0.45,
+          pointRadius: 3,
+          pointBackgroundColor: '#f5a623',
+          pointBorderColor: '#fff',
+          pointBorderWidth: 2,
+          pointHoverRadius: 5,
+        },
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: 'rgba(11,18,33,0.92)',
+          titleColor: '#fff',
+          bodyColor: 'rgba(255,255,255,0.75)',
+          borderColor: 'rgba(0,198,212,0.3)',
+          borderWidth: 1,
+          padding: 12,
+          cornerRadius: 10,
+          titleFont: { weight: '800', size: 13 },
+          bodyFont: { size: 12 },
+          callbacks: {
+            title: (items) => MONTHS[items[0].dataIndex],
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { color: 'rgba(0,198,212,0.06)', drawBorder: false },
+          ticks: { font: { size: 11, weight: '600' }, color: '#5a7d8c' },
+          border: { display: false },
+        },
+        y: {
+          grid: { color: 'rgba(0,198,212,0.06)', drawBorder: false },
+          ticks: {
+            font: { size: 11, weight: '600' }, color: '#5a7d8c',
+            stepSize: 1,
+            callback: v => Number.isInteger(v) ? v : null,
+          },
+          border: { display: false },
+          beginAtZero: true,
+        }
+      }
+    }
+  });
+}
+
+// ── DONUT CHART (FIXED) ──────────────────────────────────────────
+const donutCtx = document.getElementById('donutChart');
+if (donutCtx && TYPE_COUNTS.length) {
+  // Ensure canvas has proper dimensions
+  donutCtx.width = 200;
+  donutCtx.height = 200;
+  
+  new Chart(donutCtx, {
+    type: 'doughnut',
+    data: {
+      labels: TYPE_LABELS,
+      datasets: [{
+        data: TYPE_COUNTS,
+        backgroundColor: TYPE_COLORS,
+        borderColor: 'var(--surface)',
+        borderWidth: 3,
+        hoverBorderWidth: 3,
+        hoverOffset: 8,
+        cutout: '70%',
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: 'rgba(11,18,33,0.92)',
+          titleColor: '#fff',
+          bodyColor: 'rgba(255,255,255,0.75)',
+          borderColor: 'rgba(0,198,212,0.3)',
+          borderWidth: 1,
+          padding: 10,
+          cornerRadius: 10,
+          callbacks: {
+            label: (ctx) => {
+              const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+              const percentage = ((ctx.parsed / total) * 100).toFixed(1);
+              return ` ${ctx.label}: ${ctx.parsed} leaves (${percentage}%)`;
+            },
+          }
+        }
+      },
+      animation: {
+        animateRotate: true,
+        animateScale: true,
+        duration: 800,
+      }
+    }
+  });
+}
+
+// ── DEPARTMENT HORIZONTAL BAR CHART ──────────────────────────────
+const deptCtx = document.getElementById('deptChart');
+if (deptCtx && DEPT_COUNTS.length) {
+  // Generate gradient colors
+  const deptColors = DEPT_LABELS.map((_, i) => {
+    const hues = [185, 160, 200, 30, 350, 270, 120, 50];
+    const h = hues[i % hues.length];
+    return `hsl(${h}, 70%, 55%)`;
+  });
+
+  new Chart(deptCtx, {
+    type: 'bar',
+    data: {
+      labels: DEPT_LABELS,
+      datasets: [{
+        label: 'Leaves',
+        data: DEPT_COUNTS,
+        backgroundColor: deptColors.map(c => c.replace('55%', '45%') + 'cc'),
+        borderColor: deptColors,
+        borderWidth: 2,
+        borderRadius: 8,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: 'rgba(11,18,33,0.92)',
+          titleColor: '#fff',
+          bodyColor: 'rgba(255,255,255,0.75)',
+          borderColor: 'rgba(0,198,212,0.3)',
+          borderWidth: 1,
+          padding: 10,
+          cornerRadius: 10,
+          callbacks: {
+            label: ctx => ` ${ctx.parsed.x} approved leaves`,
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { color: 'rgba(0,198,212,0.06)' },
+          border: { display: false },
+          ticks: {
+            font: { size: 11, weight: '600' }, color: '#5a7d8c',
+            stepSize: 1,
+            callback: v => Number.isInteger(v) ? v : null,
+          },
+          beginAtZero: true,
+        },
+        y: {
+          grid: { display: false },
+          border: { display: false },
+          ticks: { font: { size: 12, weight: '700' }, color: '#2b4455' },
+        }
+      }
+    }
+  });
+}
+
+// ── WEEKLY SPARKLINE ─────────────────────────────────────────────
+const weekCtx = document.getElementById('weekChart');
+if (weekCtx) {
+  new Chart(weekCtx, {
+    type: 'line',
+    data: {
+      labels: WEEK_LABELS,
+      datasets: [{
+        label: 'Requests',
+        data: WEEK_COUNTS,
+        borderColor: '#a78bfa',
+        backgroundColor: 'rgba(167,139,250,0.1)',
+        borderWidth: 2.5,
+        fill: true,
+        tension: 0.45,
+        pointRadius: 5,
+        pointBackgroundColor: '#7c3aed',
+        pointBorderColor: '#fff',
+        pointBorderWidth: 2,
+        pointHoverRadius: 7,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: 'rgba(11,18,33,0.92)',
+          titleColor: '#fff',
+          bodyColor: 'rgba(255,255,255,0.75)',
+          borderColor: 'rgba(167,139,250,0.4)',
+          borderWidth: 1,
+          padding: 10,
+          cornerRadius: 10,
+          callbacks: {
+            title: items => 'Week of ' + items[0].label,
+            label: ctx => ` ${ctx.parsed.y} request${ctx.parsed.y !== 1 ? 's' : ''}`,
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          border: { display: false },
+          ticks: { font: { size: 11, weight: '600' }, color: '#5a7d8c' },
+        },
+        y: {
+          grid: { color: 'rgba(167,139,250,0.07)' },
+          border: { display: false },
+          ticks: {
+            font: { size: 11, weight: '600' }, color: '#5a7d8c',
+            stepSize: 1,
+            callback: v => Number.isInteger(v) ? v : null,
+          },
+          beginAtZero: true,
+        }
+      }
+    }
+  });
+}
+
+// ── LIVE CLOCK + AUTO REFRESH ────────────────────────────────────
+let countdown = 60;
+const clockEl = document.getElementById('refreshClock');
+
+function updateClock() {
+  if (clockEl) {
+    clockEl.textContent = `Refreshing in ${countdown}s`;
+    if (countdown <= 10) {
+      clockEl.style.color = '#05c98a';
+      clockEl.style.fontWeight = '800';
+    } else {
+      clockEl.style.color = '';
+      clockEl.style.fontWeight = '';
+    }
+  }
+  countdown--;
+  if (countdown < 0) {
+    window.location.reload();
+  }
+}
+updateClock();
+setInterval(updateClock, 1000);
+</script>
+{% endblock %}

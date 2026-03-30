@@ -252,7 +252,7 @@ table.assign-table tbody tr:hover td { background: var(--surface2); }
         <h3>Bulk Assign by Department</h3>
         <p>Assign a role to all employees in a department at once. Admin users will be skipped.</p>
     </div>
-    <form method="post" action="{% url 'assign_role_bulk' %}" class="bulk-controls">
+    <form method="post" action="{% url 'assign_role_bulk' %}" class="bulk-controls ajax-form redirect-on-success">
         {% csrf_token %}
         <select name="department_id" class="bulk-select" required>
             <option value="">Select Department</option>
@@ -295,7 +295,7 @@ table.assign-table tbody tr:hover td { background: var(--surface2); }
                 <th>Employee</th>
                 <th>Department</th>
                 <th>Current Role</th>
-                <th>Assign New Role</th>
+                <th>Management (Role, Dept, TL)</th>
             </tr>
         </thead>
         <tbody>
@@ -355,24 +355,53 @@ table.assign-table tbody tr:hover td { background: var(--surface2); }
                 </td>
 
                 <!-- Assign new role -->
-                <td>
-                    <form method="post" action="{% url 'assign_role' %}">
-                        {% csrf_token %}
-                        <input type="hidden" name="user_id" value="{{ user.pk }}">
-                        <div class="role-select-inline">
-                            <select name="role_id" required>
-                                <option value="">— Pick role —</option>
-                                {% for role in roles %}
-                                <option value="{{ role.pk }}"
-                                    {% if user.role and user.role.pk == role.pk %}selected{% endif %}>
-                                    {{ role.name }}
-                                </option>
-                                {% endfor %}
-                            </select>
-                            <button type="submit" class="btn-assign">
-                                <i class="fa-solid fa-check"></i> Assign
-                            </button>
-                        </div>
+               <td>
+                    <form method="post" action="{% url 'assign_role' %}" class="ajax-form redirect-on-success">
+                    {% csrf_token %}
+
+                    <input type="hidden" name="user_id" value="{{ user.pk }}">
+
+                    <div class="role-select-inline">
+
+                    <!-- Department Select -->
+                    <select name="department_id">
+                    <option value="">Department</option>
+                    {% for dept in departments %}
+                    <option value="{{ dept.pk }}"
+                    {% if user.department and user.department.pk == dept.pk %}selected{% endif %}>
+                    {{ dept.name }}
+                    </option>
+                    {% endfor %}
+                    </select>
+
+                    <!-- Role Select -->
+                    <select name="role_id" required>
+                    <option value="">— Role —</option>
+                    {% for role in roles %}
+                    <option value="{{ role.pk }}"
+                    {% if user.role and user.role.pk == role.pk %}selected{% endif %}>
+                    {{ role.name }}
+                    </option>
+                    {% endfor %}
+                    </select>
+
+                    <!-- Reporting TL Select -->
+                    <select name="reporting_manager_id">
+                    <option value="">— Reporting TL —</option>
+                    {% for tl in tl_users %}
+                    <option value="{{ tl.pk }}"
+                    {% if user.reporting_manager and user.reporting_manager.pk == tl.pk %}selected{% endif %}>
+                    {{ tl.get_full_name|default:tl.username }}
+                    </option>
+                    {% endfor %}
+                    </select>
+
+                    <button type="submit" class="btn-assign">
+                    <i class="fa-solid fa-check"></i> Assign
+                    </button>
+
+                    </div>
+
                     </form>
                 </td>
             </tr>

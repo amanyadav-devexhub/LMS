@@ -1,0 +1,571 @@
+{% extends "base.html" %}
+{% block title %}Bulk Import Holidays — LeaveSetu{% endblock %}
+{% block page_title %}Bulk Import Holidays{% endblock %}
+
+{% block extra_head %}
+<style>
+.form-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 28px 32px;
+  max-width: 900px;
+  box-shadow: var(--shadow-xs);
+}
+.form-section-title {
+  font-size: 12px; font-weight: 700;
+  letter-spacing: 1.2px; text-transform: uppercase;
+  color: var(--aqua-deep);
+  margin: 22px 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 8px;
+}
+.form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 600px) { .form-row-2 { grid-template-columns: 1fr; } }
+
+.holiday-row {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 20px;
+  position: relative;
+  transition: all 0.2s;
+}
+.holiday-row:hover {
+  border-color: var(--aqua);
+  box-shadow: 0 2px 8px rgba(0,198,212,0.1);
+}
+.row-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 18px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+.row-number {
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--aqua-deep);
+  background: var(--aqua-glass);
+  padding: 4px 12px;
+  border-radius: 20px;
+}
+.remove-row-btn {
+  background: none;
+  border: none;
+  color: var(--danger);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+.remove-row-btn:hover {
+  background: rgba(220, 53, 69, 0.1);
+}
+
+.breadcrumb {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px; color: var(--text-muted);
+  margin-bottom: 20px;
+}
+.breadcrumb a { color: var(--aqua-deep); text-decoration: none; font-weight: 600; }
+.breadcrumb a:hover { text-decoration: underline; }
+
+.type-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 6px;
+}
+.type-public { background: #10b981; box-shadow: 0 0 0 2px rgba(16,185,129,0.2); }
+.type-company { background: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.2); }
+.type-optional { background: #f59e0b; box-shadow: 0 0 0 2px rgba(245,158,11,0.2); }
+.type-restricted { background: #ef4444; box-shadow: 0 0 0 2px rgba(239,68,68,0.2); }
+
+.help-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+.help-card {
+  background: var(--surface2);
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+}
+.help-card i {
+  font-size: 20px;
+  color: var(--aqua-deep);
+  margin-bottom: 10px;
+}
+.help-card strong {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+.help-card p {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.btn-danger {
+  background: var(--danger);
+  color: white;
+  border: none;
+}
+.btn-danger:hover {
+  background: #c82333;
+  transform: translateY(-1px);
+}
+
+.modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.6);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+}
+.modal-content {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  max-width: 700px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+}
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border);
+}
+.modal-body {
+  padding: 24px;
+}
+.modal-footer {
+  padding: 16px 24px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.preview-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.preview-table th,
+.preview-table td {
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+.preview-table th {
+  background: var(--surface2);
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.preview-table tr:hover {
+  background: var(--surface2);
+}
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Breadcrumb -->
+<div class="breadcrumb animate-in">
+  <a href="{% url 'holiday_list' %}"><i class="fa-solid fa-calendar-days"></i> Holidays</a>
+  <i class="fa-solid fa-chevron-right" style="font-size:9px;"></i>
+  <span>Bulk Import Holidays</span>
+</div>
+
+<div class="form-card animate-in">
+
+  <!-- Header -->
+  <div style="display:flex;align-items:center;gap:14px;margin-bottom:24px;">
+    <div style="width:46px;height:46px;border-radius:13px;background:linear-gradient(135deg,var(--aqua-deep),var(--aqua));display:flex;align-items:center;justify-content:center;font-size:18px;color:#fff;box-shadow:0 4px 16px rgba(0,198,212,0.4);">
+      <i class="fa-solid fa-layer-group"></i>
+    </div>
+    <div>
+      <div style="font-size:16px;font-weight:800;color:var(--text);">
+        Bulk Import Holidays
+      </div>
+      <div style="font-size:12px;color:var(--text-muted);">
+        Add multiple holidays at once — perfect for year-end planning
+      </div>
+    </div>
+  </div>
+
+  <form method="POST" id="bulk-holiday-form">
+    {% csrf_token %}
+
+    <!-- ── YEAR SELECTION ── -->
+    <div class="form-section-title"><i class="fa-solid fa-calendar-year"></i> Year Selection</div>
+    
+    <div class="form-group">
+      <label class="form-label">Select Year <span style="color:var(--danger);">*</span></label>
+      <select name="year" class="form-control" required id="year-select">
+        <option value="">-- Select Year --</option>
+        {% for year in years %}
+        <option value="{{ year }}" {% if current_year == year %}selected{% endif %}>{{ year }}</option>
+        {% endfor %}
+      </select>
+      <small class="form-text" style="color: var(--text-muted);">All holidays will be created for the selected year</small>
+    </div>
+
+    <!-- ── HOLIDAYS ── -->
+    <div class="form-section-title"><i class="fa-solid fa-list"></i> Holiday Entries</div>
+    
+    <div style="margin-bottom: 16px; text-align: right;">
+      <button type="button" class="btn btn-primary btn-sm" onclick="addHolidayRow()">
+        <i class="fa-solid fa-plus"></i> Add Holiday
+      </button>
+    </div>
+    
+    <div id="holidays-container">
+      <!-- Initial row will be added via JS -->
+    </div>
+
+    <!-- ── ACTIONS ── -->
+    <div style="display:flex;gap:10px;margin-top:26px;flex-wrap:wrap;">
+      <button type="button" class="btn btn-primary" onclick="previewHolidays()">
+        <i class="fa-solid fa-eye"></i> Preview & Confirm
+      </button>
+      <button type="submit" class="btn btn-primary" style="background: var(--success);">
+        <i class="fa-solid fa-save"></i> Create All Holidays
+      </button>
+      <a href="{% url 'holiday_list' %}" class="btn btn-ghost">
+        <i class="fa-solid fa-xmark"></i> Cancel
+      </a>
+    </div>
+
+  </form>
+</div>
+
+<!-- Help Card -->
+<div class="form-card" style="margin-top: 24px;">
+  <div class="form-section-title"><i class="fa-solid fa-circle-info"></i> Bulk Import Tips</div>
+  <div class="help-grid">
+    <div class="help-card">
+      <i class="fa-solid fa-calendar-week"></i>
+      <strong>Multi-day Holidays</strong>
+      <p>Use End Date for holidays spanning multiple days (e.g., Diwali, Christmas, New Year)</p>
+    </div>
+    <div class="help-card">
+      <i class="fa-solid fa-tag"></i>
+      <strong>Holiday Types</strong>
+      <p><span class="type-dot type-public"></span> Public: Government holidays<br>
+         <span class="type-dot type-company"></span> Company: Organization-specific<br>
+         <span class="type-dot type-optional"></span> Optional: Employee choice<br>
+         <span class="type-dot type-restricted"></span> Restricted: Limited availability</p>
+    </div>
+    <div class="help-card">
+      <i class="fa-solid fa-clock"></i>
+      <strong>Recurring Holidays</strong>
+      <p>Check "Recurring" for holidays that repeat yearly (like New Year, Republic Day)</p>
+    </div>
+    <div class="help-card">
+      <i class="fa-solid fa-circle-half-stroke"></i>
+      <strong>Half Day Holidays</strong>
+      <p>Mark holidays as half-day and specify which half (morning/afternoon)</p>
+    </div>
+  </div>
+</div>
+
+<!-- Preview Modal -->
+<div id="previewModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3 style="margin:0;"><i class="fa-solid fa-eye"></i> Preview Holidays</h3>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="closePreviewModal()">
+        <i class="fa-solid fa-times"></i>
+      </button>
+    </div>
+    <div class="modal-body" id="previewContent">
+      <!-- Preview content will be inserted here -->
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-ghost" onclick="closePreviewModal()">Cancel</button>
+      <button type="button" class="btn btn-primary" onclick="confirmSubmit()">Confirm & Create</button>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+let holidayCount = 0;
+
+// Holiday type options with labels
+const holidayTypes = {
+  'public': 'Public Holiday',
+  'company': 'Company Holiday', 
+  'optional': 'Optional Holiday',
+  'restricted': 'Restricted Holiday'
+};
+
+// Add initial row on page load
+document.addEventListener('DOMContentLoaded', function() {
+  addHolidayRow();
+});
+
+function addHolidayRow() {
+  const container = document.getElementById('holidays-container');
+  const rowId = holidayCount;
+  
+  const row = document.createElement('div');
+  row.className = 'holiday-row';
+  row.id = `holiday-row-${rowId}`;
+  row.innerHTML = `
+    <div class="row-header">
+      <span class="row-number">Holiday #${holidayCount + 1}</span>
+      <button type="button" class="remove-row-btn" onclick="removeHolidayRow(${rowId})">
+        <i class="fa-solid fa-trash"></i> Remove
+      </button>
+    </div>
+    <div class="form-row-2">
+      <div class="form-group">
+        <label class="form-label">Holiday Name <span style="color:var(--danger);">*</span></label>
+        <input type="text" name="name_${rowId}" class="form-control" 
+               placeholder="e.g., Republic Day, Diwali" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Holiday Type <span style="color:var(--danger);">*</span></label>
+        <select name="type_${rowId}" class="form-control" required>
+          <option value="public">Public Holiday</option>
+          <option value="company">Company Holiday</option>
+          <option value="optional">Optional Holiday</option>
+          <option value="restricted">Restricted Holiday</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Start Date <span style="color:var(--danger);">*</span></label>
+        <input type="date" name="date_${rowId}" class="form-control" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">End Date <span style="color:var(--text-faint);">(multi-day)</span></label>
+        <input type="date" name="end_date_${rowId}" class="form-control">
+        <small class="form-text" style="color: var(--text-muted);">Leave blank for single-day</small>
+      </div>
+    </div>
+    <div style="margin-top: 12px;">
+      <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+        <input type="checkbox" name="recurring_${rowId}" value="true">
+        <span style="font-size: 12px;"><i class="fa-solid fa-rotate"></i> Recurring every year</span>
+      </label>
+    </div>
+    <div style="margin-top: 8px;">
+      <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+        <input type="checkbox" name="half_day_${rowId}" value="true" 
+               onchange="toggleHalfDayOption(${rowId})">
+        <span style="font-size: 12px;"><i class="fa-solid fa-circle-half-stroke"></i> Half day holiday</span>
+      </label>
+      <div id="half-day-type-${rowId}" style="display: none; margin-top: 8px; margin-left: 24px;">
+        <select name="half_day_type_${rowId}" class="form-control" style="max-width: 200px;">
+          <option value="FIRST_HALF">First Half (Morning)</option>
+          <option value="SECOND_HALF">Second Half (Afternoon)</option>
+        </select>
+      </div>
+    </div>
+  `;
+  
+  container.appendChild(row);
+  holidayCount++;
+}
+
+function removeHolidayRow(rowId) {
+  const row = document.getElementById(`holiday-row-${rowId}`);
+  row.remove();
+  reindexRows();
+}
+
+function reindexRows() {
+  const rows = document.querySelectorAll('.holiday-row');
+  rows.forEach((row, index) => {
+    row.id = `holiday-row-${index}`;
+    const header = row.querySelector('.row-number');
+    if (header) {
+      header.textContent = `Holiday #${index + 1}`;
+    }
+    
+    // Reindex all inputs
+    const inputs = row.querySelectorAll('input, select');
+    inputs.forEach(input => {
+      const name = input.getAttribute('name');
+      if (name) {
+        const newName = name.replace(/_\d+/, `_${index}`);
+        input.setAttribute('name', newName);
+      }
+    });
+  });
+  holidayCount = rows.length;
+}
+
+function toggleHalfDayOption(rowId) {
+  const checkbox = document.querySelector(`#holiday-row-${rowId} input[name="half_day_${rowId}"]`);
+  const halfDayDiv = document.getElementById(`half-day-type-${rowId}`);
+  halfDayDiv.style.display = checkbox.checked ? 'block' : 'none';
+}
+
+function previewHolidays() {
+  const year = document.getElementById('year-select').value;
+  if (!year) {
+    alert('Please select a year first');
+    return;
+  }
+  
+  const holidays = [];
+  for (let i = 0; i < holidayCount; i++) {
+    const name = document.querySelector(`input[name="name_${i}"]`)?.value;
+    const date = document.querySelector(`input[name="date_${i}"]`)?.value;
+    const type = document.querySelector(`select[name="type_${i}"]`)?.value;
+    const endDate = document.querySelector(`input[name="end_date_${i}"]`)?.value;
+    const recurring = document.querySelector(`input[name="recurring_${i}"]`)?.checked;
+    const halfDay = document.querySelector(`input[name="half_day_${i}"]`)?.checked;
+    
+    if (name && date) {
+      holidays.push({
+        name, date, type, endDate, recurring, halfDay
+      });
+    }
+  }
+  
+  if (holidays.length === 0) {
+    alert('Please add at least one holiday');
+    return;
+  }
+  
+  const previewContent = document.getElementById('previewContent');
+  previewContent.innerHTML = `
+    <div style="margin-bottom: 20px;">
+      <p><strong><i class="fa-solid fa-calendar"></i> Year:</strong> ${year}</p>
+      <p><strong><i class="fa-solid fa-list"></i> Total Holidays:</strong> ${holidays.length}</p>
+    </div>
+    <table class="preview-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Holiday Name</th>
+          <th>Date(s)</th>
+          <th>Type</th>
+          <th>Options</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${holidays.map((h, idx) => `
+          <tr>
+            <td>${idx + 1}</td>
+            <td><strong>${escapeHtml(h.name)}</strong></td>
+            <td>
+              ${h.date}
+              ${h.endDate ? ` <span style="color: var(--text-muted);">→ ${h.endDate}</span>` : ''}
+            </td>
+            <td><span class="type-dot type-${h.type}"></span> ${holidayTypes[h.type]}</td>
+            <td>
+              ${h.recurring ? '<span class="badge badge-info">Recurring</span>' : ''}
+              ${h.halfDay ? '<span class="badge badge-warning">Half Day</span>' : ''}
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+  
+  document.getElementById('previewModal').style.display = 'flex';
+}
+
+function closePreviewModal() {
+  document.getElementById('previewModal').style.display = 'none';
+}
+
+function confirmSubmit() {
+  closePreviewModal();
+  document.getElementById('bulk-holiday-form').submit();
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+// Form validation before submission
+document.getElementById('bulk-holiday-form').addEventListener('submit', function(e) {
+  const year = document.getElementById('year-select').value;
+  if (!year) {
+    e.preventDefault();
+    alert('Please select a year');
+    return false;
+  }
+  
+  const dates = new Set();
+  const names = new Set();
+  
+  for (let i = 0; i < holidayCount; i++) {
+    const name = document.querySelector(`input[name="name_${i}"]`)?.value;
+    const date = document.querySelector(`input[name="date_${i}"]`)?.value;
+    const endDate = document.querySelector(`input[name="end_date_${i}"]`)?.value;
+    
+    if (!name || !date) {
+      e.preventDefault();
+      alert(`Holiday #${i + 1} is missing name or date`);
+      return false;
+    }
+    
+    // Check date format and year
+    const dateObj = new Date(date);
+    if (dateObj.getFullYear() != year) {
+      e.preventDefault();
+      alert(`Holiday "${name}" date (${date}) does not match the selected year ${year}`);
+      return false;
+    }
+    
+    if (endDate) {
+      const endDateObj = new Date(endDate);
+      if (endDateObj.getFullYear() != year) {
+        e.preventDefault();
+        alert(`Holiday "${name}" end date (${endDate}) does not match the selected year ${year}`);
+        return false;
+      }
+      if (endDateObj < dateObj) {
+        e.preventDefault();
+        alert(`Holiday "${name}" end date cannot be before start date`);
+        return false;
+      }
+    }
+    
+    // Check for duplicates
+    const key = `${date}|${name}`;
+    if (dates.has(key)) {
+      e.preventDefault();
+      alert(`Duplicate holiday found: "${name}" on ${date}`);
+      return false;
+    }
+    dates.add(key);
+  }
+  
+  return true;
+});
+</script>
+{% endblock %}

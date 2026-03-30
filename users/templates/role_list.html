@@ -330,7 +330,7 @@
             </div>
             <button class="modal-close" onclick="closeModal('createModal')"><i class="fa-solid fa-xmark"></i></button>
         </div>
-        <form method="post" action="{% url 'role_create' %}">
+        <form method="post" action="{% url 'role_create' %}" class="ajax-form redirect-on-success">
             {% csrf_token %}
             <div class="modal-body">
                 <div class="form-group">
@@ -365,7 +365,7 @@
             </div>
             <button class="modal-close" onclick="closeModal('editModal')"><i class="fa-solid fa-xmark"></i></button>
         </div>
-        <form method="post" id="editForm">
+        <form method="post" id="editForm" class="ajax-form redirect-on-success">
             {% csrf_token %}
             <div class="modal-body">
                 <div class="form-group">
@@ -394,7 +394,7 @@
             </div>
             <button class="modal-close" onclick="closeModal('deleteModal')"><i class="fa-solid fa-xmark"></i></button>
         </div>
-        <form method="post" id="deleteForm">
+        <form method="post" id="deleteForm" class="ajax-form redirect-on-success">
             {% csrf_token %}
             <div class="modal-body">
                 <p style="font-size:14px; color:var(--text-mid);">

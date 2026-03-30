@@ -1,0 +1,387 @@
+{% extends "base.html" %}
+{% block title %}Leave Balance — LeaveSetu{% endblock %}
+{% block page_title %}Leave Balance{% endblock %}
+{% block nav_emp %}active{% endblock %}
+
+{% block content %}
+<style>
+/* ── Aero Glow Design System ── */
+:root {
+    --card-bg: rgba(255, 255, 255, 0.75);
+    --card-blur: blur(12px);
+    --card-border: 1px solid rgba(255, 255, 255, 0.4);
+    --card-shadow: 0 8px 32px rgba(0, 198, 212, 0.12);
+}
+
+.aero-container {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    padding-bottom: 40px;
+}
+
+/* ── Hero Balance Card ── */
+.hero-balance-card {
+    background: linear-gradient(135deg, var(--ink) 0%, #0c1e2d 100%);
+    border-radius: 24px;
+    padding: 30px;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: white;
+    border: 1px solid rgba(0, 198, 212, 0.2);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+}
+
+.hero-balance-card::before {
+    content: '';
+    position: absolute; top: -50%; right: -20%;
+    width: 400px; height: 400px;
+    background: radial-gradient(circle, rgba(0, 198, 212, 0.15) 0%, transparent 70%);
+    pointer-events: none;
+}
+
+.hero-left { position: relative; z-index: 1; }
+.hero-label { 
+    font-size: 11px; font-weight: 800; letter-spacing: 3px; 
+    text-transform: uppercase; color: var(--aqua-light);
+    margin-bottom: 8px; opacity: 0.8;
+}
+.hero-total-val { font-size: 52px; font-weight: 800; letter-spacing: -2px; line-height: 1; }
+.hero-total-val span { font-size: 18px; font-weight: 600; opacity: 0.6; margin-left: 4px; }
+.hero-sub { font-size: 14px; opacity: 0.5; margin-top: 10px; font-weight: 500; }
+
+.hero-right { position: relative; width: 140px; height: 140px; flex-shrink: 0; }
+.ring-bg { fill: none; stroke: rgba(255,255,255,0.1); stroke-width: 8; }
+.ring-fill { 
+    fill: none; stroke: var(--aqua); stroke-width: 8; 
+    stroke-linecap: round; transform: rotate(-90deg); transform-origin: 50% 50%;
+    transition: stroke-dashoffset 1s ease-out;
+}
+.ring-text { 
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center;
+}
+.ring-pct { font-size: 24px; font-weight: 800; color: white; }
+.ring-lbl { font-size: 9px; font-weight: 700; opacity: 0.5; text-transform: uppercase; }
+
+/* ── Stats Row ── */
+.stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+}
+@media (max-width: 1024px) { .stats-row { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 600px) { .stats-row { grid-template-columns: 1fr; } }
+
+.glow-card {
+    background: var(--card-bg);
+    backdrop-filter: var(--card-blur);
+    -webkit-backdrop-filter: var(--card-blur);
+    border: var(--card-border);
+    border-radius: 20px;
+    padding: 20px;
+    box-shadow: var(--card-shadow);
+    transition: all 0.3s cubic-bezier(.4,0,.2,1);
+    position: relative;
+    overflow: hidden;
+}
+.glow-card:hover { 
+    transform: translateY(-5px); 
+    box-shadow: 0 15px 40px rgba(0, 198, 212, 0.2);
+    border-color: var(--aqua);
+}
+
+.gc-ico {
+    width: 42px; height: 42px; border-radius: 12px;
+    background: var(--aqua-glass); border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; color: var(--aqua-deep); margin-bottom: 12px;
+}
+.gc-val { font-size: 28px; font-weight: 800; color: var(--text); line-height: 1; }
+.gc-lbl { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px; }
+
+/* ── Breakdown List ── */
+.breakdown-card {
+    background: var(--card-bg);
+    backdrop-filter: var(--card-blur);
+    border: var(--card-border);
+    border-radius: 24px;
+    overflow: hidden;
+    box-shadow: var(--card-shadow);
+}
+.bc-head {
+    padding: 20px 24px;
+    background: rgba(0, 198, 212, 0.05);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+}
+.bc-title { display: flex; align-items: center; gap: 12px; font-size: 16px; font-weight: 800; }
+.bc-title i { color: var(--aqua-deep); }
+
+.bc-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
+    padding: 24px;
+}
+
+.leave-item {
+    background: white;
+    border-radius: 18px;
+    padding: 20px;
+    border: 1px solid var(--border);
+    position: relative;
+    transition: all 0.25s;
+}
+.item-accent { position: absolute; top: 0; left: 0; width: 4px; height: 100%; border-radius: 18px 0 0 18px; }
+.item-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px; }
+.item-name { font-size: 14px; font-weight: 800; color: var(--text); }
+.item-tag { font-size: 9px; font-weight: 800; text-transform: uppercase; padding: 2px 8px; border-radius: 10px; }
+.tag-paid { background: #e6f9f2; color: #047a52; }
+.tag-unpaid { background: #fff1f2; color: #b01530; }
+
+.item-main { display: flex; align-items: baseline; gap: 4px; margin-bottom: 12px; }
+.item-val { font-size: 30px; font-weight: 800; color: var(--text); }
+.item-unit { font-size: 12px; font-weight: 600; color: var(--text-muted); }
+
+.bar-wrap { height: 6px; background: #f1f5f9; border-radius: 6px; overflow: hidden; margin-bottom: 12px; }
+.bar-fill { height: 100%; border-radius: 6px; transition: width 0.8s ease-out; }
+
+.item-foot { display: flex; justify-content: space-between; font-size: 11px; font-weight: 600; color: var(--text-muted); }
+
+/* ── Summary & Holidays ── */
+.grid-2col { display: grid; grid-template-columns: 1.4fr 1fr; gap: 24px; }
+@media (max-width: 1024px) { .grid-2col { grid-template-columns: 1fr; } }
+
+.summary-panel {
+    background: var(--card-bg);
+    backdrop-filter: var(--card-blur);
+    border: var(--card-border);
+    border-radius: 24px;
+    padding: 24px;
+    box-shadow: var(--card-shadow);
+}
+.panel-head { display: flex; align-items: center; gap: 12px; font-size: 16px; font-weight: 800; margin-bottom: 20px; }
+.panel-head i { color: var(--aqua-deep); }
+
+.sum-box {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 18px; background: rgba(255,255,255,0.5); border-radius: 16px;
+    border: 1px solid rgba(0,0,0,0.03); transition: all 0.2s;
+    margin-bottom: 12px;
+}
+.sum-box:last-child { margin-bottom: 0; }
+.sum-lbl { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 600; color: var(--text-muted); }
+.sum-lbl i { width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 12px; }
+.sum-val { font-size: 16px; font-weight: 800; color: var(--text); }
+
+.holiday-mini {
+    display: flex; align-items: center; gap: 14px;
+    padding: 12px; background: white; border-radius: 14px;
+    border: 1px solid var(--border); margin-bottom: 12px;
+}
+.holiday-mini:last-child { margin-bottom: 0; }
+.h-date {
+    width: 44px; height: 44px; border-radius: 10px;
+    background: var(--surface2); border: 1px solid var(--border);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+}
+.h-day { font-size: 16px; font-weight: 800; color: var(--aqua-deep); line-height: 1; }
+.h-mon { font-size: 9px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; }
+.h-name { font-size: 13.5px; font-weight: 700; color: var(--text); }
+.h-type { font-size: 10px; font-weight: 700; color: var(--text-muted); }
+
+/* ── Warnings ── */
+.aero-alert {
+    padding: 20px 24px; border-radius: 20px;
+    display: flex; align-items: center; gap: 20px;
+    margin-bottom: 24px; border: 1px solid;
+    animation: fadeUp 0.5s ease both;
+}
+.alert-danger { background: rgba(240,64,88,0.06); border-color: rgba(240,64,88,0.2); color: #b01530; }
+.alert-warning { background: rgba(245,166,35,0.06); border-color: rgba(245,166,35,0.2); color: #905700; }
+.alert-icon { font-size: 32px; flex-shrink: 0; }
+.alert-content h4 { font-size: 16px; font-weight: 800; margin-bottom: 4px; }
+.alert-content p { font-size: 13px; opacity: 0.8; line-height: 1.4; }
+
+.animate-in { animation: fadeUp 0.5s ease both; }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+.delay-1 { animation-delay: 0.1s; }
+.delay-2 { animation-delay: 0.2s; }
+.delay-3 { animation-delay: 0.3s; }
+</style>
+
+<div class="aero-container">
+
+    <!-- Alerts -->
+    {% if total_remaining == 0 %}
+    <div class="aero-alert alert-danger">
+        <div class="alert-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+        <div class="alert-content">
+            <h4>No Paid Quota Left</h4>
+            <p>You have used all your allocated paid leaves for this year. Any further leave requests will be processed as <strong>UNPAID</strong>.</p>
+        </div>
+        <a href="{% url 'apply_leave' %}" style="margin-left:auto; background:#b01530; color:white; padding:8px 18px; border-radius:30px; font-weight:700; font-size:12px;">Apply Anyway</a>
+    </div>
+    {% elif total_remaining < 3 %}
+    <div class="aero-alert alert-warning">
+        <div class="alert-icon"><i class="fa-solid fa-circle-exclamation"></i></div>
+        <div class="alert-content">
+            <h4>Low Balance Warning</h4>
+            <p>You have only {{ total_remaining|floatformat:1 }} days of paid leave left.</p>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Hero Balance Section -->
+    <div class="hero-balance-card animate-in">
+        <div class="hero-left">
+            <div class="hero-label">Total available</div>
+            <div class="hero-total-val" id="total-val">0</div>
+            <div class="hero-sub">Paid leave quota across all configured types</div>
+        </div>
+        
+        <div class="hero-right">
+            <svg width="140" height="140" viewBox="0 0 140 140">
+                <circle class="ring-bg" cx="70" cy="70" r="62"></circle>
+                <circle class="ring-fill" id="main-ring" cx="70" cy="70" r="62" 
+                        stroke-dasharray="389.5" stroke-dashoffset="389.5"></circle>
+            </svg>
+            <div class="ring-text">
+                <div class="ring-pct" id="ring-pct">0%</div>
+                <div class="ring-lbl">Quota Used</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Stats Grid -->
+    <div class="stats-row">
+        <div class="glow-card animate-in delay-1">
+            <div class="gc-ico"><i class="fa-regular fa-chart-line"></i></div>
+            <div class="gc-val">{{ total_allocated|default:"0"|floatformat:1 }}</div>
+            <div class="gc-lbl">Total Allocated</div>
+        </div>
+        <div class="glow-card animate-in delay-1">
+            <div class="gc-ico" style="background:rgba(5,201,138,0.1);color:#05c98a;"><i class="fa-regular fa-clock"></i></div>
+            <div class="gc-val">{{ total_used_new|default:"0"|floatformat:1 }}</div>
+            <div class="gc-lbl">Leaves Taken</div>
+        </div>
+        <div class="glow-card animate-in delay-1">
+            <div class="gc-ico" style="background:rgba(245,166,35,0.1);color:#f5a623;"><i class="fa-regular fa-hourglass-half"></i></div>
+            <div class="gc-val">{{ pending_leaves|default:"0" }}</div>
+            <div class="gc-lbl">Pending Review</div>
+        </div>
+        <div class="glow-card animate-in delay-1">
+            <div class="gc-ico" style="background:rgba(240,64,88,0.1);color:#f04058;"><i class="fa-solid fa-receipt"></i></div>
+            <div class="gc-val" style="color:#b01530;">₹{{ total_deduction_this_month|floatformat:0 }}</div>
+            <div class="gc-lbl">Deduction (M)</div>
+        </div>
+    </div>
+
+    <!-- Breakdown -->
+    <div class="breakdown-card animate-in delay-2">
+        <div class="bc-head">
+            <div class="bc-title"><i class="fa-solid fa-layer-group"></i> Leave Type Breakdown</div>
+            <span class="lbs-year-badge">Cycle {% now "Y" %}</span>
+        </div>
+        <div class="bc-grid">
+            {% for b in leave_breakdown %}
+            <div class="leave-item">
+                <div class="item-accent" style="background:{{ b.color }};"></div>
+                <div class="item-head">
+                    <div class="item-name">{{ b.name }}</div>
+                    <span class="item-tag {% if b.is_paid %}tag-paid{% else %}tag-unpaid{% endif %}">
+                        {% if b.is_paid %}Paid{% else %}Unpaid{% endif %}
+                    </span>
+                </div>
+                <div class="item-main">
+                    <div class="item-val">{{ b.remaining|floatformat:1 }}</div>
+                    <div class="item-unit">days left</div>
+                </div>
+                <div class="bar-wrap">
+                    <div class="bar-fill" style="width:{{ b.used_percent }}%; background:{{ b.color }};"></div>
+                </div>
+                <div class="item-foot">
+                    <span>Allocated: {{ b.allocated|floatformat:0 }}</span>
+                    <span>Used: {{ b.used|floatformat:1 }}</span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Summary & Holidays -->
+    <div class="grid-2col">
+        <div class="summary-panel animate-in delay-3">
+            <div class="panel-head"><i class="fa-solid fa-chart-pie"></i> Monthly Insights</div>
+            <div class="sum-box">
+                <div class="sum-lbl"><i class="fa-solid fa-money-check-dollar" style="background:#e6f9f2;color:#047a52;"></i> Paid Days</div>
+                <div class="sum-val">{{ monthly_paid|floatformat:1 }} days</div>
+            </div>
+            <div class="sum-box">
+                <div class="sum-lbl"><i class="fa-solid fa-circle-exclamation" style="background:#fff1f2;color:#b01530;"></i> Unpaid / Deduction</div>
+                <div class="sum-val" style="color:var(--danger);">{{ monthly_unpaid|floatformat:1 }} days</div>
+            </div>
+            <div class="sum-box">
+                <div class="sum-lbl"><i class="fa-solid fa-sack-dollar" style="background:#fef3c7;color:#905700;"></i> Salary Deducted</div>
+                <div class="sum-val">₹{{ total_deduction_this_month|floatformat:2 }}</div>
+            </div>
+        </div>
+
+        <div class="summary-panel animate-in delay-3">
+            <div class="panel-head"><i class="fa-solid fa-calendar-day"></i> Upcoming Holidays</div>
+            {% if upcoming_holidays %}
+                {% for holiday in upcoming_holidays|slice:":4" %}
+                <div class="holiday-mini">
+                    <div class="h-date">
+                        <span class="h-day">{{ holiday.date|date:"d" }}</span>
+                        <span class="h-mon">{{ holiday.date|date:"M" }}</span>
+                    </div>
+                    <div class="h-info">
+                        <div class="h-name">{{ holiday.name }}</div>
+                        <div class="h-type">{{ holiday.get_holiday_type_display|default:"Public Holiday" }}</div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div style="text-align:center; padding:20px; color:var(--text-faint); font-size:13px;">No upcoming holidays</div>
+            {% endif %}
+        </div>
+    </div>
+
+</div>
+
+<script>
+$(document).ready(function() {
+    const totalRemaining = parseFloat("{{ total_remaining|default:0 }}");
+    const totalAllocated = parseFloat("{{ total_allocated|default:40 }}") || 40;
+    const used = totalAllocated - totalRemaining;
+    const pct = Math.min(Math.max((used / totalAllocated) * 100, 0), 100);
+    const circumference = 389.5;
+    const offset = circumference - (pct / 100) * circumference;
+    
+    setTimeout(() => {
+        $('#main-ring').css('stroke-dashoffset', offset);
+        $('#ring-pct').text(Math.round(pct) + '%');
+        
+        let current = 0;
+        const target = totalRemaining;
+        const duration = 1000;
+        const steps = 60;
+        const inc = target / steps;
+        const interval = setInterval(() => {
+            current += inc;
+            if (current >= target) {
+                current = target;
+                clearInterval(interval);
+            }
+            $('#total-val').html(current.toFixed(1) + '<span>days</span>');
+        }, duration / steps);
+    }, 300);
+});
+</script>
+{% endblock %}

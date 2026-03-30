@@ -1,0 +1,68 @@
+{% if team_history_page %}
+    <table class="tt">
+        <thead>
+            <tr><th>Employee</th><th>Date</th><th>Type</th><th>Status</th></thead>
+        <tbody>
+            {% for leave in team_history_page %}
+            <tr class="clickable-row" data-href="{% url 'leave_detail' leave.id %}">
+                <td>
+                    <div style="display:flex;align-items:center;gap:9px;">
+                        <div class="lrav" style="width:30px;height:30px;font-size:10px;">
+                            {{ leave.employee.first_name|first|upper }}{{ leave.employee.last_name|first|upper }}
+                        </div>
+                        <div>
+                            <strong>{{ leave.employee.first_name }} {{ leave.employee.last_name }}</strong>
+                            <div style="font-size:11px;color:var(--text-muted);">{{ leave.employee.email }}</div>
+                        </div>
+                    </div>
+                </td>
+                <td>{{ leave.start_date|date:"d M Y" }}{% if leave.end_date and leave.end_date != leave.start_date %} → {{ leave.end_date|date:"d M Y" }}{% endif %}</td>
+                <td>
+                    <span class="badge badge-info">{{ leave.leave_type|capfirst }}</span>
+                    {% if not leave.is_paid %}<span class="badge badge-warning">Unpaid</span>{% endif %}
+                </td>
+                <td>
+                    {% if leave.status == 'APPROVED' %}<span class="chip ch-gn">Approved</span>
+                    {% elif leave.status == 'REJECTED' %}<span class="chip ch-rd">Rejected</span>
+                    {% else %}<span class="chip ch-am">Pending</span>{% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% if team_history_page.has_other_pages %}
+    <div class="pgn" id="history-pagination">
+        <span>{{ team_history_page.start_index }}–{{ team_history_page.end_index }} of {{ team_history_page.paginator.count }}</span>
+        <div style="display:flex;gap:4px;">
+            {% if team_history_page.has_previous %}
+                <a href="?hpage={{ team_history_page.previous_page_number }}&tab=history" class="pb ajax-pagination" data-target="history-list">
+                    <i class="fa-solid fa-chevron-left"></i>
+                </a>
+            {% else %}
+                <span class="pb off"><i class="fa-solid fa-chevron-left"></i></span>
+            {% endif %}
+            
+            {% if team_history_page.has_next %}
+                <a href="?hpage={{ team_history_page.next_page_number }}&tab=history" class="pb ajax-pagination" data-target="history-list">
+                    <i class="fa-solid fa-chevron-right"></i>
+                </a>
+            {% else %}
+                <span class="pb off"><i class="fa-solid fa-chevron-right"></i></span>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+{% else %}
+    <div class="emp">
+        <div class="emp-ico"><i class="fa-solid fa-clock-rotate-left"></i></div>
+        <div class="emp-ttl">No Activity Recorded</div>
+        <div class="emp-sub">No team leave history found.</div>
+    </div>
+{% endif %}
+
+<div class="sec-label">My Own Leaves</div>
+<div class="sc">
+    <div id="myleaves-list">
+        {% include "partials/mgr_my_leaves.html" %}
+    </div>
+</div>
