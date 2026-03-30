@@ -19,7 +19,7 @@
             <i class="fa-solid fa-file-circle-exclamation" style="margin-right: 8px;"></i>
             Leave Requests Awaiting Your Approval
         </div>
-        <span class="badge badge-pending">{{ pending_count }} pending</span>
+        <span class="badge badge-pending" id="pending-badge">{{ pending_count }} pending</span>
     </div>
     
     <div class="table-container" id="hr-pending-container">
@@ -28,50 +28,109 @@
 </div>
 
 <script>
-$(document).ready(function() {
-    // Handle AJAX Pagination
-    $(document).on('click', '.ajax-pagination', function(e) {
+$(document).ready(function () {
+
+    // ─── Helper: decrement both page badge + sidebar badge ───────────────────
+    function decrementBadge() {
+        // Page badge
+        const $badge = $('#pending-badge');
+        let count = parseInt($badge.text());
+        if (!isNaN(count) && count > 0) {
+            count -= 1;
+            $badge.text(count + ' pending');
+        }
+
+        // Sidebar badge (update the li[data-section="pending"] badge if present)
+        const $sidebarBadge = $('.sidebar-badge[data-key="pending"]');
+        let sCount = parseInt($sidebarBadge.text());
+        if (!isNaN(sCount) && sCount > 0) {
+            $sidebarBadge.text(sCount - 1);
+        }
+    }
+
+    // ─── AJAX Pagination ──────────────────────────────────────────────────────
+    $(document).on('click', '.ajax-pagination', function (e) {
         e.preventDefault();
         const $container = $('#hr-pending-container');
         const url = $(this).attr('href');
 
         $container.css('opacity', '0.5');
-        fetch(url, {
-            headers: { 'X-Requested-With': 'XMLHttpRequest' }
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-                $container.html(data.html).css('opacity', '1');
-                window.history.replaceState({}, '', url);
+        fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    $container.html(data.html).css('opacity', '1');
+                    window.history.replaceState({}, '', url);
+                }
+            })
+            .catch(err => {
+                console.error('Pagination error:', err);
+                $container.css('opacity', '1');
+            });
+    });
+
+    // ─── AJAX Form Submission (approve / reject) ──────────────────────────────
+    // Intercept ALL .ajax-form submits inside the container (works after re-render too)
+    $(document).on('submit', '.ajax-form', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const $form = $(this);
+        const $row  = $form.closest('tr');
+        const url   = $form.attr('action');
+        const csrfToken = $form.find('[name=csrfmiddlewaretoken]').val()
+                       || $('input[name=csrfmiddlewaretoken]').first().val()
+                       || getCookie('csrftoken');
+
+        // Disable buttons immediately to prevent double-submit
+        $form.find('button').prop('disabled', true);
+
+        $.ajax({
+            url: url,
+            method: 'POST',
+            data: $form.serialize(),
+            headers: { 'X-CSRFToken': csrfToken, 'X-Requested-With': 'XMLHttpRequest' },
+            success: function (data) {
+                if (data.success) {
+                    $row.fadeOut(400, function () {
+                        $(this).remove();
+                        decrementBadge();
+
+                        // If no rows left, show empty state
+                        const $tbody = $('#hr-pending-container tbody');
+                        if ($tbody.find('tr:visible').length === 0) {
+                            $tbody.html(
+                                '<tr><td colspan="100%" class="text-center" style="padding:2rem;color:var(--text-muted);">' +
+                                '<i class="fa-solid fa-check-circle" style="color:var(--color-success);margin-right:6px;"></i>' +
+                                'All caught up! No pending approvals.' +
+                                '</td></tr>'
+                            );
+                        }
+                    });
+                } else {
+                    // Re-enable buttons if server returned an error
+                    $form.find('button').prop('disabled', false);
+                    console.warn('Action failed:', data.message || 'Unknown error');
+                }
+            },
+            error: function (xhr) {
+                $form.find('button').prop('disabled', false);
+                console.error('AJAX error:', xhr.status, xhr.responseText);
             }
-        })
-        .catch(err => {
-            console.error('Pagination error:', err);
-            $container.css('opacity', '1');
         });
     });
 
-    // Stop event propagation for action buttons so they don't trigger the row click
-    $(document).on('click', '.clickable-row form', function(e) {
+    // ─── Stop row click when clicking inside action buttons/forms ────────────
+    $(document).on('click', '.clickable-row form, .clickable-row button', function (e) {
         e.stopPropagation();
     });
 
-    // Handle AJAX success to remove the row
-    $(document).on('ajax:success', '.ajax-form', function(e, data) {
-        if (data.success) {
-            $(this).closest('tr').fadeOut(400, function() {
-                $(this).remove();
-                
-                // Update count badge
-                const badge = $('.badge-pending');
-                let count = parseInt(badge.text());
-                if (!isNaN(count) && count > 0) {
-                    badge.text((count - 1) + ' pending');
-                }
-            });
-        }
-    });
+    // ─── CSRF helper ─────────────────────────────────────────────────────────
+    function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
+    }
 });
 </script>
 {% endblock %}

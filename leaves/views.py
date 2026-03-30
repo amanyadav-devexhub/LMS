@@ -2506,6 +2506,7 @@ def holiday_edit(request, holiday_id):
         **_hr_base_context(request),
         "holiday":       holiday,
         "holiday_types": Holiday.HOLIDAY_TYPES,
+        "today": date.today(),
     }
     return render(request, "holiday_form.html", context)
 
