@@ -3,7 +3,7 @@
     <div class="lr">
         <div class="lrav" style="background:#6c757d;">{{ leave.leave_type|first }}</div>
         <div class="lr-info">
-            <div class="lr-nm">{{ leave.leave_type|capfirst }}</div>
+            <div class="lr-nm">{{ leave.leave_type_display|default:leave.leave_type|capfirst }}</div>
             <div class="lr-mt">{{ leave.start_date|date:"d M Y" }} {% if leave.end_date != leave.start_date %}→ {{ leave.end_date|date:"d M Y" }}{% endif %}</div>
         </div>
         {% if leave.status == 'APPROVED' %}<span class="chip ch-gn">Approved</span>

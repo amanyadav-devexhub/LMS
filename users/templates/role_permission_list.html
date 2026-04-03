@@ -112,6 +112,13 @@
 
 /* Permission table */
 .perm-table { width: 100%; border-collapse: collapse; }
+.perm-table-wrap {
+    width: 100%;
+    overflow-x: auto;
+}
+.perm-table {
+    min-width: 760px;
+}
 
 .perm-table thead th {
     background: #f8fafc;
@@ -212,6 +219,10 @@
     pointer-events: none;
 }
 .rp-toast.show { transform: translateY(0); opacity: 1; }
+.rp-toast.is-error {
+    background: #450a0a;
+    border-color: #7f1d1d;
+}
 </style>
 {% endblock %}
 
@@ -299,10 +310,11 @@
             </button>
         </div>
 
-        <form method="post" action="{% url 'role_permission_save' %}" id="permForm">
+        <form method="post" action="{% url 'role_permission_save_api' %}" id="permForm">
             {% csrf_token %}
             <input type="hidden" name="role_id" value="{{ selected_role.pk }}">
 
+            <div class="perm-table-wrap">
             <table class="perm-table">
                 <thead>
                     <tr>
@@ -342,6 +354,7 @@
                     {% endfor %}
                 </tbody>
             </table>
+            </div>
 
             <div class="perm-footer">
                 <div class="legend">
@@ -377,12 +390,87 @@ function toggleAllCol(action, checked) {
             .forEach(cb => cb.checked = checked);
 }
 
+function showPermissionToast(message, isError = false) {
+    const toast = document.getElementById('rpToast');
+    const icon = toast.querySelector('i');
+    document.getElementById('rpToastMsg').textContent = message;
+    toast.classList.toggle('is-error', isError);
+    icon.className = isError
+        ? 'fa-solid fa-circle-exclamation'
+        : 'fa-solid fa-circle-check';
+    icon.style.color = isError ? '#fca5a5' : '#4ade80';
+
+    toast.classList.add('show');
+    clearTimeout(toast._hideTimer);
+    toast._hideTimer = setTimeout(() => toast.classList.remove('show'), 3500);
+}
+
+const permForm = document.getElementById('permForm');
+if (permForm) {
+    permForm.addEventListener('submit', async function (e) {
+        e.preventDefault();
+
+        const submitButtons = Array.from(permForm.querySelectorAll('button[type="submit"], .btn-save-perm'));
+        submitButtons.forEach(btn => {
+            btn.disabled = true;
+            btn.dataset.originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
+        });
+
+        const roleId = permForm.querySelector('input[name="role_id"]').value;
+        const permissions = {};
+
+        document.querySelectorAll('.pt-row').forEach(row => {
+            const inputs = row.querySelectorAll('input.perm-cb[name]');
+            if (!inputs.length) return;
+
+            const moduleKey = inputs[0].name.replace(/_(view|create|edit|delete)$/, '');
+            permissions[moduleKey] = {
+                can_view: !!row.querySelector(`input[name="${moduleKey}_view"]`)?.checked,
+                can_create: !!row.querySelector(`input[name="${moduleKey}_create"]`)?.checked,
+                can_edit: !!row.querySelector(`input[name="${moduleKey}_edit"]`)?.checked,
+                can_delete: !!row.querySelector(`input[name="${moduleKey}_delete"]`)?.checked,
+            };
+        });
+
+        try {
+            const response = await fetch(permForm.action, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRFToken': permForm.querySelector('[name=csrfmiddlewaretoken]').value,
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify({
+                    role_id: roleId,
+                    permissions: permissions,
+                }),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok || !data.success) {
+                throw new Error(data.error || data.message || 'Failed to save permissions.');
+            }
+
+            showPermissionToast(data.message || 'Permissions saved successfully.');
+        } catch (error) {
+            showPermissionToast(error.message || 'Unable to save permissions.', true);
+        } finally {
+            submitButtons.forEach(btn => {
+                btn.disabled = false;
+                if (btn.dataset.originalText) {
+                    btn.innerHTML = btn.dataset.originalText;
+                }
+            });
+        }
+    });
+}
+
 {% if messages %}{% for message in messages %}{% if 'success' in message.tags %}
 window.addEventListener('DOMContentLoaded', () => {
-    const t = document.getElementById('rpToast');
-    document.getElementById('rpToastMsg').textContent = "{{ message|escapejs }}";
-    t.classList.add('show');
-    setTimeout(() => t.classList.remove('show'), 3500);
+    showPermissionToast("{{ message|escapejs }}");
 });
 {% endif %}{% endfor %}{% endif %}
 </script>

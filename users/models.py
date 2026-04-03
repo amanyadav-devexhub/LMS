@@ -7,6 +7,8 @@ from django.contrib.auth.models import AbstractUser
 # -----------------------
 class Role(models.Model):
     name = models.CharField(max_length=50, unique=True)
+    description = models.TextField(blank=True, default="")
+    is_active = models.BooleanField(default=True)
 
     def __str__(self):
         return self.name
@@ -78,6 +80,30 @@ class User(AbstractUser):
 
     def __str__(self):
         return self.email
+
+    def has_rbac_permission(self, codename):
+        if self.is_superuser:
+            return True
+        if not self.role or not self.role.is_active:
+            return False
+
+        normalized = (codename or "").strip().lower()
+        if not normalized:
+            return False
+
+        return RolePermissionAssignment.objects.filter(
+            role=self.role,
+            permission__codename=normalized,
+            permission__is_active=True,
+            is_enabled=True,
+        ).exists()
+
+    def has_perm(self, perm, obj=None):
+        if self.is_superuser:
+            return True
+        if self.has_rbac_permission(perm):
+            return True
+        return super().has_perm(perm, obj=obj)
 
 
 # -----------------------
@@ -233,3 +259,90 @@ class RolePermission(models.Model):
 
     def __str__(self):
         return f"{self.role.name} → {self.module}"
+
+
+RBAC_MODULE_CHOICES = [
+    ('user', 'User'),
+    ('leave', 'Leave'),
+    ('holiday', 'Holiday'),
+    ('report', 'Report'),
+    ('dashboard', 'Dashboard'),
+    ('system', 'System'),
+]
+
+RBAC_ACTION_CHOICES = [
+    ('view', 'View'),
+    ('add', 'Add'),
+    ('edit', 'Edit'),
+    ('delete', 'Delete'),
+    ('approve', 'Approve'),
+    ('reject', 'Reject'),
+    ('manage', 'Manage'),
+]
+
+
+class RBACPermission(models.Model):
+    module = models.CharField(max_length=50, choices=RBAC_MODULE_CHOICES)
+    action = models.CharField(max_length=20, choices=RBAC_ACTION_CHOICES)
+    codename = models.CharField(max_length=100, unique=True)
+    name = models.CharField(max_length=150)
+    description = models.TextField(blank=True, default="")
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['module', 'action']
+        verbose_name = 'RBAC Permission'
+        verbose_name_plural = 'RBAC Permissions'
+
+    def __str__(self):
+        return self.codename
+
+
+class RolePermissionAssignment(models.Model):
+    role = models.ForeignKey(
+        Role,
+        on_delete=models.CASCADE,
+        related_name='rbac_permissions',
+    )
+    permission = models.ForeignKey(
+        RBACPermission,
+        on_delete=models.CASCADE,
+        related_name='role_assignments',
+    )
+    is_enabled = models.BooleanField(default=True)
+
+    class Meta:
+        unique_together = (('role', 'permission'),)
+        ordering = ['role__name', 'permission__module', 'permission__action']
+        verbose_name = 'Role Permission Assignment'
+        verbose_name_plural = 'Role Permission Assignments'
+
+    def __str__(self):
+        return f"{self.role.name} -> {self.permission.codename}"
+
+
+class AccessLog(models.Model):
+    STATUS_ALLOWED = 'allowed'
+    STATUS_DENIED = 'denied'
+
+    STATUS_CHOICES = [
+        (STATUS_ALLOWED, 'Allowed'),
+        (STATUS_DENIED, 'Denied'),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    action = models.CharField(max_length=150)
+    permission_code = models.CharField(max_length=100, blank=True, default='')
+    path = models.CharField(max_length=255, blank=True, default='')
+    method = models.CharField(max_length=10, blank=True, default='')
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.TextField(blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        user_label = self.user.email if self.user else 'anonymous'
+        return f"{user_label} {self.status} {self.action}"

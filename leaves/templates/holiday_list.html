@@ -6,10 +6,10 @@
 <!-- Action Bar -->
 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 15px;">
     <div style="display: flex; gap: 10px;">
-        <a href="{% url 'holiday_create' %}" class="btn btn-primary">
+        <a href="{% url 'holiday_create' %}" class="btn btn-primary" style="{% if not rbac_flags.holiday_create %}pointer-events:none;opacity:.45;{% endif %}">
             <i class="fa-solid fa-plus"></i> Add Holiday
         </a>
-        <a href="{% url 'holiday_bulk_create' %}" class="btn btn-ghost">
+        <a href="{% url 'holiday_bulk_create' %}" class="btn btn-ghost" style="{% if not rbac_flags.holiday_create %}pointer-events:none;opacity:.45;{% endif %}">
             <i class="fa-solid fa-layer-group"></i> Bulk Import
         </a>
     </div>
@@ -131,19 +131,19 @@
                             <i class="fa-solid fa-ellipsis"></i>
                         </button>
                         <div id="dropdown-{{ holiday.id }}" class="dropdown-menu" style="display: none; position: absolute; right: 0; top: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; min-width: 150px; z-index: 100;">
-                            <a href="{% url 'holiday_edit' holiday.id %}" class="dropdown-item" style="display: block; padding: 8px 15px; color: var(--text); text-decoration: none;">
+                            <a href="{% url 'holiday_edit' holiday.id %}" class="dropdown-item" style="display: block; padding: 8px 15px; color: var(--text); text-decoration: none;{% if not rbac_flags.holiday_update %}pointer-events:none;opacity:.45;{% endif %}">
                                 <i class="fa-solid fa-edit"></i> Edit
                             </a>
                             <form method="POST" action="{% url 'holiday_toggle_status' holiday.id %}" class="ajax-form" style="display: block;">
                                 {% csrf_token %}
-                                <button type="submit" class="dropdown-item" style="width: 100%; text-align: left; padding: 8px 15px; background: none; border: none; cursor: pointer;">
+                                <button type="submit" class="dropdown-item" style="width: 100%; text-align: left; padding: 8px 15px; background: none; border: none; cursor: pointer;" {% if not rbac_flags.holiday_update %}disabled title="Permission required: holiday_update"{% endif %}>
                                     <i class="fa-solid fa-{% if holiday.is_active %}eye-slash{% else %}eye{% endif %}"></i>
                                     {% if holiday.is_active %}Deactivate{% else %}Activate{% endif %}
                                 </button>
                             </form>
                             <form method="POST" action="{% url 'holiday_delete' holiday.id %}" class="ajax-form delete-form" style="display: block;" onsubmit="return confirm('Delete {{ holiday.name }}?')">
                                 {% csrf_token %}
-                                <button type="submit" class="dropdown-item" style="width: 100%; text-align: left; padding: 8px 15px; background: none; border: none; cursor: pointer; color: var(--danger);">
+                                <button type="submit" class="dropdown-item" style="width: 100%; text-align: left; padding: 8px 15px; background: none; border: none; cursor: pointer; color: var(--danger);" {% if not rbac_flags.holiday_delete %}disabled title="Permission required: holiday_delete"{% endif %}>
                                     <i class="fa-solid fa-trash"></i> Delete
                                 </button>
                             </form>
@@ -159,7 +159,7 @@
         <i class="fa-solid fa-calendar" style="font-size: 48px; color: var(--text-muted); margin-bottom: 15px;"></i>
         <h3>No Holidays Found</h3>
         <p style="color: var(--text-muted);">Add your first holiday to get started.</p>
-        <a href="{% url 'holiday_create' %}" class="btn btn-primary" style="margin-top: 15px;">
+        <a href="{% url 'holiday_create' %}" class="btn btn-primary" style="margin-top: 15px;{% if not rbac_flags.holiday_create %}pointer-events:none;opacity:.45;{% endif %}">
             <i class="fa-solid fa-plus"></i> Add Holiday
         </a>
     </div>
@@ -174,7 +174,14 @@ function toggleDropdown(id) {
 
 // Close dropdowns when clicking outside
 document.addEventListener('click', function(event) {
+    const isMenuButton = event.target.closest('.btn.btn-ghost.btn-sm');
+    const isDropdown = event.target.closest('.dropdown-menu');
+    if (isMenuButton || isDropdown) {
+        return;
     }
+    document.querySelectorAll('.dropdown-menu').forEach(function(menu) {
+        menu.style.display = 'none';
+    });
 );
 
 // Handle AJAX success updates

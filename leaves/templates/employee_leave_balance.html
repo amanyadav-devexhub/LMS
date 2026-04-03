@@ -310,6 +310,15 @@
                     <span>Used: {{ b.used|floatformat:1 }}</span>
                 </div>
             </div>
+            {% empty %}
+            <div class="leave-item" style="grid-column:1 / -1;">
+                <div class="item-head">
+                    <div class="item-name">No leave types configured</div>
+                </div>
+                <div class="item-foot">
+                    <span>Admin needs to create an active leave type and apply it to employees.</span>
+                </div>
+            </div>
             {% endfor %}
         </div>
     </div>
@@ -318,6 +327,10 @@
     <div class="grid-2col">
         <div class="summary-panel animate-in delay-3">
             <div class="panel-head"><i class="fa-solid fa-chart-pie"></i> Monthly Insights</div>
+            <div class="sum-box">
+                <div class="sum-lbl"><i class="fa-solid fa-sliders" style="background:rgba(0,198,212,0.12);color:var(--aqua-deep);"></i> Active Policy</div>
+                <div class="sum-val">{% if active_policy %}{{ active_policy.name }}{% else %}No active policy{% endif %}</div>
+            </div>
             <div class="sum-box">
                 <div class="sum-lbl"><i class="fa-solid fa-money-check-dollar" style="background:#e6f9f2;color:#047a52;"></i> Paid Days</div>
                 <div class="sum-val">{{ monthly_paid|floatformat:1 }} days</div>
@@ -355,33 +368,34 @@
 
 </div>
 
+<!-- ... all your HTML content ... -->
+
 <script>
-$(document).ready(function() {
-    const totalRemaining = parseFloat("{{ total_remaining|default:0 }}");
-    const totalAllocated = parseFloat("{{ total_allocated|default:40 }}") || 40;
-    const used = totalAllocated - totalRemaining;
-    const pct = Math.min(Math.max((used / totalAllocated) * 100, 0), 100);
-    const circumference = 389.5;
-    const offset = circumference - (pct / 100) * circumference;
-    
-    setTimeout(() => {
-        $('#main-ring').css('stroke-dashoffset', offset);
-        $('#ring-pct').text(Math.round(pct) + '%');
-        
-        let current = 0;
-        const target = totalRemaining;
-        const duration = 1000;
-        const steps = 60;
-        const inc = target / steps;
-        const interval = setInterval(() => {
-            current += inc;
-            if (current >= target) {
-                current = target;
-                clearInterval(interval);
-            }
-            $('#total-val').html(current.toFixed(1) + '<span>days</span>');
-        }, duration / steps);
-    }, 300);
+document.addEventListener("DOMContentLoaded", () => {
+    fetch("{% url 'api_leave_balance' %}", {
+        method: "GET",
+        headers: { "Accept": "application/json" },
+    })
+    .then(response => {
+        if (!response.ok) throw new Error("Network error");
+        return response.json();
+    })
+    .then(data => {
+        console.log("API Response:", data);
+
+        const totalValEl = document.getElementById("total-val");
+        const totalRemaining = parseFloat(data.available_balance || 0);
+        totalValEl.innerHTML = totalRemaining.toFixed(1) + "<span>days</span>";
+
+        const totalAllocated = parseFloat(data.total_accrued || 40);
+        const used = totalAllocated - totalRemaining;
+        const pct = Math.min(Math.max((used / totalAllocated) * 100, 0), 100);
+        const circumference = 389.5;
+        const offset = circumference - (pct / 100) * circumference;
+        document.getElementById("main-ring").style.strokeDashoffset = offset;
+        document.getElementById("ring-pct").innerText = Math.round(pct) + "%";
+    })
+    .catch(err => console.error("Fetch error:", err));
 });
 </script>
 {% endblock %}

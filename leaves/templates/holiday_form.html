@@ -54,7 +54,6 @@
 .toggle-row.on .pill-toggle { background: var(--aqua); }
 .toggle-row.on .pill-toggle::after { transform: translateX(16px); }
 
-/* Type color dots */
 .type-option {
   display: flex; align-items: center; gap: 10px;
   padding: 8px 12px; border-radius: var(--radius-xs);
@@ -100,7 +99,10 @@
     </div>
   </div>
 
-  <form method="POST" class="ajax-form redirect-on-success">
+  <!-- ✅ FIX: form action points to JSON API endpoints, not the HTML view -->
+  <form method="POST"
+        action="{% if holiday %}{% url 'api_holiday_edit' holiday.id %}{% else %}{% url 'api_holiday_create' %}{% endif %}"
+        class="ajax-form redirect-on-success">
     {% csrf_token %}
 
     <!-- ── BASIC INFO ── -->
@@ -122,6 +124,7 @@
     <div class="form-row-2">
       <div class="form-group">
         <label class="form-label">Holiday Type <span style="color:var(--danger);">*</span></label>
+        <!-- ✅ FIX: holiday_types from context, holiday.holiday_type (no extra 's') for selected -->
         <select name="holiday_type" class="form-control" required>
           {% for val, label in holiday_types %}
           <option value="{{ val }}"
@@ -147,6 +150,7 @@
     <div class="form-row-2">
       <div class="form-group">
         <label class="form-label">Start Date <span style="color:var(--danger);">*</span></label>
+        <!-- ✅ FIX: falls back to today (passed from view context) -->
         <input type="date" name="date" class="form-control" required
                value="{{ holiday.date|date:'Y-m-d'|default:today|date:'Y-m-d' }}">
       </div>
@@ -171,7 +175,10 @@
                {% if holiday and holiday.is_recurring %}checked{% endif %}
                style="display:none;">
         <div>
-          <div class="toggle-row-label"><i class="fa-solid fa-rotate" style="color:var(--aqua-deep);margin-right:6px;font-size:11px;"></i>Recurring Every Year</div>
+          <div class="toggle-row-label">
+            <i class="fa-solid fa-rotate" style="color:var(--aqua-deep);margin-right:6px;font-size:11px;"></i>
+            Recurring Every Year
+          </div>
           <div class="toggle-row-hint">Automatically repeats on the same date each year</div>
         </div>
         <div class="pill-toggle"></div>
@@ -185,19 +192,29 @@
                {% if holiday and holiday.is_half_day %}checked{% endif %}
                style="display:none;">
         <div>
-          <div class="toggle-row-label"><i class="fa-solid fa-circle-half-stroke" style="color:var(--aqua-deep);margin-right:6px;font-size:11px;"></i>Half Day Holiday</div>
+          <div class="toggle-row-label">
+            <i class="fa-solid fa-circle-half-stroke" style="color:var(--aqua-deep);margin-right:6px;font-size:11px;"></i>
+            Half Day Holiday
+          </div>
           <div class="toggle-row-hint">Only half the working day is off</div>
         </div>
         <div class="pill-toggle"></div>
       </label>
 
       <!-- Half day type selector -->
-      <div id="half-day-type-row" style="display:{% if holiday and holiday.is_half_day %}block{% else %}none{% endif %};padding-left:8px;">
+      <div id="half-day-type-row"
+           style="display:{% if holiday and holiday.is_half_day %}block{% else %}none{% endif %};padding-left:8px;">
         <div class="form-group" style="margin-bottom:0;">
           <label class="form-label">Which half?</label>
           <select name="half_day_type" class="form-control" style="max-width:260px;">
-            <option value="FIRST_HALF"  {% if holiday and holiday.half_day_type == 'FIRST_HALF'  %}selected{% endif %}>First Half (Morning)</option>
-            <option value="SECOND_HALF" {% if holiday and holiday.half_day_type == 'SECOND_HALF' %}selected{% endif %}>Second Half (Afternoon)</option>
+            <option value="FIRST_HALF"
+              {% if holiday and holiday.half_day_type == 'FIRST_HALF' %}selected{% endif %}>
+              First Half (Morning)
+            </option>
+            <option value="SECOND_HALF"
+              {% if holiday and holiday.half_day_type == 'SECOND_HALF' %}selected{% endif %}>
+              Second Half (Afternoon)
+            </option>
           </select>
         </div>
       </div>
@@ -211,7 +228,10 @@
                {% if holiday.is_active %}checked{% endif %}
                style="display:none;">
         <div>
-          <div class="toggle-row-label"><i class="fa-solid fa-circle-check" style="color:var(--success);margin-right:6px;font-size:11px;"></i>Active</div>
+          <div class="toggle-row-label">
+            <i class="fa-solid fa-circle-check" style="color:var(--success);margin-right:6px;font-size:11px;"></i>
+            Active
+          </div>
           <div class="toggle-row-hint">Inactive holidays are hidden from employees</div>
         </div>
         <div class="pill-toggle"></div>

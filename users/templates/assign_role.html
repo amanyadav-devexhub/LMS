@@ -200,7 +200,7 @@ table.assign-table tbody tr:hover td { background: var(--surface2); }
         <i class="fa-solid fa-filter" style="color:var(--aqua);"></i>
         Filter Employees
     </div>
-    <form method="get" style="display:flex; align-items:flex-end; gap:14px; flex-wrap:wrap; width:100%;">
+    <form method="get" id="assignFilterForm" style="display:flex; align-items:flex-end; gap:14px; flex-wrap:wrap; width:100%;">
 
         <div class="filter-group">
             <span class="filter-label"><i class="fa-solid fa-magnifying-glass"></i> Search</span>
@@ -236,7 +236,7 @@ table.assign-table tbody tr:hover td { background: var(--surface2); }
             <button type="submit" class="btn-filter btn-filter-primary">
                 <i class="fa-solid fa-filter"></i> Apply
             </button>
-            <a href="{% url 'assign_role' %}" class="btn-filter">
+            <a href="{% url 'assign_role_page' %}" class="btn-filter">
                 <i class="fa-solid fa-xmark"></i> Clear
             </a>
         </div>
@@ -252,21 +252,21 @@ table.assign-table tbody tr:hover td { background: var(--surface2); }
         <h3>Bulk Assign by Department</h3>
         <p>Assign a role to all employees in a department at once. Admin users will be skipped.</p>
     </div>
-    <form method="post" action="{% url 'assign_role_bulk' %}" class="bulk-controls ajax-form redirect-on-success">
+    <form method="post" action="{% url 'assign_role_bulk_api' %}" class="bulk-controls ajax-form">
         {% csrf_token %}
-        <select name="department_id" class="bulk-select" required>
+        <select name="department_id" class="bulk-select" required {% if not rbac_flags.user_assign_role and not rbac_flags.team_manage %}disabled{% endif %}>
             <option value="">Select Department</option>
             {% for dept in departments %}
             <option value="{{ dept.pk }}">{{ dept.name }}</option>
             {% endfor %}
         </select>
-        <select name="role_id" class="bulk-select" required>
+        <select name="role_id" class="bulk-select" required {% if not rbac_flags.user_assign_role and not rbac_flags.team_manage %}disabled{% endif %}>
             <option value="">Select Role</option>
             {% for role in roles %}
             <option value="{{ role.pk }}">{{ role.name }}</option>
             {% endfor %}
         </select>
-        <button type="submit" class="btn-bulk">
+        <button type="submit" class="btn-bulk" {% if not rbac_flags.user_assign_role and not rbac_flags.team_manage %}disabled title="Permission required: user_assign_role" style="opacity:.45;cursor:not-allowed;"{% endif %}>
             <i class="fa-solid fa-bolt"></i> Bulk Assign
         </button>
     </form>
@@ -279,7 +279,7 @@ table.assign-table tbody tr:hover td { background: var(--surface2); }
         <div class="users-table-title">
             <i class="fa-solid fa-users" style="color:var(--aqua);"></i>
             Employees
-            <span style="background:var(--aqua-glass); border:1px solid var(--border-mid); border-radius:20px; padding:3px 12px; font-size:12px; color:var(--aqua-deep);">
+            <span id="assignTotalUsers" style="background:var(--aqua-glass); border:1px solid var(--border-mid); border-radius:20px; padding:3px 12px; font-size:12px; color:var(--aqua-deep);">
                 {{ total_users }}
             </span>
         </div>
@@ -298,7 +298,7 @@ table.assign-table tbody tr:hover td { background: var(--surface2); }
                 <th>Management (Role, Dept, TL)</th>
             </tr>
         </thead>
-        <tbody>
+        <tbody id="assignUsersTbody">
             {% for user in users %}
             <tr>
                 <td style="color:var(--text-faint); width:40px;">{{ forloop.counter }}</td>
@@ -356,7 +356,7 @@ table.assign-table tbody tr:hover td { background: var(--surface2); }
 
                 <!-- Assign new role -->
                <td>
-                    <form method="post" action="{% url 'assign_role' %}" class="ajax-form redirect-on-success">
+                    <form method="post" action="{% url 'assign_role_api' %}" class="ajax-form">
                     {% csrf_token %}
 
                     <input type="hidden" name="user_id" value="{{ user.pk }}">
@@ -364,7 +364,7 @@ table.assign-table tbody tr:hover td { background: var(--surface2); }
                     <div class="role-select-inline">
 
                     <!-- Department Select -->
-                    <select name="department_id">
+                    <select name="department_id" {% if not rbac_flags.user_assign_role and not rbac_flags.team_manage %}disabled{% endif %}>
                     <option value="">Department</option>
                     {% for dept in departments %}
                     <option value="{{ dept.pk }}"
@@ -375,7 +375,7 @@ table.assign-table tbody tr:hover td { background: var(--surface2); }
                     </select>
 
                     <!-- Role Select -->
-                    <select name="role_id" required>
+                    <select name="role_id" required {% if not rbac_flags.user_assign_role %}disabled{% endif %}>
                     <option value="">— Role —</option>
                     {% for role in roles %}
                     <option value="{{ role.pk }}"
@@ -386,7 +386,7 @@ table.assign-table tbody tr:hover td { background: var(--surface2); }
                     </select>
 
                     <!-- Reporting TL Select -->
-                    <select name="reporting_manager_id">
+                    <select name="reporting_manager_id" {% if not rbac_flags.user_assign_role and not rbac_flags.team_manage %}disabled{% endif %}>
                     <option value="">— Reporting TL —</option>
                     {% for tl in tl_users %}
                     <option value="{{ tl.pk }}"
@@ -396,7 +396,7 @@ table.assign-table tbody tr:hover td { background: var(--surface2); }
                     {% endfor %}
                     </select>
 
-                    <button type="submit" class="btn-assign">
+                    <button type="submit" class="btn-assign" {% if not rbac_flags.user_assign_role %}disabled title="Permission required: user_assign_role" style="opacity:.45;cursor:not-allowed;"{% endif %}>
                     <i class="fa-solid fa-check"></i> Assign
                     </button>
 
@@ -420,4 +420,183 @@ table.assign-table tbody tr:hover td { background: var(--surface2); }
     </table>
 </div>
 
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+const assignPageData = {
+    roles: [
+        {% for role in roles %}
+        { id: {{ role.pk }}, name: "{{ role.name|escapejs }}" }{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    ],
+    departments: [
+        {% for dept in departments %}
+        { id: {{ dept.pk }}, name: "{{ dept.name|escapejs }}" }{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    ],
+    tlUsers: [
+        {% for tl in tl_users %}
+        { id: {{ tl.pk }}, name: "{{ tl.get_full_name|default:tl.username|escapejs }}" }{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    ]
+};
+const canAssignRole = {% if rbac_flags.user_assign_role %}true{% else %}false{% endif %};
+const canTeamManage = {% if rbac_flags.team_manage %}true{% else %}false{% endif %};
+
+function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, ch => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+    }[ch]));
+}
+
+function getRoleBadge(roleName) {
+    if (!roleName) {
+        return '<span class="role-badge badge-none"><i class="fa-solid fa-user-slash" style="font-size:10px;"></i> No Role</span>';
+    }
+    if (roleName === 'Admin') return `<span class="role-badge badge-admin"><i class="fa-solid fa-crown" style="font-size:10px;"></i> ${escapeHtml(roleName)}</span>`;
+    if (roleName === 'HR') return `<span class="role-badge badge-hr"><i class="fa-solid fa-users-gear" style="font-size:10px;"></i> ${escapeHtml(roleName)}</span>`;
+    if (roleName === 'Manager') return `<span class="role-badge badge-manager"><i class="fa-solid fa-briefcase" style="font-size:10px;"></i> ${escapeHtml(roleName)}</span>`;
+    if (roleName === 'TL') return `<span class="role-badge badge-tl"><i class="fa-solid fa-code-branch" style="font-size:10px;"></i> ${escapeHtml(roleName)}</span>`;
+    return `<span class="role-badge badge-default"><i class="fa-solid fa-user-tie" style="font-size:10px;"></i> ${escapeHtml(roleName)}</span>`;
+}
+
+function renderAssignUserRow(user, index) {
+    const canManage = canAssignRole || canTeamManage;
+    const deptDisabled = canManage ? '' : 'disabled';
+    const roleDisabled = canAssignRole ? '' : 'disabled';
+    const tlDisabled = canManage ? '' : 'disabled';
+    const assignDisabled = canAssignRole ? '' : 'disabled title="Permission required: user_assign_role" style="opacity:.45;cursor:not-allowed;"';
+    const initials = `${(user.full_name || '').split(' ')[0]?.[0] || ''}${(user.full_name || '').split(' ')[1]?.[0] || ''}`.toUpperCase() || 'U';
+    const departmentText = user.department
+        ? `<span style="display:flex; align-items:center; gap:6px; font-weight:600; color:var(--text-mid);">
+                <i class="fa-solid fa-building" style="color:var(--aqua); font-size:11px;"></i>
+                ${escapeHtml(user.department.name)}
+           </span>`
+        : '<span style="color:var(--text-faint);">-</span>';
+
+    const departmentOptions = ['<option value="">Department</option>'].concat(
+        assignPageData.departments.map(dept =>
+            `<option value="${dept.id}" ${user.department && user.department.id === dept.id ? 'selected' : ''}>${escapeHtml(dept.name)}</option>`
+        )
+    ).join('');
+
+    const roleOptions = ['<option value="">- Role -</option>'].concat(
+        assignPageData.roles.map(role =>
+            `<option value="${role.id}" ${user.role && user.role.id === role.id ? 'selected' : ''}>${escapeHtml(role.name)}</option>`
+        )
+    ).join('');
+
+    const tlOptions = ['<option value="">- Reporting TL -</option>'].concat(
+        assignPageData.tlUsers.map(tl =>
+            `<option value="${tl.id}" ${user.reporting_manager && user.reporting_manager.id === tl.id ? 'selected' : ''}>${escapeHtml(tl.name)}</option>`
+        )
+    ).join('');
+
+    return `
+    <tr>
+        <td style="color:var(--text-faint); width:40px;">${index + 1}</td>
+        <td>
+            <div class="user-cell">
+                <div class="user-avatar">${escapeHtml(initials)}</div>
+                <div>
+                    <div class="user-name">
+                        ${escapeHtml(user.full_name)}
+                        ${user.is_senior ? '<span style="font-size:10px; color:var(--aqua); margin-left:4px;"><i class="fa-solid fa-star"></i> Senior</span>' : ''}
+                    </div>
+                    <div class="user-email">${escapeHtml(user.email)}</div>
+                </div>
+            </div>
+        </td>
+        <td>${departmentText}</td>
+        <td>${getRoleBadge(user.role && user.role.name)}</td>
+        <td>
+            <form method="post" action="{% url 'assign_role_api' %}" class="ajax-form">
+                <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+                <input type="hidden" name="user_id" value="${user.id}">
+                <div class="role-select-inline">
+                    <select name="department_id" ${deptDisabled}>${departmentOptions}</select>
+                    <select name="role_id" required ${roleDisabled}>${roleOptions}</select>
+                    <select name="reporting_manager_id" ${tlDisabled}>${tlOptions}</select>
+                    <button type="submit" class="btn-assign" ${assignDisabled}>
+                        <i class="fa-solid fa-check"></i> Assign
+                    </button>
+                </div>
+            </form>
+        </td>
+    </tr>`;
+}
+
+function renderAssignEmptyState(hasFilters) {
+    return `
+    <tr>
+        <td colspan="5">
+            <div class="assign-empty">
+                <div class="assign-empty-icon"><i class="fa-solid fa-users"></i></div>
+                <div style="font-size:17px; font-weight:800; color:var(--text); margin-bottom:8px;">No Employees Found</div>
+                <p>${hasFilters ? 'Try adjusting your filters.' : 'No users exist yet.'}</p>
+            </div>
+        </td>
+    </tr>`;
+}
+
+async function loadAssignUsers(url) {
+    const response = await fetch(url, {
+        headers: { 'Accept': 'application/json' },
+        credentials: 'same-origin'
+    });
+    const data = await response.json();
+    if (!response.ok || !data.success) {
+        throw new Error(data.error || 'Failed to load employees.');
+    }
+
+    const tbody = document.getElementById('assignUsersTbody');
+    const total = document.getElementById('assignTotalUsers');
+    total.textContent = data.stats.total_users;
+
+    if (!data.users.length) {
+        const hasFilters = !!(data.filters.search || data.filters.dept || data.filters.role);
+        tbody.innerHTML = renderAssignEmptyState(hasFilters);
+    } else {
+        tbody.innerHTML = data.users.map(renderAssignUserRow).join('');
+    }
+}
+
+const assignFilterForm = document.getElementById('assignFilterForm');
+if (assignFilterForm) {
+    assignFilterForm.addEventListener('submit', async function (e) {
+        e.preventDefault();
+        const query = new URLSearchParams(new FormData(assignFilterForm));
+        query.set('format', 'json');
+
+        try {
+            await loadAssignUsers(`${assignFilterForm.action || window.location.pathname}?${query.toString()}`);
+            const pageQuery = new URLSearchParams(query);
+            pageQuery.delete('format');
+            const nextUrl = `${window.location.pathname}${pageQuery.toString() ? '?' + pageQuery.toString() : ''}`;
+            window.history.replaceState({}, '', nextUrl);
+        } catch (error) {
+            showToast(error.message || 'Unable to load employees.', 'error');
+        }
+    });
+
+    const clearBtn = assignFilterForm.querySelector('a.btn-filter');
+    if (clearBtn) {
+        clearBtn.addEventListener('click', async function (e) {
+            e.preventDefault();
+            assignFilterForm.reset();
+            try {
+                await loadAssignUsers(`${window.location.pathname}?format=json`);
+                window.history.replaceState({}, '', window.location.pathname);
+            } catch (error) {
+                showToast(error.message || 'Unable to reset filters.', 'error');
+            }
+        });
+    }
+}
+</script>
 {% endblock %}

@@ -1,12 +1,9 @@
 {% extends 'base.html' %}
-{% block title %}Roles — LeaveSetu{% endblock %}
+{% block title %}Roles - LeaveSetu{% endblock %}
 {% block page_title %}Roles{% endblock %}
 
 {% block extra_head %}
 <style>
-/* ══════════════════════════════════════════
-   ROLE LIST PAGE
-══════════════════════════════════════════ */
 .stats-row {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
@@ -35,7 +32,6 @@
 .stat-val   { font-size: 30px; font-weight: 800; color: var(--text); letter-spacing: -1px; line-height: 1; margin-bottom: 4px; }
 .stat-label { font-size: 12px; color: var(--text-muted); font-weight: 500; }
 
-/* Roles grid */
 .roles-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
@@ -104,7 +100,6 @@
     border-radius: 20px; padding: 3px 10px;
 }
 
-/* Action buttons */
 .action-btns { display: flex; gap: 6px; }
 .act-btn {
     width: 33px; height: 33px; border-radius: 9px;
@@ -123,7 +118,6 @@
 .act-btn-delete:hover { background: rgba(240,64,88,0.1); border-color: rgba(240,64,88,0.3); }
 .act-btn-lock   { color: var(--text-faint); cursor: not-allowed; }
 
-/* New role button */
 .btn-new {
     background: linear-gradient(135deg, var(--aqua-deep), var(--aqua));
     color: #fff !important; border: none;
@@ -136,7 +130,6 @@
 }
 .btn-new:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(0,198,212,0.55); }
 
-/* ── MODALS ──────────────────────────── */
 .modal-overlay {
     position: fixed; inset: 0;
     background: rgba(13,17,23,0.7);
@@ -191,7 +184,6 @@
 }
 .delete-warning i { font-size: 15px; margin-top: 1px; flex-shrink: 0; }
 
-/* Empty state */
 .roles-empty {
     grid-column: 1/-1; text-align: center;
     padding: 80px 24px; color: var(--text-muted);
@@ -201,29 +193,25 @@
 </style>
 {% endblock %}
 
-
 {% block content %}
-
-<!-- ── Stats ── -->
 <div class="stats-row animate-in">
     <div class="stat-card">
         <div class="stat-icon"><i class="fa-solid fa-shield-halved"></i></div>
-        <div class="stat-val">{{ total_roles }}</div>
+        <div class="stat-val" id="totalRolesValue">0</div>
         <div class="stat-label">Total Roles</div>
     </div>
     <div class="stat-card">
         <div class="stat-icon"><i class="fa-solid fa-users"></i></div>
-        <div class="stat-val">{{ total_users }}</div>
+        <div class="stat-val" id="totalUsersValue">0</div>
         <div class="stat-label">Total Users</div>
     </div>
     <div class="stat-card">
         <div class="stat-icon"><i class="fa-solid fa-key"></i></div>
-        <div class="stat-val">{{ total_roles }}</div>
+        <div class="stat-val" id="permissionSetsValue">0</div>
         <div class="stat-label">Permission Sets</div>
     </div>
 </div>
 
-<!-- ── Header row ── -->
 <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-bottom:22px;" class="animate-in delay-1">
     <div>
         <div style="font-size:18px; font-weight:800; color:var(--text);">All Roles</div>
@@ -235,92 +223,14 @@
         <a href="{% url 'role_permission_list' %}" class="act-btn act-btn-perm" style="width:auto; padding:0 16px; gap:8px; font-size:13px; font-weight:700;">
             <i class="fa-solid fa-key"></i> Manage Permissions
         </a>
-        <button class="btn-new" onclick="openModal('createModal')">
+        <button class="btn-new" {% if rbac_flags.role_create %}onclick="openModal('createModal')"{% endif %} {% if not rbac_flags.role_create %}disabled title="Permission required: role_create" style="opacity:.45;cursor:not-allowed;"{% endif %}>
             <i class="fa-solid fa-plus"></i> New Role
         </button>
     </div>
 </div>
 
-<!-- ── Role Cards ── -->
-<div class="roles-grid animate-in delay-2">
+<div class="roles-grid animate-in delay-2" id="rolesGrid"></div>
 
-    {% for role in roles %}
-    <div class="role-card">
-        <div class="role-card-body">
-
-            <!-- Icon -->
-            <div class="role-icon">
-                {% if role.name == "Admin" %}       <i class="fa-solid fa-crown"></i>
-                {% elif role.name == "HR" %}         <i class="fa-solid fa-users-gear"></i>
-                {% elif role.name == "Manager" %}    <i class="fa-solid fa-briefcase"></i>
-                {% elif role.name == "TL" %}         <i class="fa-solid fa-code-branch"></i>
-                {% else %}                           <i class="fa-solid fa-user-tie"></i>
-                {% endif %}
-            </div>
-
-            <div class="role-name">{{ role.name }}</div>
-
-            <div class="role-count-pill" style="margin-bottom:0;">
-                <i class="fa-solid fa-users" style="font-size:11px;"></i>
-                {{ role.user_count }} user{{ role.user_count|pluralize }}
-            </div>
-
-        </div>
-
-        <div class="role-card-footer">
-            {% if role.name == "Admin" %}
-            <div class="role-badge-admin">
-                <i class="fa-solid fa-crown"></i> Protected
-            </div>
-            {% else %}
-            <div style="font-size:12px; color:var(--text-faint);">Active</div>
-            {% endif %}
-
-            <div class="action-btns">
-                <!-- Permissions -->
-                <a href="{% url 'role_permission_list' %}?role={{ role.pk }}"
-                   class="act-btn act-btn-perm" title="Edit Permissions">
-                    <i class="fa-solid fa-key"></i>
-                </a>
-                <!-- Assign -->
-                <a href="{% url 'assign_role' %}?role={{ role.pk }}"
-                   class="act-btn" style="color:var(--text-muted);" title="View / Assign Users">
-                    <i class="fa-solid fa-eye"></i>
-                </a>
-                <!-- Edit -->
-                <button class="act-btn act-btn-edit" title="Rename Role"
-                        onclick="openEditModal({{ role.pk }}, '{{ role.name|escapejs }}')">
-                    <i class="fa-solid fa-pen"></i>
-                </button>
-                <!-- Delete -->
-                {% if role.name == "Admin" %}
-                <div class="act-btn act-btn-lock" title="Admin role cannot be deleted">
-                    <i class="fa-solid fa-lock"></i>
-                </div>
-                {% else %}
-                <button class="act-btn act-btn-delete" title="Delete Role"
-                        onclick="openDeleteModal({{ role.pk }}, '{{ role.name|escapejs }}', {{ role.user_count }})">
-                    <i class="fa-solid fa-trash"></i>
-                </button>
-                {% endif %}
-            </div>
-        </div>
-    </div>
-    {% empty %}
-    <div class="roles-empty">
-        <div class="roles-empty-icon"><i class="fa-solid fa-shield-halved"></i></div>
-        <div class="roles-empty-title">No Roles Yet</div>
-        <p>Create your first role to get started.</p>
-        <button class="btn-new" style="margin-top:18px;" onclick="openModal('createModal')">
-            <i class="fa-solid fa-plus"></i> Create Role
-        </button>
-    </div>
-    {% endfor %}
-
-</div>
-
-
-<!-- ════════════ CREATE MODAL ════════════ -->
 <div class="modal-overlay" id="createModal">
     <div class="modal-box">
         <div class="modal-head">
@@ -336,7 +246,7 @@
                 <div class="form-group">
                     <label class="form-label">Role Name <span style="color:var(--danger)">*</span></label>
                     <input type="text" name="name" class="form-control"
-                           placeholder="e.g. Senior Developer, QA Lead, DevOps…"
+                           placeholder="e.g. Senior Developer, QA Lead, DevOps..."
                            required autofocus>
                     <div style="font-size:12px; color:var(--text-muted); margin-top:6px;">
                         <i class="fa-solid fa-circle-info" style="color:var(--aqua);"></i>
@@ -346,7 +256,7 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-ghost btn-sm" onclick="closeModal('createModal')">Cancel</button>
-                <button type="submit" class="btn-new" style="padding:9px 20px; font-size:13px;">
+                <button type="submit" class="btn-new" style="padding:9px 20px; font-size:13px;" {% if not rbac_flags.role_create %}disabled title="Permission required: role_create"{% endif %}>
                     <i class="fa-solid fa-plus"></i> Create Role
                 </button>
             </div>
@@ -354,8 +264,6 @@
     </div>
 </div>
 
-
-<!-- ════════════ EDIT MODAL ════════════ -->
 <div class="modal-overlay" id="editModal">
     <div class="modal-box">
         <div class="modal-head">
@@ -375,7 +283,7 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-ghost btn-sm" onclick="closeModal('editModal')">Cancel</button>
-                <button type="submit" class="btn-new" style="padding:9px 20px; font-size:13px; background:linear-gradient(135deg,#005a67,var(--aqua));">
+                <button type="submit" class="btn-new" style="padding:9px 20px; font-size:13px; background:linear-gradient(135deg,#005a67,var(--aqua));" {% if not rbac_flags.role_update %}disabled title="Permission required: role_update"{% endif %}>
                     <i class="fa-solid fa-floppy-disk"></i> Save Changes
                 </button>
             </div>
@@ -383,8 +291,6 @@
     </div>
 </div>
 
-
-<!-- ════════════ DELETE MODAL ════════════ -->
 <div class="modal-overlay" id="deleteModal">
     <div class="modal-box">
         <div class="modal-head" style="background:linear-gradient(90deg,rgba(240,64,88,0.06),transparent);">
@@ -412,18 +318,109 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-ghost btn-sm" onclick="closeModal('deleteModal')">Cancel</button>
-                <button type="submit" class="btn btn-danger btn-sm" style="font-weight:700;">
+                <button type="submit" class="btn btn-danger btn-sm" style="font-weight:700;" {% if not rbac_flags.role_delete %}disabled title="Permission required: role_delete"{% endif %}>
                     <i class="fa-solid fa-trash"></i> Delete Role
                 </button>
             </div>
         </form>
     </div>
 </div>
-
 {% endblock %}
 
 {% block extra_scripts %}
 <script>
+const rolesApiUrl = "{% url 'role_list' %}?format=json";
+const rolesGrid = document.getElementById('rolesGrid');
+const canRoleCreate = {% if rbac_flags.role_create %}true{% else %}false{% endif %};
+const canRoleUpdate = {% if rbac_flags.role_update %}true{% else %}false{% endif %};
+const canRoleDelete = {% if rbac_flags.role_delete %}true{% else %}false{% endif %};
+let rolesInitialized = false;
+
+function getRoleIcon(name) {
+    if (name === 'Admin') return 'fa-crown';
+    if (name === 'HR') return 'fa-users-gear';
+    if (name === 'Manager') return 'fa-briefcase';
+    if (name === 'TL') return 'fa-code-branch';
+    return 'fa-user-tie';
+}
+
+function renderStats(stats) {
+    document.getElementById('totalRolesValue').textContent = stats.total_roles || 0;
+    document.getElementById('totalUsersValue').textContent = stats.total_users || 0;
+    document.getElementById('permissionSetsValue').textContent = stats.permission_sets || 0;
+}
+
+function renderRoles(roles) {
+    if (!roles.length) {
+        rolesGrid.innerHTML = `
+            <div class="roles-empty">
+                <div class="roles-empty-icon"><i class="fa-solid fa-shield-halved"></i></div>
+                <div class="roles-empty-title">No Roles Yet</div>
+                <p>Create your first role to get started.</p>
+                <button class="btn-new" style="margin-top:18px;${canRoleCreate ? '' : 'opacity:.45;cursor:not-allowed;'}" ${canRoleCreate ? "onclick=\"openModal('createModal')\"" : 'disabled title="Permission required: role_create"'}>
+                    <i class="fa-solid fa-plus"></i> Create Role
+                </button>
+            </div>`;
+        return;
+    }
+
+    rolesGrid.innerHTML = roles.map((role) => `
+        <div class="role-card">
+            <div class="role-card-body">
+                <div class="role-icon">
+                    <i class="fa-solid ${getRoleIcon(role.name)}"></i>
+                </div>
+                <div class="role-name">${role.name}</div>
+                <div class="role-count-pill" style="margin-bottom:0;">
+                    <i class="fa-solid fa-users" style="font-size:11px;"></i>
+                    ${role.user_count} user${role.user_count === 1 ? '' : 's'}
+                </div>
+            </div>
+            <div class="role-card-footer">
+                ${role.is_protected
+                    ? `<div class="role-badge-admin"><i class="fa-solid fa-crown"></i> Protected</div>`
+                    : `<div style="font-size:12px; color:var(--text-faint);">Active</div>`
+                }
+                <div class="action-btns">
+                    <a href="${role.permissions_url}" class="act-btn act-btn-perm" title="Edit Permissions">
+                        <i class="fa-solid fa-key"></i>
+                    </a>
+                    <a href="${role.assign_url}" class="act-btn" style="color:var(--text-muted);" title="View / Assign Users">
+                        <i class="fa-solid fa-eye"></i>
+                    </a>
+                    ${canRoleUpdate
+                        ? `<button class="act-btn act-btn-edit" title="Rename Role" onclick="openEditModal(${role.id}, '${String(role.name).replace(/'/g, "\\'")}')"><i class="fa-solid fa-pen"></i></button>`
+                        : `<button class="act-btn act-btn-edit" title="Permission required: role_update" disabled style="opacity:.45;cursor:not-allowed;"><i class="fa-solid fa-pen"></i></button>`
+                    }
+                    ${role.is_protected
+                        ? `<div class="act-btn act-btn-lock" title="Admin role cannot be deleted"><i class="fa-solid fa-lock"></i></div>`
+                        : (canRoleDelete
+                            ? `<button class="act-btn act-btn-delete" title="Delete Role" onclick="openDeleteModal(${role.id}, '${String(role.name).replace(/'/g, "\\'")}', ${role.user_count})"><i class="fa-solid fa-trash"></i></button>`
+                            : `<button class="act-btn act-btn-delete" title="Permission required: role_delete" disabled style="opacity:.45;cursor:not-allowed;"><i class="fa-solid fa-trash"></i></button>`
+                        )
+                    }
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+async function loadRoles() {
+    const response = await fetch(rolesApiUrl, {
+        method: 'GET',
+        credentials: 'include',
+        headers: { 'Accept': 'application/json' }
+    });
+
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const contentType = response.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) throw new Error('Response is not JSON');
+
+    const data = await response.json();
+    renderStats(data.stats || {});
+    renderRoles(data.roles || []);
+}
+
 function openModal(id)  { document.getElementById(id).classList.add('open'); document.body.style.overflow = 'hidden'; }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); document.body.style.overflow = ''; }
 
@@ -455,6 +452,22 @@ function openDeleteModal(pk, name, count) {
         warn.style.display = 'none';
     }
     openModal('deleteModal');
+}
+
+function initializeRolesPage() {
+    if (rolesInitialized) return;
+    rolesInitialized = true;
+    loadRoles().catch((error) => {
+        console.error('Roles fetch failed:', error);
+        renderStats({});
+        renderRoles([]);
+    });
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeRolesPage);
+} else {
+    initializeRolesPage();
 }
 </script>
 {% endblock %}

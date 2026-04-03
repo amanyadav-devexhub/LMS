@@ -1,4 +1,4 @@
-{% if pending_page %}
+{% if pending_page and pending_page.paginator.count %}
 <table class="tt">
     <thead>
         <tr>
@@ -10,67 +10,70 @@
             <th>Reason</th>
             <th>Applied On</th>
             <th>Actions</th>
-        </thead>
+        </tr>
+    </thead>
     <tbody>
         {% for leave in pending_page %}
         <tr class="clickable-row" data-href="{% url 'leave_detail' leave.id %}" style="cursor: pointer;">
             <td>
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <div class="lrav" style="width:32px;height:32px;font-size:10px;">{{ leave.employee.first_name|first|upper }}{{ leave.employee.last_name|first|upper }}</div>
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <div class="lrav" style="width:32px;height:32px;font-size:10px;">
+                        {{ leave.employee.first_name|first|upper }}{{ leave.employee.last_name|first|upper }}
+                    </div>
                     <div>
-                        <div style="font-weight: 700;">{{ leave.employee.get_full_name|default:leave.employee.username }}</div>
-                        <div style="font-size: 11px; color: var(--text-muted);">{{ leave.employee.email }}</div>
+                        <div style="font-weight:700;">{{ leave.employee.get_full_name|default:leave.employee.username }}</div>
+                        <div style="font-size:11px;color:var(--text-muted);">{{ leave.employee.email }}</div>
                     </div>
                 </div>
-             </div>
-             <td>{{ leave.employee.department.name|default:"—" }}</td>
-             <td>
-                 <span class="badge badge-info">{{ leave.leave_type }}</span>
-                 {% if not leave.is_paid %}<span class="badge badge-warning">Unpaid</span>{% endif %}
-             </td>
-             <td>{{ leave.duration }}</td>
-             <td>
-                 {{ leave.start_date|date:"d M" }}
-                 {% if leave.end_date and leave.end_date != leave.start_date %}
-                     → {{ leave.end_date|date:"d M Y" }}
-                 {% endif %}
-             </td>
-             <td style="max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                 {{ leave.reason|default:"—" }}
-             </td>
-             <td>{{ leave.created_at|date:"d M Y" }}</td>
-             <td>
-                 <div style="display: flex; gap: 5px;">
-                     {% if not leave.manager_voted %}
-                         <form method="POST" action="{% url 'approve_leave' leave.id %}" class="ajax-form" style="display: inline;" onclick="event.stopPropagation()">
-                             {% csrf_token %}
-                             <button type="submit" class="btn btn-success btn-sm">
-                                 <i class="fa-solid fa-check"></i> Approve
-                             </button>
-                         </form>
-                         <form method="POST" action="{% url 'reject_leave' leave.id %}" class="ajax-form" style="display: inline;" onclick="event.stopPropagation()">
-                             {% csrf_token %}
-                             <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Reject this leave request?')">
-                                 <i class="fa-solid fa-xmark"></i> Reject
-                             </button>
-                         </form>
-                     {% elif leave.manager_voted %}
-                         <span class="badge badge-secondary">✓ Voted</span>
-                     {% elif leave.final_status == 'APPROVED' %}
-                         <span class="badge badge-approved">Approved</span>
-                     {% elif leave.final_status == 'REJECTED' %}
-                         <span class="badge badge-rejected">Rejected</span>
-                     {% endif %}
-                 </div>
-             </td>
-         </tr>
+            </td>
+            <td>{{ leave.employee.department.name|default:"-" }}</td>
+            <td>
+                <span class="badge badge-info">{{ leave.leave_type_display|default:leave.leave_type|capfirst }}</span>
+                {% if not leave.is_paid %}<span class="badge badge-warning">Unpaid</span>{% endif %}
+            </td>
+            <td>{{ leave.duration }}</td>
+            <td>
+                {{ leave.start_date|date:"d M" }}
+                {% if leave.end_date and leave.end_date != leave.start_date %}
+                    -> {{ leave.end_date|date:"d M Y" }}
+                {% endif %}
+            </td>
+            <td style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                {{ leave.reason|default:"-" }}
+            </td>
+            <td>{{ leave.created_at|date:"d M Y" }}</td>
+            <td onclick="event.stopPropagation()">
+                <div style="display:flex;gap:5px;">
+                    {% if not leave.manager_voted %}
+                        <form method="POST" action="{% url 'approve_leave' leave.id %}" class="mgr-ajax-form" style="display:inline;">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-success btn-sm" {% if not rbac_flags.leave_approve %}disabled title="Permission required: leave_approve" style="opacity:.45;cursor:not-allowed;"{% endif %}>
+                                <i class="fa-solid fa-check"></i> Approve
+                            </button>
+                        </form>
+                        <form method="POST" action="{% url 'reject_leave' leave.id %}" class="mgr-ajax-form" style="display:inline;">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-danger btn-sm" {% if not rbac_flags.leave_reject %}disabled title="Permission required: leave_reject" style="opacity:.45;cursor:not-allowed;"{% else %}onclick="return confirm('Reject this leave request?')"{% endif %}>
+                                <i class="fa-solid fa-xmark"></i> Reject
+                            </button>
+                        </form>
+                    {% elif leave.final_status == 'APPROVED' %}
+                        <span class="badge badge-approved">Approved</span>
+                    {% elif leave.final_status == 'REJECTED' %}
+                        <span class="badge badge-rejected">Rejected</span>
+                    {% else %}
+                        <span class="badge badge-secondary">Voted</span>
+                    {% endif %}
+                </div>
+            </td>
+        </tr>
         {% endfor %}
     </tbody>
 </table>
 
 {% if pending_page.has_other_pages %}
 <div class="pgn" id="pending-pagination">
-    <span style="font-size:11px;color:var(--text-muted);">Page {{ pending_page.number }} of {{ pending_page.paginator.num_pages }}</span>
+    <span>{{ pending_page.start_index }}-{{ pending_page.end_index }} of {{ pending_page.paginator.count }}</span>
     <div style="display:flex;gap:4px;">
         {% if pending_page.has_previous %}
             <a href="?page={{ pending_page.previous_page_number }}&tab=pending" class="pb ajax-pagination" data-target="pending-list">
@@ -79,7 +82,7 @@
         {% else %}
             <span class="pb off"><i class="fa-solid fa-chevron-left"></i></span>
         {% endif %}
-        
+
         {% if pending_page.has_next %}
             <a href="?page={{ pending_page.next_page_number }}&tab=pending" class="pb ajax-pagination" data-target="pending-list">
                 <i class="fa-solid fa-chevron-right"></i>
@@ -90,11 +93,10 @@
     </div>
 </div>
 {% endif %}
-
 {% else %}
 <div class="emp">
-    <div class="emp-ico"><i class="fa-solid fa-check-double"></i></div>
-    <div class="emp-ttl">Queue is Empty</div>
-    <div class="emp-sub">No pending leave requests at the moment.</div>
+    <div class="emp-ico"><i class="fa-solid fa-inbox"></i></div>
+    <div class="emp-ttl">All Caught Up</div>
+    <div class="emp-sub">No pending leave requests require your approval.</div>
 </div>
 {% endif %}
