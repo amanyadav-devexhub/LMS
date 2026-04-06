@@ -1322,6 +1322,7 @@ def tl_dashboard_api(request):
     # Pending leaves (TL hasn't voted yet)
     all_pending = LeaveRequest.objects.filter(
         tl_voted=False,
+        final_status="PENDING",
         employee__reporting_manager=request.user,
     ).select_related("employee", "employee__department").order_by("-created_at")
 

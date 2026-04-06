@@ -264,6 +264,7 @@ def menu_permission_flags(user):
         "leave_view_own": "leave_view_own" in perms,
         "leave_view_all": "leave_view_all" in perms,
         "leave_approve": "leave_approve" in perms,
+        "leave_reject": "leave_reject" in perms,
         "leave_policy_view": "leave_policy_view" in perms,
         "leave_policy_create": "leave_policy_create" in perms,
         "leave_policy_update": "leave_policy_update" in perms,
