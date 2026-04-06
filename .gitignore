@@ -1,5 +1,6 @@
 # Byte-compiled / optimized / DLL files
 __pycache__/
+/__pycache__/
 *.py[cod]
 *$py.class
 
@@ -29,9 +30,13 @@ var/
 # Django specific
 *.log
 *.pot
-*.pyc
+*.pyc   
 *.pyo
 *.sqlite3
 db.sqlite3
 PROJECT_DOCS.md
 temp.txt
+LEAVE_POLICY_API_DOCS.md
+IMPLEMENTATION_SUMMARY.md
+test_leave_policy_api.py
+cleanup_analysis.py

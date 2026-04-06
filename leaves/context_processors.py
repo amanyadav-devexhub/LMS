@@ -1,6 +1,7 @@
 # leaves/context_processors.py
 from datetime import datetime, timedelta
 from .models import Holiday, LeaveRequest
+from users.rbac import menu_permission_flags, user_has_permission
 
 def holiday_context(request):
     """Add holiday counts and info to all templates"""
@@ -43,7 +44,7 @@ def hr_counts_context(request):
     context = {}
     
     # Only for HR and Admin
-    if request.user.role.name in ['HR', 'Admin']:
+    if user_has_permission(request.user, 'leave_manage') or user_has_permission(request.user, 'user_manage') or request.user.role.name in ['HR', 'Admin']:
         from django.db.models import Count, Q
         from datetime import date
         
@@ -63,3 +64,13 @@ def hr_counts_context(request):
         ).count()
     
     return context
+
+
+def rbac_context(request):
+    """Expose computed RBAC menu flags to templates."""
+    if not request.user.is_authenticated:
+        return {}
+
+    return {
+        'rbac_flags': menu_permission_flags(request.user),
+    }

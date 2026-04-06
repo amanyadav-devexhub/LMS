@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <title>{% block title %}LeaveSetu{% endblock %}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" href="data:,">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
@@ -327,8 +328,19 @@
         /* ═══════════════════════════════════
            MESSAGES
         ═══════════════════════════════════ */
-        .messages-container { padding: 12px 26px 0; }
-        .alert { padding: 10px 14px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 500; margin-bottom: 7px; display: flex; align-items: center; gap: 10px; animation: slideDown 0.25s ease; position: relative; overflow: hidden; }
+        .messages-container {
+            position: fixed;
+            top: calc(var(--topbar-h) + 12px);
+            right: 26px;
+            left: auto;
+            width: min(380px, calc(100vw - 32px));
+            display: flex;
+            flex-direction: column;
+            gap: 7px;
+            z-index: 1200;
+            pointer-events: none;
+        }
+        .alert { padding: 10px 14px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 500; margin-bottom: 0; display: flex; align-items: center; gap: 10px; animation: slideDown 0.25s ease; position: relative; overflow: hidden; pointer-events: auto; box-shadow: 0 12px 30px rgba(13,17,23,0.12); background-clip: padding-box; }
         .alert::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; border-radius: 3px 0 0 3px; }
         .alert-success  { background: rgba(5,201,138,0.08);  border: 1px solid rgba(5,201,138,0.22);  color: #047a52; }
         .alert-success::before  { background: var(--success); }
@@ -405,7 +417,12 @@
             .main-wrapper { margin-left: 0; }
             .hamburger { display: flex; }
             .page-content { padding: 16px 14px; }
-            .messages-container { padding: 10px 14px 0; }
+            .messages-container {
+                top: calc(var(--topbar-h) + 10px);
+                right: 14px;
+                left: auto;
+                width: calc(100vw - 28px);
+            }
             .topbar { padding: 0 14px; }
         }
     </style>
@@ -429,27 +446,32 @@
         {% if request.user.role %}
 
         {# ── ADMIN ── #}
-        {% if request.user.is_superuser %}
+        {% if request.user.is_superuser or request.user.role.name == 'Admin' %}
 
             <div class="nav-label">Main</div>
-            <a href="{% url 'admin_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'admin_dashboard' %}active{% endif %}">
+            <a href="{% url 'dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'dashboard' or request.resolver_match.url_name == 'admin_dashboard' %}active{% endif %}">
                 <span class="nav-icon"><i class="fa-solid fa-gauge-high"></i></span>
                 <span class="nav-text">Dashboard</span>
             </a>
 
             <div class="nav-label">People</div>
-            <a href="{% url 'employee_list' %}" class="nav-item {% if request.resolver_match.url_name == 'employee_list' and not request.GET.tab %}active{% elif request.resolver_match.url_name == 'employee_list' and request.GET.tab == 'all' %}active{% endif %}">
+            {% if rbac_flags.user_view %}
+            <a href="{% url 'employee_list_page' %}" class="nav-item {% if request.resolver_match.url_name == 'employee_list_page' and not request.GET.tab %}active{% elif request.resolver_match.url_name == 'employee_list_page' and request.GET.tab == 'all' %}active{% endif %}">
                 <span class="nav-icon"><i class="fa-solid fa-users"></i></span>
                 <span class="nav-text">All Employees</span>
             </a>
+            {% endif %}
         
+            {% if rbac_flags.team_manage %}
             <a href="{% url 'department_list' %}" class="nav-item {% if request.resolver_match.url_name == 'department_list' %}active{% endif %}">
                 <span class="nav-icon"><i class="fa-solid fa-building"></i></span>
                 <span class="nav-text">Departments</span>
             </a>
+            {% endif %}
 
             <div class="nav-label">Access Control</div>
 
+            {% if rbac_flags.role_view %}
             <a href="{% url 'role_list' %}" class="nav-item {% if request.resolver_match.url_name == 'role_list' %}active{% endif %}">
                 <span class="nav-icon"><i class="fa-solid fa-shield-halved"></i></span>
                 <span class="nav-text">Roles</span>
@@ -458,68 +480,88 @@
                 <span class="nav-icon"><i class="fa-solid fa-key"></i></span>
                 <span class="nav-text">Permissions</span>
             </a>
-            <a href="{% url 'assign_role' %}" class="nav-item {% if request.resolver_match.url_name == 'assign_role' %}active{% endif %}">
+            {% endif %}
+            {% if rbac_flags.user_assign_role %}
+            <a href="{% url 'assign_role_page' %}" class="nav-item {% if request.resolver_match.url_name == 'assign_role_page' %}active{% endif %}">
                 <span class="nav-icon"><i class="fa-solid fa-user-shield"></i></span>
                 <span class="nav-text">Assign Roles</span>
             </a>
+            {% endif %}
             
             <div class="nav-label">Leave Management</div>
  
+            {% if rbac_flags.leave_policy_view or rbac_flags.settings_view %}
             <a href="{% url 'admin_leave_policy' %}"
             class="nav-item {% if request.resolver_match.url_name == 'admin_leave_policy' %}active{% endif %}">
                 <span class="nav-icon"><i class="fa-solid fa-sliders"></i></span>
                 <span class="nav-text">Leave Types & Policy</span>
             </a>
+            {% endif %}
             
+            {% if rbac_flags.holiday_view %}
             <a href="{% url 'holiday_list' %}"
             class="nav-item {% if request.resolver_match.url_name == 'holiday_list' %}active{% endif %}">
                 <span class="nav-icon"><i class="fa-solid fa-calendar-days"></i></span>
                 <span class="nav-text">Holidays</span>
             </a>
+            {% endif %}
             
+            {% if rbac_flags.report_view %}
             <a href="{% url 'hr_leave_analytics' %}"
             class="nav-item {% if request.resolver_match.url_name == 'hr_leave_analytics' %}active{% endif %}">
                 <span class="nav-icon"><i class="fa-solid fa-chart-pie"></i></span>
                 <span class="nav-text">Leave Analytics</span>
             </a>
+            {% endif %}
  
             <div class="nav-label">Account</div>
+            {% if rbac_flags.notification_view %}
             <a href="{% url 'notifications' %}" class="nav-item {% if request.resolver_match.url_name == 'notifications' %}active{% endif %}">
                 <span class="nav-icon"><i class="fa-solid fa-bell"></i></span>
                 <span class="nav-text">Notifications</span>
                 {% if unread_count|default:0 > 0 %}<span class="nav-badge">{{ unread_count }}</span>{% endif %}
             </a>
-            <a href="{% url 'dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+            {% endif %}
+            <a href="{% url 'profile_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'profile_dashboard' %}active{% endif %}">
                 <span class="nav-icon"><i class="fa-solid fa-circle-user"></i></span>
                 <span class="nav-text">My Profile</span>
             </a>
 
         {# ── HR ── #}
-        {% elif request.user.role.name == "HR" %}
+        {% elif request.user.role.name == 'HR' %}
 
             <div class="nav-label">Main</div>
-            <a href="{% url 'hr_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'hr_dashboard' %}active{% endif %}">
+            {% if rbac_flags.dashboard_hr %}
+            <a href="{% url 'dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'dashboard' or request.resolver_match.url_name == 'hr_dashboard' %}active{% endif %}">
                 <span class="nav-icon"><i class="fa-solid fa-gauge-high"></i></span>
                 <span class="nav-text">Dashboard</span>
             </a>
+            {% endif %}
 
             <div class="nav-label">Leaves</div>
+            {% if rbac_flags.leave_view_all or rbac_flags.leave_approve %}
             <a href="{% url 'hr_pending_leaves' %}" class="nav-item {% if request.resolver_match.url_name == 'hr_pending_leaves' %}active{% endif %}">
                 <span class="nav-icon"><i class="fa-solid fa-file-circle-exclamation"></i></span>
                 <span class="nav-text">Pending Approvals</span>
                 {% if pending_hr_count|default:0 > 0 %}<span class="nav-badge">{{ pending_hr_count }}</span>{% endif %}
             </a>
+            {% endif %}
+            {% if rbac_flags.report_view %}
             <a href="{% url 'hr_leave_analytics' %}" class="nav-item {% if request.resolver_match.url_name == 'hr_leave_analytics' %}active{% endif %}">
                 <span class="nav-icon"><i class="fa-solid fa-chart-pie"></i></span>
                 <span class="nav-text">Leave Analytics</span>
             </a>
+            {% endif %}
+            {% if rbac_flags.team_view %}
             <a href="{% url 'hr_on_leave_today' %}" class="nav-item {% if request.resolver_match.url_name == 'hr_on_leave_today' %}active{% endif %}">
                 <span class="nav-icon"><i class="fa-solid fa-calendar-day"></i></span>
                 <span class="nav-text">On Leave Today</span>
                 {% if on_leave_today_count|default:0 > 0 %}<span class="nav-badge-soft">{{ on_leave_today_count }}</span>{% endif %}
             </a>
+            {% endif %}
 
             <div class="nav-label">People</div>
+            {% if rbac_flags.user_view %}
             <a href="{% url 'hr_employee_list' %}" class="nav-item {% if request.resolver_match.url_name == 'hr_employee_list' %}active{% endif %}">
                 <span class="nav-icon"><i class="fa-solid fa-users"></i></span>
                 <span class="nav-text">All Employees</span>
@@ -529,55 +571,76 @@
                 <span class="nav-text">New Joiners</span>
                 {% if new_joiners_count|default:0 > 0 %}<span class="nav-badge-soft">{{ new_joiners_count }}</span>{% endif %}
             </a>
+            {% endif %}
+            {% if rbac_flags.team_manage %}
             <a href="{% url 'hr_departments' %}" class="nav-item {% if request.resolver_match.url_name == 'hr_departments' %}active{% endif %}">
                 <span class="nav-icon"><i class="fa-solid fa-building"></i></span>
                 <span class="nav-text">Departments</span>
             </a>
+            {% endif %}
 
             <div class="nav-label">My Account</div>
+            {% if rbac_flags.leave_balance_view or rbac_flags.leave_view_own %}
             <a href="{% url 'hr_my_leave_balance' %}" class="nav-item {% if request.resolver_match.url_name == 'hr_my_leave_balance' %}active{% endif %}">
                 <span class="nav-icon"><i class="fa-solid fa-wallet"></i></span>
                 <span class="nav-text">My Leave Balance</span>
             </a>
+            {% endif %}
+            {% if rbac_flags.leave_apply %}
             <a href="{% url 'apply_leave' %}" class="nav-item {% if request.resolver_match.url_name == 'apply_leave' %}active{% endif %}">
             <span class="nav-icon"><i class="fa-solid fa-paper-plane"></i></span>
             <span class="nav-text">Apply Leave</span>
             </a>
+            {% endif %}
+            {% if rbac_flags.notification_view %}
             <a href="{% url 'notifications' %}" class="nav-item {% if request.resolver_match.url_name == 'notifications' %}active{% endif %}">
                 <span class="nav-icon"><i class="fa-solid fa-bell"></i></span>
                 <span class="nav-text">Notifications</span>
                 {% if unread_count|default:0 > 0 %}<span class="nav-badge">{{ unread_count }}</span>{% endif %}
             </a>
-            <a href="{% url 'dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+            {% endif %}
+            <a href="{% url 'profile_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'profile_dashboard' %}active{% endif %}">
                 <span class="nav-icon"><i class="fa-solid fa-circle-user"></i></span>
                 <span class="nav-text">My Profile</span>
             </a>
 
         {# ── TL ── #}
-{% elif request.user.role.name == "TL" %}
+{% elif request.user.role.name == 'TL' %}
 
     <div class="nav-label">Main</div>
-    <a href="{% url 'tl_dashboard' %}"
-       class="nav-item" data-tl="dashboard"
-       onclick="if(window.switchTab){event.preventDefault();switchTab('dashboard');}">
+    {% if rbac_flags.dashboard_manager %}
+    <a href="{% url 'dashboard' %}"
+       class="nav-item {% if request.resolver_match.url_name == 'dashboard' or request.resolver_match.url_name == 'tl_dashboard' and not request.GET.tab %}active{% endif %}" data-tl="dashboard">
         <span class="nav-icon"><i class="fa-solid fa-gauge-high"></i></span>
         <span class="nav-text">Dashboard</span>
     </a>
+    {% endif %}
+    {% if rbac_flags.leave_apply %}
     <a href="{% url 'apply_leave' %}" class="nav-item {% if request.resolver_match.url_name == 'apply_leave' %}active{% endif %}">
         <span class="nav-icon"><i class="fa-solid fa-paper-plane"></i></span>
         <span class="nav-text">Apply Leave</span>
     </a>
+    {% endif %}
+    {% if rbac_flags.leave_balance_view or rbac_flags.leave_view_own %}
+    <a href="{% url 'employee_leave_balance' %}" class="nav-item {% if request.resolver_match.url_name == 'employee_leave_balance' %}active{% endif %}">
+        <span class="nav-icon"><i class="fa-solid fa-wallet"></i></span>
+        <span class="nav-text">My Leave Balance</span>
+    </a>
+    {% endif %}
 
     <div class="nav-label">My Team</div>
+    {% if rbac_flags.leave_approve %}
     <a href="{% url 'tl_dashboard' %}?tab=pending"
        class="nav-item" data-tl="pending"
        onclick="if(window.switchTab){event.preventDefault();switchTab('pending');}">
         <span class="nav-icon"><i class="fa-solid fa-inbox"></i></span>
         <span class="nav-text">Pending Requests</span>
         {% if pending_count|default:0 > 0 %}
-            <span class="nav-badge">{{ pending_count }}</span>
+            <span data-counter="pending">{{ pending_count }}</span>
         {% endif %}
     </a>
+    {% endif %}
+    {% if rbac_flags.team_view %}
     <a href="{% url 'tl_dashboard' %}?tab=onleave"
        class="nav-item" data-tl="onleave"
        onclick="if(window.switchTab){event.preventDefault();switchTab('onleave');}">
@@ -587,6 +650,8 @@
             <span class="nav-badge-soft">{{ on_leave_count }}</span>
         {% endif %}
     </a>
+    {% endif %}
+    {% if rbac_flags.leave_balance_view or rbac_flags.leave_view_own %}
     <a href="{% url 'tl_dashboard' %}?tab=balance"
        class="nav-item" data-tl="balance"
        onclick="if(window.switchTab){event.preventDefault();switchTab('balance');}">
@@ -595,20 +660,26 @@
     </a>
 
     <div class="nav-label">History</div>
+    {% endif %}
+    {% if rbac_flags.leave_view_own %}
     <a href="{% url 'tl_dashboard' %}?tab=myleaves"
        class="nav-item" data-tl="myleaves"
        onclick="if(window.switchTab){event.preventDefault();switchTab('myleaves');}">
         <span class="nav-icon"><i class="fa-solid fa-user-clock"></i></span>
         <span class="nav-text">My Leave History</span>
     </a>
+    {% endif %}
+    {% if rbac_flags.leave_view_all %}
     <a href="{% url 'tl_dashboard' %}?tab=teamhistory"
        class="nav-item" data-tl="teamhistory"
        onclick="if(window.switchTab){event.preventDefault();switchTab('teamhistory');}">
         <span class="nav-icon"><i class="fa-solid fa-clock-rotate-left"></i></span>
         <span class="nav-text">Team Leave History</span>
     </a>
+    {% endif %}
 
     <div class="nav-label">Account</div>
+    {% if rbac_flags.notification_view %}
     <a href="{% url 'notifications' %}" class="nav-item {% if request.resolver_match.url_name == 'notifications' %}active{% endif %}">
         <span class="nav-icon"><i class="fa-solid fa-bell"></i></span>
         <span class="nav-text">Notifications</span>
@@ -616,63 +687,93 @@
             <span class="nav-badge">{{ notification_count }}</span>
         {% endif %}
     </a>
+    {% endif %}
     <!-- FIXED: Changed from {% url 'dashboard' %} to tl_dashboard with profile tab -->
-    <a href="{% url 'tl_dashboard' %}?tab=profile"
-       class="nav-item" data-tl="profile"
-       onclick="if(window.switchTab){event.preventDefault();switchTab('profile');}">
-        <span class="nav-icon"><i class="fa-solid fa-circle-user"></i></span>
-        <span class="nav-text">My Profile</span>
-    </a>
-    
+   <!-- FIXED: Changed from {% url 'dashboard' %} to profile_dashboard -->
+        <a href="{% url 'profile_dashboard' %}"
+        class="nav-item" data-tl="profile"
+        onclick="if(window.switchTab){event.preventDefault();switchTab('profile');}">
+            <span class="nav-icon"><i class="fa-solid fa-circle-user"></i></span>
+            <span class="nav-text">My Profile</span>
+        </a>
+            
         {# ── MANAGER ── #}
-        {% elif request.user.role.name == "Manager" %}
+        {% elif request.user.role.name == 'Manager' %}
             <div class="nav-label">Main</div>
-            <a href="{% url 'manager_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'manager_dashboard' %}active{% endif %}">
+            {% if rbac_flags.dashboard_manager %}
+            <a href="{% url 'dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'dashboard' or request.resolver_match.url_name == 'manager_dashboard' %}active{% endif %}">
                 <span class="nav-icon"><i class="fa-solid fa-gauge-high"></i></span>
                 <span class="nav-text">Dashboard</span>
             </a>
-            <a href="{% url 'hr_employee_list' %}" class="nav-item {% if request.resolver_match.url_name == 'hr_employee_list' %}active{% endif %}">
+            {% endif %}
+            {% if rbac_flags.leave_approve %}
+                    <a href="{% url 'manager_pending_leaves' %}" class="nav-item {% if request.resolver_match.url_name == 'manager_pending_leaves' %}active{% endif %}">
+                <span class="nav-icon"><i class="fa-solid fa-inbox"></i></span>
+                <span class="nav-text">Pending Leave</span>
+                {% if pending_count|default:0 > 0 %}<span class="nav-badge">{{ pending_count }}</span>{% endif %}
+            </a>
+            {% endif %}
+            {% if rbac_flags.team_view %}
+                    <a href="{% url 'hr_employee_list' %}?status=on_leave" class="nav-item {% if request.resolver_match.url_name == 'hr_employee_list' and request.GET.status == 'on_leave' %}active{% endif %}">
+                <span class="nav-icon"><i class="fa-solid fa-calendar-day"></i></span>
+                <span class="nav-text">On Leave Today</span>
+                {% if team_on_leave_count|default:on_leave_count|default:0 > 0 %}<span class="nav-badge-soft">{{ team_on_leave_count|default:on_leave_count }}</span>{% endif %}
+            </a>
+                    <a href="{% url 'hr_employee_list' %}" class="nav-item {% if request.resolver_match.url_name == 'hr_employee_list' and request.GET.status != 'on_leave' %}active{% endif %}">
                 <span class="nav-icon"><i class="fa-solid fa-users"></i></span>
                 <span class="nav-text">My Team</span>
             </a>
+            {% endif %}
             <div class="nav-label">Account</div>
+            {% if rbac_flags.notification_view %}
             <a href="{% url 'notifications' %}" class="nav-item {% if request.resolver_match.url_name == 'notifications' %}active{% endif %}">
                 <span class="nav-icon"><i class="fa-solid fa-bell"></i></span>
                 <span class="nav-text">Notifications</span>
                 {% if unread_count|default:0 > 0 %}<span class="nav-badge">{{ unread_count }}</span>{% endif %}
             </a>
-            <a href="{% url 'dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+            {% endif %}
+            <a href="{% url 'profile_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'profile_dashboard' %}active{% endif %}">
                 <span class="nav-icon"><i class="fa-solid fa-circle-user"></i></span>
                 <span class="nav-text">My Profile</span>
             </a>
 
-        {# ── EMPLOYEE ── #}
+       
         {# ── EMPLOYEE ── #}
         {% else %}
             <div class="nav-label">Main</div>
-            <a href="{% url 'employee_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'employee_dashboard' and not request.GET.tab or request.GET.tab == 'overview' %}active{% endif %}">
+            {% if rbac_flags.dashboard_employee %}
+            <a href="{% url 'dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'dashboard' or request.resolver_match.url_name == 'employee_dashboard' and not request.GET.tab or request.resolver_match.url_name == 'employee_dashboard' and request.GET.tab == 'overview' %}active{% endif %}">
                 <span class="nav-icon"><i class="fa-solid fa-gauge-high"></i></span>
                 <span class="nav-text">Dashboard</span>
             </a>
+            {% endif %}
+            {% if rbac_flags.leave_view_own %}
             <a href="{% url 'employee_dashboard' %}?tab=history" class="nav-item {% if request.resolver_match.url_name == 'employee_dashboard' and request.GET.tab == 'history' %}active{% endif %}">
                 <span class="nav-icon"><i class="fa-solid fa-clock-rotate-left"></i></span>
                 <span class="nav-text">Leave History</span>
             </a>
+            {% endif %}
+            {% if rbac_flags.leave_balance_view or rbac_flags.leave_view_own %}
             <a href="{% url 'employee_leave_balance' %}" class="nav-item {% if request.resolver_match.url_name == 'employee_leave_balance' %}active{% endif %}">
                 <span class="nav-icon"><i class="fa-solid fa-wallet"></i></span>
                 <span class="nav-text">Leave Balance</span>
             </a>
+            {% endif %}
+            {% if rbac_flags.leave_apply %}
             <a href="{% url 'apply_leave' %}" class="nav-item {% if request.resolver_match.url_name == 'apply_leave' %}active{% endif %}">
                 <span class="nav-icon"><i class="fa-solid fa-paper-plane"></i></span>
                 <span class="nav-text">Apply Leave</span>
             </a>
+            {% endif %}
             <div class="nav-label">Account</div>
+            {% if rbac_flags.notification_view %}
             <a href="{% url 'notifications' %}" class="nav-item {% if request.resolver_match.url_name == 'notifications' %}active{% endif %}">
                 <span class="nav-icon"><i class="fa-solid fa-bell"></i></span>
                 <span class="nav-text">Notifications</span>
                 {% if unread_count|default:0 > 0 %}<span class="nav-badge">{{ unread_count }}</span>{% endif %}
             </a>
-            <a href="{% url 'dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+            {% endif %}
+            <a href="{% url 'profile_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'profile_dashboard' %}active{% endif %}">
                 <span class="nav-icon"><i class="fa-solid fa-circle-user"></i></span>
                 <span class="nav-text">My Profile</span>
             </a>
@@ -704,10 +805,12 @@
         <button class="hamburger" onclick="toggleSidebar()"><i class="fa-solid fa-bars"></i></button>
         <h1 class="topbar-title">{% block page_title %}Dashboard{% endblock %}</h1>
         <div class="topbar-actions">
+            {% if rbac_flags.notification_view %}
             <a href="{% url 'notifications' %}" class="icon-btn">
                 <i class="fa-solid fa-bell"></i>
                 {% if unread_count|default:0 > 0 %}<span class="notif-dot">{{ unread_count }}</span>{% endif %}
             </a>
+            {% endif %}
             <div class="pd-wrap" id="pdWrap">
                 <div class="av-wrapper" onclick="togglePd()">
                     <div class="topbar-avatar">{{ request.user.first_name|first|upper }}{{ request.user.last_name|first|upper }}</div>
@@ -721,21 +824,18 @@
                         </div>
                     </div>
                     <div class="pd-body">
-                        <a href="{% url 'dashboard' %}" class="pd-link"><span class="pd-link-icon"><i class="fa-solid fa-circle-user"></i></span> My Profile</a>
+                        <a href="{% url 'profile_dashboard' %}" class="pd-link"><span class="pd-link-icon"><i class="fa-solid fa-circle-user"></i></span> My Profile</a>
                         {% if request.user.role %}
-                            {% if request.user.role.name == "Admin" %}<a href="{% url 'admin_dashboard' %}" class="pd-link">
-                            {% elif request.user.role.name == "HR" %}<a href="{% url 'hr_dashboard' %}" class="pd-link">
-                            {% elif request.user.role.name == "TL" %}<a href="{% url 'tl_dashboard' %}" class="pd-link">
-                            {% elif request.user.role.name == "Manager" %}<a href="{% url 'manager_dashboard' %}" class="pd-link">
-                            {% else %}<a href="{% url 'employee_dashboard' %}" class="pd-link">
-                            {% endif %}
+                            <a href="{% url 'dashboard' %}" class="pd-link">
                                 <span class="pd-link-icon"><i class="fa-solid fa-gauge-high"></i></span> Dashboard
                             </a>
                         {% endif %}
+                        {% if rbac_flags.notification_view %}
                         <a href="{% url 'notifications' %}" class="pd-link">
                             <span class="pd-link-icon"><i class="fa-solid fa-bell"></i></span> Notifications
                             {% if unread_count|default:0 > 0 %}<span class="nav-badge" style="margin-left:auto;font-size:9px;">{{ unread_count }}</span>{% endif %}
                         </a>
+                        {% endif %}
                         <div class="pd-div"></div>
                         <a href="{% url 'logout' %}" class="pd-link pd-link-out"><span class="pd-link-icon"><i class="fa-solid fa-right-from-bracket"></i></span> Log Out</a>
                     </div>
@@ -826,8 +926,16 @@ function showToast(message, type = 'success') {
         toast.style.opacity = '0';
         toast.style.transform = 'translateX(20px)';
         setTimeout(() => toast.remove(), 500);
-    }, 4000);
+    }, 10000);
 }
+
+document.querySelectorAll('.messages-container .alert').forEach((toast) => {
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateX(20px)';
+        setTimeout(() => toast.remove(), 500);
+    }, 10000);
+});
 
 $(document).on('submit', '.ajax-form', function(e) {
     e.preventDefault();
@@ -835,6 +943,7 @@ $(document).on('submit', '.ajax-form', function(e) {
     const url = $form.attr('action') || window.location.href;
     const method = $form.attr('method') || 'POST';
     const formData = new FormData(this);
+    const skipReload = $form.hasClass('redirect-on-success');
 
     // Disable buttons to prevent double click
     const $btn = $form.find('button[type="submit"]');
@@ -853,10 +962,15 @@ $(document).on('submit', '.ajax-form', function(e) {
         if (response.data.success) {
             showToast(response.data.message || 'Success', 'success');
             if (response.data.redirect) {
-                setTimeout(() => window.location.href = response.data.redirect, 800);
-            } else if (response.data.reload !== false) {
+                window.location.href = response.data.redirect;
+            } else if (!skipReload && response.data.reload !== false) {
                 // If reload is not explicitly false, we reload by default to see changes
-                setTimeout(() => window.location.reload(), 1000);
+                window.location.reload();
+            } else {
+                this.dispatchEvent(new CustomEvent('employee:created', {
+                    detail: response.data
+                }));
+                $btn.prop('disabled', false).html(originalBtnHtml);
             }
         } else {
             showToast(response.data.error || 'Action failed', 'error');

@@ -360,7 +360,7 @@
                class="form-control" placeholder="Search departments…"
                style="width:260px;">
     </form>
-    <button class="btn-create" onclick="openModal('createModal')">
+    <button class="btn-create" {% if rbac_flags.team_manage %}onclick="openModal('createModal')"{% else %}disabled title="Permission required: team_manage" style="opacity:.45;cursor:not-allowed;"{% endif %}>
         <i class="fa-solid fa-plus"></i> New Department
     </button>
 </div>
@@ -401,12 +401,12 @@
                 </a>
                 <!-- Edit -->
                 <button class="action-btn action-btn-edit" title="Edit"
-                        onclick="openEditModal({{ dept.pk }}, '{{ dept.name|escapejs }}', '{{ dept.hr.pk|default:'' }}')">
+                        {% if rbac_flags.team_manage %}onclick="openEditModal({{ dept.pk }}, '{{ dept.name|escapejs }}', '{{ dept.hr.pk|default:'' }}')"{% else %}disabled style="opacity:.45;cursor:not-allowed;"{% endif %}>
                     <i class="fa-solid fa-pen"></i>
                 </button>
                 <!-- Delete -->
                 <button class="action-btn action-btn-delete" title="Delete"
-                        onclick="openDeleteModal({{ dept.pk }}, '{{ dept.name|escapejs }}', {{ dept.emp_count }})">
+                        {% if rbac_flags.team_manage %}onclick="openDeleteModal({{ dept.pk }}, '{{ dept.name|escapejs }}', {{ dept.emp_count }})"{% else %}disabled style="opacity:.45;cursor:not-allowed;"{% endif %}>
                     <i class="fa-solid fa-trash"></i>
                 </button>
             </div>
@@ -417,7 +417,7 @@
         <div class="dept-empty-icon"><i class="fa-solid fa-building"></i></div>
         <div class="dept-empty-title">No Departments Found</div>
         <p>{% if search %}No results for "{{ search }}". {% endif %}Create your first department.</p>
-        <button class="btn-create" style="margin-top:16px;" onclick="openModal('createModal')">
+        <button class="btn-create" style="margin-top:16px;{% if not rbac_flags.team_manage %}opacity:.45;cursor:not-allowed;{% endif %}" {% if rbac_flags.team_manage %}onclick="openModal('createModal')"{% else %}disabled title="Permission required: team_manage"{% endif %}>
             <i class="fa-solid fa-plus"></i> Create Department
         </button>
     </div>
@@ -458,7 +458,7 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-ghost btn-sm" onclick="closeModal('createModal')">Cancel</button>
-                <button type="submit" class="btn-create" style="padding:8px 20px; font-size:13px;">
+                <button type="submit" class="btn-create" style="padding:8px 20px; font-size:13px;" {% if not rbac_flags.team_manage %}disabled title="Permission required: team_manage"{% endif %}>
                     <i class="fa-solid fa-plus"></i> Create
                 </button>
             </div>
@@ -499,7 +499,7 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-ghost btn-sm" onclick="closeModal('editModal')">Cancel</button>
-                <button type="submit" class="btn-create" style="padding:8px 20px; font-size:13px; background:linear-gradient(135deg,#005f6e,var(--aqua));">
+                <button type="submit" class="btn-create" style="padding:8px 20px; font-size:13px; background:linear-gradient(135deg,#005f6e,var(--aqua));" {% if not rbac_flags.team_manage %}disabled title="Permission required: team_manage"{% endif %}>
                     <i class="fa-solid fa-floppy-disk"></i> Save Changes
                 </button>
             </div>
@@ -535,7 +535,7 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-ghost btn-sm" onclick="closeModal('deleteModal')">Cancel</button>
-                <button type="submit" class="btn btn-danger btn-sm" style="font-weight:700;">
+                <button type="submit" class="btn btn-danger btn-sm" style="font-weight:700;" {% if not rbac_flags.team_manage %}disabled title="Permission required: team_manage"{% endif %}>
                     <i class="fa-solid fa-trash"></i> Delete
                 </button>
             </div>

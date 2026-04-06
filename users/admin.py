@@ -7,7 +7,10 @@ from .models import (
     SalaryDetails,
     BankDetails,
     VerificationDetails,
-    AdditionalDetails
+    AdditionalDetails,
+    RBACPermission,
+    RolePermissionAssignment,
+    AccessLog,
 )
 
 
@@ -16,8 +19,30 @@ from .models import (
 # -----------------------
 @admin.register(Role)
 class RoleAdmin(admin.ModelAdmin):
-    list_display = ("id", "name")
+    list_display = ("id", "name", "is_active")
     search_fields = ("name",)
+    list_filter = ("is_active",)
+
+
+@admin.register(RBACPermission)
+class RBACPermissionAdmin(admin.ModelAdmin):
+    list_display = ("id", "codename", "module", "action", "is_active")
+    search_fields = ("codename", "name", "module", "action")
+    list_filter = ("module", "action", "is_active")
+
+
+@admin.register(RolePermissionAssignment)
+class RolePermissionAssignmentAdmin(admin.ModelAdmin):
+    list_display = ("id", "role", "permission", "is_enabled")
+    search_fields = ("role__name", "permission__codename")
+    list_filter = ("role", "is_enabled", "permission__module")
+
+
+@admin.register(AccessLog)
+class AccessLogAdmin(admin.ModelAdmin):
+    list_display = ("id", "user", "action", "permission_code", "status", "created_at")
+    search_fields = ("user__email", "action", "permission_code", "path")
+    list_filter = ("status", "method", "created_at")
 
 
 # -----------------------

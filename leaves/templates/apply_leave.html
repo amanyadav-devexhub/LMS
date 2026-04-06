@@ -212,8 +212,8 @@
         <div class="al-card-title">Request Details</div>
       </div>
       <div class="al-card-body">
-        <form method="POST" action="{% url 'apply_leave' %}"
-              id="leaveForm" enctype="multipart/form-data" class="ajax-form">
+          <form method="POST" action="{% url 'apply_leave' %}"
+            id="leaveForm" enctype="multipart/form-data" class="leave-ajax-form">
           {% csrf_token %}
 
           <!-- ★ DYNAMIC Leave Type Cards from EmployeeLeaveAllocation -->
@@ -567,166 +567,463 @@
   </div><!-- end al-grid -->
 </div>
 
+<!-- Add this to your extra_head section or in a separate script block -->
 <script>
-/* ── Leave balance data from Django (JSON for JS use) ── */
-const LEAVE_BALANCE = {
-  {% for b in leave_breakdown %}
-  "{{ b.code }}": { remaining: {{ b.remaining }}, allocated: {{ b.allocated }}, used: {{ b.used }}, isPaid: {{ b.is_paid|yesno:'true,false' }} },
-  {% endfor %}
-};
-const MAX_DAYS = {{ max_days|default:5 }};
-const TODAY = new Date().toISOString().split('T')[0];
+$(document).ready(function() {
+  let selectedFiles = [];
 
-/* ── Init ── */
-document.addEventListener('DOMContentLoaded', function () {
-  const sd = document.getElementById('start_date');
-  const ed = document.getElementById('end_date');
-  if (sd) { sd.min = TODAY; sd.value = TODAY; }
-  if (ed) { ed.min = TODAY; ed.value = TODAY; }
+  function showDateError(message) {
+    $('#date-err-txt').text(message || 'Invalid date selection.');
+    $('#date-err').show();
+  }
+
+  function clearDateError() {
+    $('#date-err').hide();
+  }
+
+  function updateDayCounter() {
+    const duration = $('input[name="duration"]:checked').val() || 'FULL';
+    const start = $('#start_date').val();
+    const end = $('#end_date').val() || start;
+
+    let label = '1 day selected';
+    if (duration === 'HALF') {
+      label = '0.5 day selected';
+    } else if (duration === 'SHORT') {
+      const hours = Number($('input[name="short_hours"]:checked').val() || 4);
+      label = `${hours} hour short leave selected`;
+    } else if (start && end) {
+      const startDate = new Date(start);
+      const endDate = new Date(end);
+      const diffMs = endDate - startDate;
+      const days = Math.floor(diffMs / (1000 * 60 * 60 * 24)) + 1;
+      label = `${Math.max(days, 1)} day${Math.max(days, 1) > 1 ? 's' : ''} selected`;
+    }
+
+    $('#day-counter-txt').text(label);
+  }
+
+  function applyDurationUI(duration) {
+    const isShort = duration === 'SHORT';
+    const lockEndDate = duration === 'HALF' || isShort;
+
+    $('#short-panel').toggle(isShort);
+    $('#lock-hint').toggle(lockEndDate);
+    $('#end-star').toggle(!lockEndDate);
+
+    if (lockEndDate) {
+      const start = $('#start_date').val();
+      if (start) {
+        $('#end_date').val(start);
+      }
+      $('#end_date').prop('readonly', true);
+    } else {
+      $('#end_date').prop('readonly', false);
+    }
+  }
+
+  function validateDateRange() {
+    const duration = $('input[name="duration"]:checked').val() || 'FULL';
+    const start = $('#start_date').val();
+    const end = $('#end_date').val() || start;
+    const today = new Date().toISOString().split('T')[0];
+
+    clearDateError();
+    if (!start) {
+      return;
+    }
+
+    if (start < today) {
+      $('#start_date').val(today);
+      $('#end_date').val(today);
+      showDateError('Start date cannot be in the past.');
+      return;
+    }
+
+    if (duration === 'FULL' && end && end < start) {
+      $('#end_date').val(start);
+      showDateError('End date cannot be before start date.');
+    }
+  }
+
+  function refreshZeroBalanceBanner() {
+    const checked = $('input[name="leave_type"]:checked');
+    const card = checked.closest('.lt-card');
+    const remainingText = card.find('.lt-remaining').first().text() || '';
+    const match = remainingText.match(/-?\d+(\.\d+)?/);
+    const remaining = match ? Number(match[0]) : null;
+
+    if (remaining !== null && remaining <= 0) {
+      $('#zero-balance-banner').css('display', 'flex');
+      $('#zero-balance-text').text('No balance remaining for this leave type - leave will be unpaid.');
+    } else {
+      $('#zero-balance-banner').hide();
+    }
+  }
+
+  window.setDur = function(duration) {
+    $(`input[name="duration"][value="${duration}"]`).prop('checked', true);
+    applyDurationUI(duration);
+    window.onDateChange();
+  };
+
+  window.onDateChange = function() {
+    const start = $('#start_date').val();
+    const duration = $('input[name="duration"]:checked').val() || 'FULL';
+
+    if (start) {
+      $('#end_date').attr('min', start);
+    }
+
+    if (duration === 'HALF' || duration === 'SHORT') {
+      $('#end_date').val(start);
+    }
+
+    validateDateRange();
+    updateDayCounter();
+  };
+
+  window.onTypeChange = function(_code, _maxConsecutiveDays) {
+    refreshZeroBalanceBanner();
+    updateDayCounter();
+  };
+
+  window.onFileSelect = function(input) {
+    const files = Array.from((input && input.files) ? input.files : []);
+    selectedFiles = files;
+
+    const $fileList = $('#fileList');
+    $fileList.empty();
+
+    files.forEach((file) => {
+      const tooLarge = file.size > 5 * 1024 * 1024;
+      const item = `<div style="font-size:.8rem;color:${tooLarge ? '#ef4444' : 'var(--text-mid)'};margin-top:.3rem;">${file.name}${tooLarge ? ' (exceeds 5MB)' : ''}</div>`;
+      $fileList.append(item);
+    });
+  };
+
+  // Initial UI sync
+  const today = new Date().toISOString().split('T')[0];
+  $('#start_date').attr('min', today);
+  $('#end_date').attr('min', today);
+  if (!$('#start_date').val()) {
+    $('#start_date').val(today);
+  }
+  if (!$('#end_date').val()) {
+    $('#end_date').val($('#start_date').val());
+  }
+  const initialDuration = $('input[name="duration"]:checked').val() || 'FULL';
+  applyDurationUI(initialDuration);
+  refreshZeroBalanceBanner();
   updateDayCounter();
-  // Trigger balance check for the first selected type
-  const first = document.querySelector('input[name="leave_type"]:checked');
-  if (first) onTypeChange(first.value, 0);
+
+    // Handle form submission via AJAX
+    $('#leaveForm').on('submit', function(e) {
+        e.preventDefault();
+        
+        // Show loading state
+        const submitBtn = $('#submitBtn');
+        const originalBtnText = submitBtn.html();
+        submitBtn.prop('disabled', true).html('<i class="fa-solid fa-spinner fa-spin"></i> Submitting...');
+        
+        e.stopImmediatePropagation();
+
+        // Clear any previous alerts
+        $('.alert-message').remove();
+        
+        // Create FormData object for file upload
+        const formData = new FormData(this);
+        
+        // Make AJAX request to the API endpoint
+        $.ajax({
+            url: "{% url 'api_apply_leave' %}",
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function(response) {
+                console.log('Success Response:', response);
+                
+                // Show success message
+                showAlert('success', response.message || 'Leave application submitted successfully!');
+                
+                // Log the full JSON response
+                console.log('Full JSON Response:', JSON.stringify(response, null, 2));
+                
+                // Redirect to role-based leave history after toast is visible
+                setTimeout(function() {
+                  window.location.href = response.redirect_url || getRoleHistoryUrl();
+                }, 10000);
+            },
+            error: function(xhr, status, error) {
+                console.error('Error Response:', xhr);
+                
+                let errorMessage = 'An error occurred while submitting your leave application.';
+                
+                // Parse error response
+                if (xhr.responseJSON) {
+                    errorMessage = xhr.responseJSON.error || xhr.responseJSON.message || errorMessage;
+                    console.log('Error JSON:', JSON.stringify(xhr.responseJSON, null, 2));
+                } else if (xhr.responseText) {
+                    try {
+                        const errorJson = JSON.parse(xhr.responseText);
+                        errorMessage = errorJson.error || errorJson.message || errorMessage;
+                        console.log('Parsed Error:', errorJson);
+                    } catch(e) {
+                        errorMessage = xhr.responseText;
+                    }
+                }
+                
+                // Show error message
+                showAlert('error', errorMessage);
+                
+                // Log detailed error info
+                console.error({
+                    status: xhr.status,
+                    statusText: xhr.statusText,
+                    responseText: xhr.responseText,
+                    error: error
+                });
+            },
+            complete: function() {
+                // Reset button state
+                submitBtn.prop('disabled', false).html(originalBtnText);
+            }
+        });
+    });
+    
+    // Function to display alert messages
+    function showAlert(type, message) {
+        const alertHtml = `
+            <div class="alert-message alert-${type}" style="
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                z-index: 9999;
+                padding: 1rem 1.5rem;
+                border-radius: 12px;
+                background: ${type === 'success' ? '#10b981' : '#ef4444'};
+                color: white;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                animation: slideInRight 0.3s ease;
+                max-width: 400px;
+            ">
+                <div style="display: flex; align-items: center; gap: 0.75rem;">
+                    <i class="fa-solid ${type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'}"></i>
+                    <span>${message}</span>
+                    <button onclick="this.parentElement.parentElement.remove()" style="
+                        background: none;
+                        border: none;
+                        color: white;
+                        cursor: pointer;
+                        margin-left: 0.5rem;
+                    ">×</button>
+                </div>
+            </div>
+        `;
+        
+        $('body').append(alertHtml);
+        
+        // Auto-remove after 10 seconds
+        setTimeout(function() {
+            $('.alert-message').fadeOut('slow', function() {
+                $(this).remove();
+            });
+        }, 10000);
+    }
+
+      function getRoleHistoryUrl() {
+        {% if request.user.is_superuser or request.user.role.name == 'Admin' %}
+          return "{% url 'admin_dashboard' %}";
+        {% elif request.user.role.name == 'HR' %}
+          return "{% url 'hr_my_leave_balance' %}";
+        {% elif request.user.role.name == 'TL' %}
+          return "{% url 'tl_dashboard' %}";
+        {% elif request.user.role.name == 'Manager' %}
+          return "{% url 'manager_dashboard' %}";
+        {% else %}
+          return "{% url 'employee_dashboard' %}";
+        {% endif %}
+      }
+    
+    // Function to display leave details in a modal
+    function displayLeaveDetails(leave, hasUnpaid) {
+        const modalHtml = `
+            <div id="leaveDetailsModal" style="
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0,0,0,0.5);
+                z-index: 10000;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                animation: fadeIn 0.3s ease;
+            ">
+                <div style="
+                    background: white;
+                    border-radius: 16px;
+                    max-width: 500px;
+                    width: 90%;
+                    max-height: 80vh;
+                    overflow: auto;
+                    box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
+                ">
+                    <div style="
+                        padding: 1.5rem;
+                        border-bottom: 1px solid #e2e8f0;
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                    ">
+                        <h3 style="margin: 0; color: #0d2b30;">
+                            <i class="fa-solid fa-file-alt" style="color: #00c6d4; margin-right: 0.5rem;"></i>
+                            Leave Application Details
+                        </h3>
+                        <button onclick="document.getElementById('leaveDetailsModal').remove()" style="
+                            background: none;
+                            border: none;
+                            font-size: 1.5rem;
+                            cursor: pointer;
+                            color: #94a3b8;
+                        ">×</button>
+                    </div>
+                    <div style="padding: 1.5rem;">
+                        <div style="margin-bottom: 1rem;">
+                            <strong style="color: #475569;">Leave ID:</strong>
+                            <span style="color: #0f172a;">${leave.id || 'N/A'}</span>
+                        </div>
+                        <div style="margin-bottom: 1rem;">
+                            <strong style="color: #475569;">Status:</strong>
+                            <span style="
+                                display: inline-block;
+                                padding: 0.25rem 0.75rem;
+                                border-radius: 9999px;
+                                background: #fef3c7;
+                                color: #d97706;
+                                font-size: 0.875rem;
+                                font-weight: 600;
+                            ">${leave.status || 'PENDING'}</span>
+                        </div>
+                        <div style="margin-bottom: 1rem;">
+                            <strong style="color: #475569;">Leave Type:</strong>
+                            <span>${leave.leave_type || 'N/A'}</span>
+                        </div>
+                        <div style="margin-bottom: 1rem;">
+                            <strong style="color: #475569;">Duration:</strong>
+                            <span>${leave.duration || 'FULL'}</span>
+                        </div>
+                        <div style="margin-bottom: 1rem;">
+                            <strong style="color: #475569;">Dates:</strong>
+                            <span>${leave.start_date || 'N/A'} to ${leave.end_date || 'N/A'}</span>
+                        </div>
+                        ${hasUnpaid ? `
+                        <div style="
+                            margin-bottom: 1rem;
+                            padding: 0.75rem;
+                            background: #fef2f2;
+                            border-radius: 8px;
+                            border-left: 3px solid #ef4444;
+                        ">
+                            <strong style="color: #991b1b;">⚠️ Unpaid Leave:</strong>
+                            <span style="color: #7f1a1a;">${leave.unpaid_days || 0} days unpaid (salary will be deducted)</span>
+                        </div>
+                        ` : ''}
+                        <div style="
+                            margin-top: 1.5rem;
+                            padding-top: 1rem;
+                            border-top: 1px solid #e2e8f0;
+                        ">
+                            <h4 style="margin: 0 0 0.5rem 0; color: #0d2b30;">Full Response Data:</h4>
+                            <pre style="
+                                background: #f1f5f9;
+                                padding: 0.75rem;
+                                border-radius: 8px;
+                                overflow: auto;
+                                font-size: 0.75rem;
+                                max-height: 200px;
+                            ">${JSON.stringify(leave, null, 2)}</pre>
+                        </div>
+                        <button onclick="document.getElementById('leaveDetailsModal').remove()" style="
+                            width: 100%;
+                            margin-top: 1rem;
+                            padding: 0.75rem;
+                            background: linear-gradient(135deg, #0097a7, #00c6d4);
+                            color: white;
+                            border: none;
+                            border-radius: 8px;
+                            font-weight: 600;
+                            cursor: pointer;
+                        ">Close</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        $('body').append(modalHtml);
+        
+        // Add animation styles if not present
+        if (!$('#ajax-animation-styles').length) {
+            $('head').append(`
+                <style id="ajax-animation-styles">
+                    @keyframes slideInRight {
+                        from {
+                            transform: translateX(100%);
+                            opacity: 0;
+                        }
+                        to {
+                            transform: translateX(0);
+                            opacity: 1;
+                        }
+                    }
+                    @keyframes fadeIn {
+                        from {
+                            opacity: 0;
+                        }
+                        to {
+                            opacity: 1;
+                        }
+                    }
+                </style>
+            `);
+        }
+    }
+    
+    // Helper function to reset form fields
+    function resetFormFields() {
+        $('#leaveForm')[0].reset();
+        $('#fileList').empty();
+        selectedFiles = [];
+        updateDayCounter();
+        const today = new Date().toISOString().split('T')[0];
+        $('#start_date').val(today);
+        $('#end_date').val(today);
+        setDur('FULL');
+        $('#reason').val('');
+        $('#zero-balance-banner').hide();
+    }
+    
+    // Optional: Add a test button to manually test the API
+    function testApiConnection() {
+        console.log('Testing API connection...');
+        $.ajax({
+            url: '/api/leave/apply/',
+            type: 'GET',
+            success: function(response) {
+                console.log('API GET Response:', response);
+                showAlert('success', 'API connection successful!');
+            },
+            error: function(xhr) {
+                console.error('API GET Error:', xhr);
+                showAlert('error', 'API connection failed. Check console for details.');
+            }
+        });
+    }
+    
+    // Add test button to console for debugging
+    window.testApiConnection = testApiConnection;
 });
-
-/* ── Leave type selected → show remaining balance warning ── */
-function onTypeChange(code, maxConsec) {
-  const banner = document.getElementById('zero-balance-banner');
-  const txt    = document.getElementById('zero-balance-text');
-  if (!banner) return;
-
-  const bal = LEAVE_BALANCE[code];
-  if (bal && bal.remaining === 0) {
-    txt.textContent = 'No balance remaining for this leave type — leave will be unpaid and salary will be deducted.';
-    banner.style.display = 'flex';
-  } else if (bal && bal.remaining > 0 && !bal.isPaid) {
-    txt.textContent = 'This is an unpaid leave type — salary will be deducted.';
-    banner.style.display = 'flex';
-  } else {
-    banner.style.display = 'none';
-  }
-
-  // Update max days if this type has a consecutive limit
-  if (maxConsec > 0) {
-    window._typeMaxDays = maxConsec;
-  } else {
-    window._typeMaxDays = null;
-  }
-  updateDayCounter();
-}
-
-/* ── Duration toggle ── */
-function setDur(v) {
-  const end  = document.getElementById('end_date');
-  const hint = document.getElementById('lock-hint');
-  const star = document.getElementById('end-star');
-  const panel = document.getElementById('short-panel');
-  const sv   = document.getElementById('start_date').value;
-
-  if (v === 'HALF' || v === 'SHORT') {
-    end.readOnly = true;
-    end.style.opacity = '0.5';
-    end.style.cursor  = 'not-allowed';
-    end.value = sv;
-    hint.classList.add('show');
-    star.style.display = 'none';
-  } else {
-    end.readOnly = false;
-    end.style.opacity = '1';
-    end.style.cursor  = '';
-    hint.classList.remove('show');
-    star.style.display = 'inline';
-  }
-  panel.classList.toggle('show', v === 'SHORT');
-  updateDayCounter();
-}
-
-/* ── Date change ── */
-function onDateChange() {
-  const dur = document.querySelector('input[name="duration"]:checked').value;
-  const sd  = document.getElementById('start_date');
-  const ed  = document.getElementById('end_date');
-  ed.min = sd.value;
-  if (dur === 'HALF' || dur === 'SHORT') {
-    ed.value = sd.value;
-  } else {
-    if (!ed.value || ed.value < sd.value) ed.value = sd.value;
-  }
-  updateDayCounter();
-}
-
-/* ── Day counter + validation ── */
-function updateDayCounter() {
-  const sd     = document.getElementById('start_date').value;
-  const ed     = document.getElementById('end_date').value;
-  const ctr    = document.getElementById('day-counter');
-  const ctrTxt = document.getElementById('day-counter-txt');
-  const err    = document.getElementById('date-err');
-  const errTxt = document.getElementById('date-err-txt');
-  const btn    = document.getElementById('submitBtn');
-
-  err.classList.remove('show');
-  ctr.classList.remove('show', 'warn');
-  btn.disabled = false;
-  if (!sd) return;
-
-  const start = new Date(sd);
-  const end   = ed ? new Date(ed) : start;
-  const days  = Math.round((end - start) / (1000*60*60*24)) + 1;
-  const effectiveMax = window._typeMaxDays || MAX_DAYS;
-
-  ctr.classList.add('show');
-  ctrTxt.textContent = days === 1 ? '1 day selected' : days + ' days selected';
-
-  if (days > effectiveMax) {
-    ctr.classList.add('warn');
-    err.classList.add('show');
-    errTxt.textContent = 'Maximum ' + effectiveMax + ' days allowed for this leave type.';
-    btn.disabled = true;
-  }
-}
-
-/* ── File attachment ── */
-let selectedFiles = [];
-function onFileSelect(input) {
-  const files = Array.from(input.files);
-  const dt = new DataTransfer();
-  files.forEach(f => {
-    if (f.size > 5*1024*1024) { alert(f.name + ' exceeds 5MB and was skipped.'); return; }
-    if (!selectedFiles.find(x => x.name === f.name)) selectedFiles.push(f);
-  });
-  selectedFiles.forEach(f => dt.items.add(f));
-  input.files = dt.files;
-  renderFileList();
-}
-function removeFile(name) {
-  selectedFiles = selectedFiles.filter(f => f.name !== name);
-  const dt = new DataTransfer();
-  selectedFiles.forEach(f => dt.items.add(f));
-  document.getElementById('attachInput').files = dt.files;
-  renderFileList();
-}
-function renderFileList() {
-  const list = document.getElementById('fileList');
-  if (!selectedFiles.length) { list.innerHTML = ''; return; }
-  const icons = { pdf:'fa-file-pdf', doc:'fa-file-word', docx:'fa-file-word', jpg:'fa-file-image', jpeg:'fa-file-image', png:'fa-file-image' };
-  list.innerHTML = selectedFiles.map(f => {
-    const ext  = f.name.split('.').pop().toLowerCase();
-    const ico  = icons[ext] || 'fa-file';
-    const size = f.size > 1024*1024 ? (f.size/(1024*1024)).toFixed(1)+' MB' : Math.round(f.size/1024)+' KB';
-    return `<div class="file-item">
-      <i class="fa-solid ${ico} file-item-ico"></i>
-      <span class="file-item-name">${f.name}</span>
-      <span class="file-item-size">${size}</span>
-      <button type="button" class="file-item-rm" onclick="removeFile('${f.name}')"><i class="fa-solid fa-xmark"></i></button>
-    </div>`;
-  }).join('');
-}
-const zone = document.getElementById('attachZone');
-zone.addEventListener('dragover',  () => zone.classList.add('drag'));
-zone.addEventListener('dragleave', () => zone.classList.remove('drag'));
-zone.addEventListener('drop',      () => zone.classList.remove('drag'));
-
-// Form submit is handled by global .ajax-form handler in base.html
 </script>
 {% endblock %}

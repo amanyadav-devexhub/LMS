@@ -520,7 +520,7 @@
         </span>
       </div>
       <div class="chart-card-body">
-        {% if type_counts %}
+        {% if type_stats %}
         <div class="leave-types-container">
           <div class="donut-wrapper">
             <canvas id="donutChart" width="200" height="200" style="width: 200px; height: 200px;"></canvas>
@@ -531,13 +531,13 @@
           </div>
           
           <div class="types-grid">
-            {% for label in type_labels %}
+            {% for item in type_stats %}
             <div class="type-item">
               <div class="type-info">
-                <div class="type-color" style="background: {{ type_colors|slice:forloop.counter0|slice:':1'|join:',' }};"></div>
-                <span class="type-name">{{ label }}</span>
+                <div class="type-color" style="background: {{ item.color }};"></div>
+                <span class="type-name">{{ item.label }}</span>
               </div>
-              <span class="type-count">{{ type_counts|slice:forloop.counter0|slice:':1'|join:',' }}</span>
+              <span class="type-count">{{ item.count }}</span>
             </div>
             {% endfor %}
           </div>
@@ -655,17 +655,17 @@
 <!-- ══ CHART.JS DATA (passed from Django) ══ -->
 <script>
 // Data from Django view
-const MONTHLY_ALL      = {{ monthly_all|safe }};
-const MONTHLY_APPROVED = {{ monthly_approved|safe }};
-const MONTHLY_REJECTED = {{ monthly_rejected|safe }};
-const MONTHLY_PENDING  = {{ monthly_pending|safe }};
-const TYPE_LABELS      = {{ type_labels|safe }};
-const TYPE_COUNTS      = {{ type_counts|safe }};
-const TYPE_COLORS      = {{ type_colors|safe }};
-const DEPT_LABELS      = {{ dept_labels|safe }};
-const DEPT_COUNTS      = {{ dept_counts|safe }};
-const WEEK_LABELS      = {{ week_labels|safe }};
-const WEEK_COUNTS      = {{ week_counts|safe }};
+const MONTHLY_ALL      = {{ monthly_all_json|safe }};
+const MONTHLY_APPROVED = {{ monthly_approved_json|safe }};
+const MONTHLY_REJECTED = {{ monthly_rejected_json|safe }};
+const MONTHLY_PENDING  = {{ monthly_pending_json|safe }};
+const TYPE_LABELS      = {{ type_labels_json|safe }};
+const TYPE_COUNTS      = {{ type_counts_json|safe }};
+const TYPE_COLORS      = {{ type_colors_json|safe }};
+const DEPT_LABELS      = {{ dept_labels_json|safe }};
+const DEPT_COUNTS      = {{ dept_counts_json|safe }};
+const WEEK_LABELS      = {{ week_labels_json|safe }};
+const WEEK_COUNTS      = {{ week_counts_json|safe }};
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 

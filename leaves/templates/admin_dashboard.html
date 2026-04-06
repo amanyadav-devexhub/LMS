@@ -144,6 +144,94 @@
 .pqb-sub   { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
 .pqb-right { display: flex; gap: 10px; flex-wrap: wrap; }
 
+/* ── Frontend Permission Matrix ── */
+.perm-matrix-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  box-shadow: var(--shadow-xs);
+  overflow: hidden;
+  margin-bottom: 24px;
+}
+
+.perm-matrix-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(90deg, rgba(0,198,212,0.05), rgba(108,99,255,0.03));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.perm-matrix-title {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.perm-matrix-sub {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.perm-matrix-table-wrap {
+  overflow-x: auto;
+}
+
+.perm-matrix-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.perm-matrix-table th,
+.perm-matrix-table td {
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--border);
+  text-align: center;
+  font-size: 12px;
+}
+
+.perm-matrix-table th:first-child,
+.perm-matrix-table td:first-child {
+  text-align: left;
+  min-width: 180px;
+  font-weight: 700;
+}
+
+.perm-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.perm-chip.allowed {
+  color: #0f7a57;
+  background: rgba(5, 201, 138, 0.14);
+  border: 1px solid rgba(5, 201, 138, 0.35);
+}
+
+.perm-chip.denied {
+  color: #b01530;
+  background: rgba(240, 64, 88, 0.1);
+  border: 1px solid rgba(240, 64, 88, 0.28);
+}
+
+.perm-role-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 700;
+  margin-left: 6px;
+}
+
 /* ── Table Containers ── */
 .admin-table-wrap {
   background: var(--surface);
@@ -679,15 +767,15 @@
   </div>
   <div class="wb-right">
     <div class="wb-quick-stat">
-      <div class="wb-qs-val">{{ total_employees }}</div>
+      <div class="wb-qs-val" id="wbTotalEmployees">0</div>
       <div class="wb-qs-label">Staff</div>
     </div>
     <div class="wb-quick-stat">
-      <div class="wb-qs-val" style="color:var(--aqua-light);">{{ pending_count|default:0 }}</div>
+      <div class="wb-qs-val" style="color:var(--aqua-light);" id="wbPendingCount">0</div>
       <div class="wb-qs-label">Pending</div>
     </div>
     <div class="wb-quick-stat">
-      <div class="wb-qs-val" style="color:var(--success);">{{ active_count }}</div>
+      <div class="wb-qs-val" style="color:var(--success);" id="wbActiveCount">0</div>
       <div class="wb-qs-label">Active</div>
     </div>
     <!-- NEW: Leave Policy quick link -->
@@ -715,7 +803,7 @@
          --sc-trend-bg: rgba(108,99,255,0.1);
          --sc-trend-color: #6c63ff;">
     <div class="sc-icon"><i class="fa-solid fa-users"></i></div>
-    <div class="sc-value">{{ total_employees }}</div>
+    <div class="sc-value" id="statTotalEmployees">0</div>
     <div class="sc-label">Total Employees</div>
   </div>
 
@@ -730,7 +818,7 @@
          --sc-trend-bg: rgba(5,201,138,0.1);
          --sc-trend-color: #047a52;">
     <div class="sc-icon"><i class="fa-solid fa-circle-check"></i></div>
-    <div class="sc-value">{{ active_count }}</div>
+    <div class="sc-value" id="statActiveEmployees">0</div>
     <div class="sc-label">Active Employees</div>
   </div>
 
@@ -745,7 +833,7 @@
          --sc-trend-bg: rgba(240,64,88,0.09);
          --sc-trend-color: #b01530;">
     <div class="sc-icon"><i class="fa-solid fa-user-slash"></i></div>
-    <div class="sc-value">{{ inactive_count }}</div>
+    <div class="sc-value" id="statInactiveEmployees">0</div>
     <div class="sc-label">Inactive Employees</div>
   </div>
 
@@ -760,7 +848,7 @@
          --sc-trend-bg: rgba(245,166,35,0.1);
          --sc-trend-color: #905700;">
     <div class="sc-icon"><i class="fa-solid fa-file-lines"></i></div>
-    <div class="sc-value">{{ pending_count|default:0 }}</div>
+    <div class="sc-value" id="statPendingLeaves">0</div>
     <div class="sc-label">Pending Leaves</div>
   </div>
 
@@ -777,7 +865,7 @@
          --sc-trend-bg: rgba(0,198,212,0.1);
          --sc-trend-color: var(--aqua-deep);">
     <div class="sc-icon"><i class="fa-solid fa-sliders"></i></div>
-    <div class="sc-value" style="font-size:22px;letter-spacing:-0.5px;padding-top:6px;">{{ leave_types_count|default:"—" }}</div>
+    <div class="sc-value" id="statLeaveTypes" style="font-size:22px;letter-spacing:-0.5px;padding-top:6px;">—</div>
     <div class="sc-label">Leave Types Active</div>
     <div style="position:absolute;bottom:16px;right:16px;font-size:11px;font-weight:700;color:var(--aqua-deep);display:flex;align-items:center;gap:4px;z-index:1;">
       Manage <i class="fa-solid fa-arrow-right" style="font-size:9px;"></i>
@@ -793,13 +881,8 @@
     <div class="pqb-icon"><i class="fa-solid fa-sliders"></i></div>
     <div>
       <div class="pqb-title">Leave Types &amp; Policy Settings</div>
-      <div class="pqb-sub">
+      <div class="pqb-sub" id="policySummaryText">
         Set leave quotas, rules, carry-forward, and sync changes to all employees in one click.
-        {% if leave_types_count %}
-          Currently <strong>{{ leave_types_count }}</strong> active leave type{{ leave_types_count|pluralize }} configured.
-        {% else %}
-          No leave types configured yet — set them up now.
-        {% endif %}
       </div>
     </div>
   </div>
@@ -812,6 +895,35 @@
     </a>
   </div>
 </div>
+
+<!-- ══════════ FRONTEND ROLE PERMISSION MATRIX ══════════ -->
+{% comment %} <div class="perm-matrix-card animate-in delay-2">
+  <div class="perm-matrix-header">
+    <div class="perm-matrix-title">
+      <i class="fa-solid fa-table-cells-large" style="color:var(--aqua-deep);"></i>
+      Frontend Permission Matrix
+    </div>
+    <div class="perm-matrix-sub">Apply Leave, Leave Balance, and Leave History visibility by role</div>
+  </div>
+  <div class="perm-matrix-table-wrap">
+    <table class="perm-matrix-table">
+      <thead>
+        <tr>
+          <th>Frontend Feature</th>
+          <th>Employee</th>
+          <th>HR</th>
+          <th>TL</th>
+          <th>Manager</th>
+        </tr>
+      </thead>
+      <tbody id="frontendPermissionBody">
+        <tr>
+          <td colspan="5" style="text-align:center;color:var(--text-muted);">Loading permissions...</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div> {% endcomment %}
 
 
 <!-- ══════════ TWO COLUMN GRID ══════════ -->
@@ -830,29 +942,32 @@
         <div class="search-pro">
           <i class="fa-solid fa-magnifying-glass search-pro-icon"></i>
           <input type="text" class="search-pro-input" id="empSearchInput"
-                 placeholder="Search employees…" value="{{ search_query }}" autocomplete="off">
+                 placeholder="Search employees…" autocomplete="off">
         </div>
         <!-- Add button -->
+        {% if rbac_flags.user_create %}
         <button onclick="document.getElementById('create-modal').style.display='flex'"
                 class="btn btn-primary btn-sm">
           <i class="fa-solid fa-user-plus"></i> Add
         </button>
+        {% else %}
+        <button type="button" class="btn btn-primary btn-sm" disabled title="Permission required: user_create" style="opacity:.45;cursor:not-allowed;">
+          <i class="fa-solid fa-user-plus"></i> Add
+        </button>
+        {% endif %}
       </div>
     </div>
 
     <!-- Tabs -->
     <div class="tab-bar-pro">
-      <a href="?tab=all{% if search_query %}&search={{ search_query }}{% endif %}"
-         class="tab-pro {% if current_tab == 'all' %}active{% endif %}">
-        All <span class="tab-count">{{ total_employees }}</span>
+      <a href="#" class="tab-pro active" data-tab="all">
+        All <span class="tab-count" id="tabCountAll">0</span>
       </a>
-      <a href="?tab=active{% if search_query %}&search={{ search_query }}{% endif %}"
-         class="tab-pro {% if current_tab == 'active' %}active{% endif %}">
-        Active <span class="tab-count">{{ active_count }}</span>
+      <a href="#" class="tab-pro" data-tab="active">
+        Active <span class="tab-count" id="tabCountActive">0</span>
       </a>
-      <a href="?tab=inactive{% if search_query %}&search={{ search_query }}{% endif %}"
-         class="tab-pro {% if current_tab == 'inactive' %}active{% endif %}">
-        Inactive <span class="tab-count">{{ inactive_count }}</span>
+      <a href="#" class="tab-pro" data-tab="inactive">
+        Inactive <span class="tab-count" id="tabCountInactive">0</span>
       </a>
     </div>
 
@@ -912,9 +1027,10 @@
                 </a>
                 <form method="POST" action="{% url 'toggle_employee_status' emp.id %}" class="ajax-form" style="margin:0;">
                   {% csrf_token %}
-                  <button type="submit"
-                          class="btn btn-sm toggle-status-btn {% if emp.is_active %}btn-danger{% else %}btn-success{% endif %}"
-                          title="{% if emp.is_active %}Deactivate{% else %}Activate{% endif %}">
+                    <button type="submit"
+                      class="btn btn-sm toggle-status-btn {% if emp.is_active %}btn-danger{% else %}btn-success{% endif %}"
+                      title="{% if emp.is_active %}Deactivate{% else %}Activate{% endif %}"
+                      {% if emp.is_active and not rbac_flags.user_deactivate or not emp.is_active and not rbac_flags.user_activate %}disabled style="opacity:.45;cursor:not-allowed;"{% endif %}>
                     <i class="fa-solid {% if emp.is_active %}fa-user-slash{% else %}fa-user-check{% endif %}"></i>
                     {% if emp.is_active %}Deactivate{% else %}Activate{% endif %}
                   </button>
@@ -940,8 +1056,7 @@
     </div>
 
     <!-- Pagination -->
-    {% if page_obj %}
-    <div class="pagination-bar">
+    <div class="pagination-bar" id="employeesPagination">
       <div class="pagination-info">
         Showing
         <strong>{{ page_obj.start_index }}–{{ page_obj.end_index }}</strong>
@@ -972,7 +1087,6 @@
         {% endif %}
       </div>
     </div>
-    {% endif %}
 
   </div><!-- end employees table -->
 
@@ -991,7 +1105,7 @@
         <span class="badge badge-info" style="font-size:10.5px;">Live</span>
       </div>
 
-      <div style="overflow-y:auto;max-height:310px;">
+      <div style="overflow-y:auto;max-height:310px;" id="activityLogContainer">
 
         {% for log in activity_log %}
         <div class="activity-item">
@@ -1097,6 +1211,7 @@
         <span style="font-size:11px;color:var(--text-faint);font-weight:500;">This year</span>
       </div>
 
+      <div id="topLeaveTakersContainer">
       {% for item in top_leave_takers %}
       <div class="leaver-row">
 
@@ -1143,6 +1258,7 @@
         <div class="empty-title">No leave data yet</div>
       </div>
       {% endfor %}
+      </div>
 
     </div><!-- end top leave takers -->
 
@@ -1208,20 +1324,14 @@
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
         <div class="form-group">
           <label class="form-label">Department</label>
-          <select name="department_id" class="form-control">
+          <select name="department_id" class="form-control" id="departmentSelect">
             <option value="">Select Department</option>
-            {% for dept in departments %}
-              <option value="{{ dept.id }}">{{ dept.name }}</option>
-            {% endfor %}
           </select>
         </div>
         <div class="form-group">
           <label class="form-label">Role</label>
-          <select name="role_id" class="form-control" required>
+          <select name="role_id" class="form-control" id="roleSelect" required>
             <option value="">Select Role</option>
-            {% for role in roles %}
-              <option value="{{ role.id }}">{{ role.name }}</option>
-            {% endfor %}
           </select>
         </div>
       </div>
@@ -1231,7 +1341,7 @@
                placeholder="manager@company.com">
       </div>
       <div style="display:flex;gap:10px;margin-top:6px;">
-        <button type="submit" class="btn btn-primary">
+        <button type="submit" class="btn btn-primary" {% if not rbac_flags.user_create %}disabled title="Permission required: user_create"{% endif %}>
           <i class="fa-solid fa-user-plus"></i> Create Employee
         </button>
         <button type="button"
@@ -1246,19 +1356,45 @@
 <!-- ══════════ SCRIPTS ══════════ -->
 <script>
 /* ── Live Search (AJAX debounce) ── */
-const searchInput   = document.getElementById('empSearchInput');
-const empTableBody  = document.getElementById('empTableBody');
+const searchInput = document.getElementById('empSearchInput');
+const empTableBody = document.getElementById('empTableBody');
+const employeesPagination = document.getElementById('employeesPagination');
+const activityLogContainer = document.getElementById('activityLogContainer');
+const topLeaveTakersContainer = document.getElementById('topLeaveTakersContainer');
+const frontendPermissionBody = document.getElementById('frontendPermissionBody');
+const roleSelect = document.getElementById('roleSelect');
+const departmentSelect = document.getElementById('departmentSelect');
+const dashboardApiUrl = "{% url 'admin_dashboard_api' %}";
+const employeeDetailUrlTemplate = "{% url 'employee_detail' 0 %}";
+const toggleEmployeeUrlTemplate = "{% url 'toggle_employee_status' 0 %}";
+const canUserActivate = {% if rbac_flags.user_activate %}true{% else %}false{% endif %};
+const canUserDeactivate = {% if rbac_flags.user_deactivate %}true{% else %}false{% endif %};
 let searchTimer;
+let dashboardState = { tab: 'all', search: '', page: 1 };
+let adminAutoRefreshTimer = null;
+
+function getEmployeeInitials(emp) {
+  const name = (emp.name || '').trim();
+  if (!name) return '--';
+  const parts = name.split(/\s+/).filter(Boolean);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0] || ''}${parts[1][0] || ''}`.toUpperCase();
+}
 
 function renderEmployeeRow(emp) {
-  const initials    = (emp.first_name_initial || '') + (emp.last_name_initial || '');
+  const canToggle = emp.is_active ? canUserDeactivate : canUserActivate;
+  const toggleDisabledAttr = canToggle ? '' : 'disabled title="Permission required" style="opacity:.45;cursor:not-allowed;"';
+  const initials    = getEmployeeInitials(emp);
   const activeBadge = emp.is_active
     ? `<span class="badge badge-approved"><i class="fa-solid fa-circle" style="font-size:6px;"></i> Active</span>`
     : `<span class="badge badge-rejected"><i class="fa-solid fa-circle" style="font-size:6px;"></i> Inactive</span>`;
   const deptHtml    = emp.department
     ? `<span style="font-size:10.5px;color:var(--text-faint);"><i class="fa-solid fa-building" style="font-size:9px;"></i> ${emp.department}</span>`
     : '';
-  const csrfToken   = document.querySelector('[name=csrfmiddlewaretoken]').value;
+  const csrfTokenInput = document.querySelector('[name=csrfmiddlewaretoken]');
+  const csrfToken = csrfTokenInput ? csrfTokenInput.value : '';
+  const employeeDetailUrl = employeeDetailUrlTemplate.replace('/0/', `/${emp.id}/`);
+  const toggleEmployeeUrl = toggleEmployeeUrlTemplate.replace('/0/', `/${emp.id}/`);
 
   return `
     <tr>
@@ -1280,14 +1416,14 @@ function renderEmployeeRow(emp) {
       <td>${activeBadge}</td>
       <td>
         <div class="row-actions" style="opacity:1;">
-          <a href="/leave/employee/${emp.id}/" class="btn btn-ghost btn-sm" title="View">
+          <a href="${employeeDetailUrl}" class="btn btn-ghost btn-sm" title="View">
             <i class="fa-solid fa-eye"></i>
           </a>
-          <form method="POST" action="/leave/employee/toggle-status/${emp.id}/" class="ajax-form" style="margin:0;">
+          <form method="POST" action="${toggleEmployeeUrl}" class="ajax-form" style="margin:0;">
             <input type="hidden" name="csrfmiddlewaretoken" value="${csrfToken}">
             <button type="submit"
                     class="btn btn-sm toggle-status-btn ${emp.is_active ? 'btn-danger' : 'btn-success'}"
-                    title="${emp.is_active ? 'Deactivate' : 'Activate'}">
+                    title="${emp.is_active ? 'Deactivate' : 'Activate'}" ${toggleDisabledAttr}>
               <i class="fa-solid ${emp.is_active ? 'fa-user-slash' : 'fa-user-check'}"></i>
               ${emp.is_active ? 'Deactivate' : 'Activate'}
             </button>
@@ -1311,49 +1447,199 @@ function renderSkeleton() {
   return html;
 }
 
+function renderEmptyEmployees(message) {
+  empTableBody.innerHTML = `
+    <tr><td colspan="4">
+      <div class="empty-state" style="padding:40px;">
+        <div class="empty-icon"><i class="fa-solid fa-users-slash"></i></div>
+        <div class="empty-title">No employees found</div>
+        <p style="font-size:13px;color:var(--text-muted);margin-top:6px;">${message}</p>
+      </div>
+    </td></tr>`;
+}
+
+function renderPagination(pagination) {
+  if (!pagination || pagination.num_pages <= 1) {
+    employeesPagination.innerHTML = '';
+    return;
+  }
+  let links = '';
+  links += pagination.has_previous
+    ? `<a href="#" class="page-btn" data-page="${pagination.page - 1}"><i class="fa-solid fa-chevron-left" style="font-size:10px;"></i></a>`
+    : `<span class="page-btn disabled"><i class="fa-solid fa-chevron-left" style="font-size:10px;"></i></span>`;
+  for (let i = 1; i <= pagination.num_pages; i++) {
+    if (i === pagination.page) links += `<span class="page-btn active">${i}</span>`;
+    else if (i > pagination.page - 3 && i < pagination.page + 3) links += `<a href="#" class="page-btn" data-page="${i}">${i}</a>`;
+  }
+  links += pagination.has_next
+    ? `<a href="#" class="page-btn" data-page="${pagination.page + 1}"><i class="fa-solid fa-chevron-right" style="font-size:10px;"></i></a>`
+    : `<span class="page-btn disabled"><i class="fa-solid fa-chevron-right" style="font-size:10px;"></i></span>`;
+  employeesPagination.innerHTML = `<div class="pagination-info">Showing <strong>${pagination.start_index}-${pagination.end_index}</strong> of <strong>${pagination.total_count}</strong> employees</div><div class="pagination-pages">${links}</div>`;
+}
+
+function renderActivityLog(items) {
+  if (!items || !items.length) {
+    activityLogContainer.innerHTML = `<div class="empty-state" style="padding:40px;"><div class="empty-icon"><i class="fa-solid fa-bolt"></i></div><div class="empty-title">No recent activity</div></div>`;
+    return;
+  }
+  const iconMap = { joined: 'fa-user-plus', approved: 'fa-circle-check', rejected: 'fa-circle-xmark', toggle: 'fa-power-off', role: 'fa-shield-halved', policy: 'fa-sliders' };
+  activityLogContainer.innerHTML = items.map(item => `<div class="activity-item"><div class="activity-icon-wrap ${item.type}"><i class="fa-solid ${iconMap[item.type] || 'fa-bell'}"></i></div><div class="activity-body"><div class="activity-title">${item.title}</div><div class="activity-time"><i class="fa-regular fa-clock" style="font-size:10px;"></i>${item.time_ago}</div></div></div>`).join('');
+}
+
+function renderTopLeaveTakers(items) {
+  if (!items || !items.length) {
+    topLeaveTakersContainer.innerHTML = `<div class="empty-state" style="padding:40px;"><div class="empty-icon"><i class="fa-solid fa-trophy"></i></div><div class="empty-title">No leave data yet</div></div>`;
+    return;
+  }
+  const maxDays = Math.max(...items.map(item => Number(item.total_days) || 0), 1);
+  topLeaveTakersContainer.innerHTML = items.map((item, index) => {
+    const rankClass = index === 0 ? 'top1' : index === 1 ? 'top2' : index === 2 ? 'top3' : '';
+    const rankLabel = String(index + 1);
+    const initials = (item.name || '').split(' ').map(p => p[0] || '').slice(0, 2).join('').toUpperCase();
+    const width = Math.max(8, ((Number(item.total_days) || 0) / maxDays) * 100);
+    return `<div class="leaver-row"><div class="leaver-rank ${rankClass}">${rankLabel}</div><div class="leaver-avatar">${initials}</div><div class="leaver-info"><div class="leaver-name">${item.name}</div><div class="leaver-dept">${item.department}</div></div><div class="leaver-bar-wrap"><div class="leaver-bar-bg"><div class="leaver-bar-fill" style="width:${width}%;"></div></div></div><div class="leaver-count">${item.total_days}<span>days</span></div></div>`;
+  }).join('');
+}
+
+function renderFrontendPermissionMatrix(matrix) {
+  if (!frontendPermissionBody) return;
+
+  const roleOrder = ['employee', 'hr', 'tl', 'manager'];
+  const features = [
+    { key: 'apply_leave', label: 'Apply Leave' },
+    { key: 'leave_balance', label: 'Leave Balance' },
+    { key: 'leave_history', label: 'Leave History' },
+  ];
+
+  if (!matrix) {
+    frontendPermissionBody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);">Permission data unavailable.</td></tr>';
+    return;
+  }
+
+  const chip = (allowed) => {
+    if (allowed) {
+      return '<span class="perm-chip allowed"><i class="fa-solid fa-check"></i> Allowed</span>';
+    }
+    return '<span class="perm-chip denied"><i class="fa-solid fa-xmark"></i> Hidden</span>';
+  };
+
+  frontendPermissionBody.innerHTML = features.map((feature) => {
+    const columns = roleOrder.map((roleKey) => {
+      const roleData = matrix[roleKey] || {};
+      const configured = roleData.configured !== false;
+      const status = chip(Boolean(roleData[feature.key]));
+      const configLabel = configured ? '' : '<span class="perm-role-label">(Role missing)</span>';
+      return `<td>${status}${configLabel}</td>`;
+    }).join('');
+
+    return `<tr><td>${feature.label}</td>${columns}</tr>`;
+  }).join('');
+}
+
+function renderSelectOptions(select, items, placeholder) {
+  if (!select) return;
+  select.innerHTML = `<option value="">${placeholder}</option>` + items.map(item => `<option value="${item.id}">${item.name}</option>`).join('');
+}
+
+function updateStats(data) {
+  document.getElementById('wbTotalEmployees').textContent = data.stats.total_employees;
+  document.getElementById('wbPendingCount').textContent = data.stats.pending_count;
+  document.getElementById('wbActiveCount').textContent = data.stats.active_count;
+  document.getElementById('statTotalEmployees').textContent = data.stats.total_employees;
+  document.getElementById('statActiveEmployees').textContent = data.stats.active_count;
+  document.getElementById('statInactiveEmployees').textContent = data.stats.inactive_count;
+  document.getElementById('statPendingLeaves').textContent = data.stats.pending_count;
+  document.getElementById('statLeaveTypes').textContent = data.stats.leave_types_count || '-';
+  document.getElementById('tabCountAll').textContent = data.stats.total_employees;
+  document.getElementById('tabCountActive').textContent = data.stats.active_count;
+  document.getElementById('tabCountInactive').textContent = data.stats.inactive_count;
+  document.getElementById('policySummaryText').innerHTML = data.stats.leave_types_count
+    ? `Set leave quotas, rules, carry-forward, and sync changes to all employees in one click. Currently <strong>${data.stats.leave_types_count}</strong> active leave type${data.stats.leave_types_count === 1 ? '' : 's'} configured.`
+    : 'Set leave quotas, rules, carry-forward, and sync changes to all employees in one click. No leave types configured yet - set them up now.';
+}
+
+function setActiveTab(tab) {
+  document.querySelectorAll('.tab-pro[data-tab]').forEach(link => link.classList.toggle('active', link.dataset.tab === tab));
+}
+
+function updateHistoryUrl() {
+  const url = new URL(window.location.href);
+  if (dashboardState.tab && dashboardState.tab !== 'all') url.searchParams.set('tab', dashboardState.tab);
+  else url.searchParams.delete('tab');
+  if (dashboardState.page && dashboardState.page !== 1) url.searchParams.set('page', String(dashboardState.page));
+  else url.searchParams.delete('page');
+  if (dashboardState.search) url.searchParams.set('search', dashboardState.search);
+  else url.searchParams.delete('search');
+  window.history.replaceState({}, '', url.toString());
+}
+
+function fetchDashboardData() {
+  const url = new URL(dashboardApiUrl, window.location.origin);
+  url.searchParams.set('tab', dashboardState.tab);
+  url.searchParams.set('page', dashboardState.page);
+  if (dashboardState.search) url.searchParams.set('search', dashboardState.search);
+  empTableBody.innerHTML = renderSkeleton();
+  fetch(url.toString(), { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+    .then(res => {
+      if (!res.ok) {
+        throw new Error(`Request failed with status ${res.status}`);
+      }
+      return res.json();
+    })
+    .then(data => {
+      if (!data.success) return renderEmptyEmployees('Unable to load employees right now.');
+      dashboardState.tab = data.filters.tab;
+      dashboardState.search = data.filters.search;
+      dashboardState.page = data.pagination.page;
+      if (searchInput) {
+        searchInput.value = dashboardState.search;
+      }
+      updateStats(data);
+      setActiveTab(dashboardState.tab);
+      renderSelectOptions(roleSelect, data.roles, 'Select Role');
+      renderSelectOptions(departmentSelect, data.departments, 'Select Department');
+      renderActivityLog(data.activity_log);
+      renderTopLeaveTakers(data.top_leave_takers);
+      renderFrontendPermissionMatrix(data.frontend_permission_matrix);
+      renderPagination(data.pagination);
+      empTableBody.innerHTML = '';
+      if (!data.employees || !data.employees.length) renderEmptyEmployees('Try adjusting your search or filters.');
+      else data.employees.forEach(emp => empTableBody.insertAdjacentHTML('beforeend', renderEmployeeRow(emp)));
+      updateHistoryUrl();
+    })
+    .catch(error => {
+      console.error('Admin dashboard fetch failed:', error);
+      renderEmptyEmployees('Unable to load dashboard data. Please try again.');
+    });
+}
+
 if (searchInput) {
   searchInput.addEventListener('input', function () {
     clearTimeout(searchTimer);
-    const query = this.value.trim();
-
-    if (query.length === 0) {
-      const url = new URL(window.location);
-      url.searchParams.delete('search');
-      window.location.href = url.toString();
-      return;
-    }
-
-    empTableBody.innerHTML = renderSkeleton();
-
     searchTimer = setTimeout(() => {
-      fetch(`/leave/admin/employees/search/?q=${encodeURIComponent(query)}`)
-        .then(res => res.json())
-        .then(data => {
-          empTableBody.innerHTML = '';
-          if (!data.employees || data.employees.length === 0) {
-            empTableBody.innerHTML = `
-              <tr><td colspan="4">
-                <div class="empty-state" style="padding:40px;">
-                  <div class="empty-icon"><i class="fa-solid fa-magnifying-glass"></i></div>
-                  <div class="empty-title">No results for "${query}"</div>
-                  <p style="font-size:13px;color:var(--text-muted);margin-top:6px;">
-                    Try a different name, email, or role.
-                  </p>
-                </div>
-              </td></tr>`;
-          } else {
-            data.employees.forEach(emp => {
-              empTableBody.innerHTML += renderEmployeeRow(emp);
-            });
-          }
-        })
-        .catch(() => {
-          empTableBody.innerHTML = `
-            <tr><td colspan="4" style="text-align:center;padding:30px;color:var(--danger);">
-              <i class="fa-solid fa-triangle-exclamation"></i> Search error. Please try again.
-            </td></tr>`;
-        });
+      dashboardState.search = this.value.trim();
+      dashboardState.page = 1;
+      fetchDashboardData();
     }, 350);
+  });
+}
+
+document.querySelectorAll('.tab-pro[data-tab]').forEach(link => {
+  link.addEventListener('click', function (event) {
+    event.preventDefault();
+    dashboardState.tab = this.dataset.tab;
+    dashboardState.page = 1;
+    fetchDashboardData();
+  });
+});
+
+if (employeesPagination) {
+  employeesPagination.addEventListener('click', function (event) {
+    const link = event.target.closest('[data-page]');
+    if (!link) return;
+    event.preventDefault();
+    dashboardState.page = Number(link.dataset.page);
+    fetchDashboardData();
   });
 }
 
@@ -1366,6 +1652,55 @@ document.getElementById('create-modal').addEventListener('click', function(e) {
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') {
     document.getElementById('create-modal').style.display = 'none';
+  }
+});
+
+document.addEventListener('DOMContentLoaded', function () {
+  const params = new URLSearchParams(window.location.search);
+  const initialTab = params.get('tab');
+  const initialPage = Number(params.get('page'));
+  const initialSearch = params.get('search');
+
+  if (initialTab && ['all', 'active', 'inactive'].includes(initialTab)) {
+    dashboardState.tab = initialTab;
+  }
+  if (Number.isFinite(initialPage) && initialPage > 0) {
+    dashboardState.page = initialPage;
+  }
+  if (initialSearch) {
+    dashboardState.search = initialSearch.trim();
+  }
+
+  if (searchInput) {
+    searchInput.value = dashboardState.search;
+  }
+
+  setActiveTab(dashboardState.tab);
+  fetchDashboardData();
+
+  if (!adminAutoRefreshTimer) {
+    adminAutoRefreshTimer = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        fetchDashboardData();
+      }
+    }, 30000);
+  }
+
+  const createForm = document.querySelector('#create-modal form.ajax-form');
+  if (!createForm) return;
+
+  createForm.addEventListener('employee:created', function () {
+    document.getElementById('create-modal').style.display = 'none';
+    createForm.reset();
+    dashboardState.page = 1;
+    fetchDashboardData();
+  });
+});
+
+window.addEventListener('beforeunload', () => {
+  if (adminAutoRefreshTimer) {
+    clearInterval(adminAutoRefreshTimer);
+    adminAutoRefreshTimer = null;
   }
 });
 
