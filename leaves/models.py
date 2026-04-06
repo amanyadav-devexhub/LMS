@@ -3,59 +3,6 @@ from django.conf import settings
 from django.utils import timezone
 from users.models import User, Department
 
-
-
-# ======================
-# LEAVE BALANCE
-# ======================
-class LeaveBalance(models.Model):
-    employee = models.OneToOneField(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name="leave_balance"
-    )
-    
-    # ===== OLD FIELDS (keep temporarily) =====
-    casual_leave = models.FloatField(default=12)
-    sick_leave = models.FloatField(default=10)
-    
-    # ===== NEW FIELDS for accrual system =====
-    total_accrued = models.FloatField(
-        default=0,
-        help_text="Total leaves earned since joining (1.5 per month)"
-    )
-    
-    total_paid_taken = models.FloatField(
-        default=0,
-        help_text="Total paid leaves used (deducted from balance)"
-    )
-    
-    monthly_accrual_rate = models.FloatField(
-        default=1.5,
-        help_text="Leaves earned per month"
-    )
-    
-    last_accrual_date = models.DateField(
-        auto_now_add=True,
-        help_text="Last date when monthly accrual was added"
-    )
-    
-    updated_at = models.DateTimeField(auto_now=True)
-    
-    class Meta:
-        verbose_name = "Leave Balance"
-        verbose_name_plural = "Leave Balances"
-    
-    @property
-    def available_balance(self):
-        """Current available paid leaves (never negative)"""
-        balance = self.total_accrued - self.total_paid_taken
-        return max(0, balance)
-    
-    def __str__(self):
-        return f"{self.employee.email} - Available: {self.available_balance}"
-
-
 # ======================
 # SALARY DEDUCTION
 # ======================
@@ -288,6 +235,59 @@ class LeaveRequest(models.Model):
     def __str__(self):
         status_display = self.final_status if self.final_status != 'PENDING' else self.status
         return f"{self.employee.username} - {self.leave_type} ({status_display})"
+    
+    def get_leave_type_config(self):
+        """Get the LeaveTypeConfig for this leave request"""
+        if not POLICY_ENABLED:
+            return None
+        try:
+            from .models import LeaveTypeConfig
+            return LeaveTypeConfig.objects.filter(
+                code__iexact=self.leave_type,
+                is_active=True
+            ).first()
+        except:
+            return None
+    
+    def validate_against_rules(self):
+        """
+        Validate this leave request against LeaveTypeConfig rules.
+        Returns (is_valid, error_message)
+        """
+        config = self.get_leave_type_config()
+        if not config:
+            return True, None
+        
+        today = timezone.now().date()
+        
+        # Rule 1: Advance notice check
+        if config.advance_notice_days > 0:
+            min_allowed_date = today + timedelta(days=config.advance_notice_days)
+            if self.start_date < min_allowed_date:
+                return False, f"This leave type requires {config.advance_notice_days} days advance notice. Earliest start date is {min_allowed_date}."
+        
+        # Rule 2: Max consecutive days check
+        total_days = self.leave_duration_days
+        if config.max_consecutive_days > 0 and total_days > config.max_consecutive_days:
+            return False, f"This leave type allows maximum {config.max_consecutive_days} consecutive days. You requested {total_days} days."
+        
+        # Rule 3: Document required check
+        if config.document_required_after > 0 and total_days > config.document_required_after:
+            if not self.attachment:
+                return False, f"This leave type requires a supporting document for leaves longer than {config.document_required_after} days."
+        
+        return True, None
+    
+    # Add this to your existing save method
+    def save(self, *args, **kwargs):
+        # ... your existing save logic ...
+        
+        # Optional: Add validation before saving (uncomment if you want model-level validation)
+        # is_valid, error = self.validate_against_rules()
+        # if not is_valid:
+        #     raise ValidationError(error)
+        
+        super().save(*args, **kwargs)
 
 
 # -----------------------
@@ -419,6 +419,7 @@ class Holiday(models.Model):
 
 from django.db import models
 from django.conf import settings
+from datetime import date, timedelta
 
 
 
@@ -452,6 +453,9 @@ class LeaveTypeConfig(models.Model):
     # Pay type
     is_paid = models.BooleanField(default=True,
                 help_text="False = unpaid leave, salary will be deducted")
+    
+    starting_month = models.IntegerField(default=4,
+                            help_text="Month when leave year starts (1=Jan, 4=Apr, etc.)")
 
     # Rules
     max_consecutive_days    = models.IntegerField(default=0,
@@ -488,6 +492,40 @@ class LeaveTypeConfig(models.Model):
     def __str__(self):
         paid_label = "Paid" if self.is_paid else "Unpaid"
         return f"{self.name} — {self.days_per_year} days/yr ({paid_label})"
+    
+    def get_current_leave_year(self, as_of_date=None):
+        """Get the current leave year for this leave type."""
+        if as_of_date is None:
+            as_of_date = timezone.now().date()
+        start_month = self.starting_month
+        if as_of_date.month >= start_month:
+            return as_of_date.year
+        else:
+            return as_of_date.year - 1
+    
+    def get_leave_year_range(self, as_of_date=None):
+        """Get (start_date, end_date) for the leave year."""
+        if as_of_date is None:
+            as_of_date = timezone.now().date()
+        year = self.get_current_leave_year(as_of_date)
+        start_date = date(year, self.starting_month, 1)
+        
+        if self.starting_month == 12:
+            end_date = date(year + 1, 1, 1) - timedelta(days=1)
+        else:
+            end_date = date(year, self.starting_month + 1, 1) - timedelta(days=1)
+        
+        return start_date, end_date
+    
+    def get_months_elapsed_in_leave_year(self, as_of_date=None):
+        """Get how many months have passed in the current leave year."""
+        if as_of_date is None:
+            as_of_date = timezone.now().date()
+        year = self.get_current_leave_year(as_of_date)
+        start_date = date(year, self.starting_month, 1)
+        
+        months_elapsed = (as_of_date.year - start_date.year) * 12 + (as_of_date.month - self.starting_month) + 1
+        return max(1, min(12, months_elapsed))
 
 
 # ======================

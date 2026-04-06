@@ -823,6 +823,16 @@ function renderQuickActions() {
     const unreadCount = data.unread_count || 0;
     const totalRemaining = data.available_balance.toFixed(1);
     const leaveTypesCount = data.active_leave_types?.length || 0;
+    const canApplyLeave = Boolean(window.rbacFlags?.leave_apply);
+    const applyLeaveLink = canApplyLeave
+        ? `<a href="{% url 'apply_leave' %}" class="action-link">
+                <span>Apply for Leave</span>
+                <i class="fa-regular fa-arrow-right"></i>
+           </a>`
+        : `<div class="action-link" style="opacity:.5;pointer-events:none;cursor:not-allowed;" title="Permission required: leave_apply">
+                <span>Apply for Leave</span>
+                <i class="fa-regular fa-lock"></i>
+           </div>`;
     
     const html = `
         <div class="action-card animate-in delay-2">
@@ -870,10 +880,7 @@ function renderQuickActions() {
                 <span class="action-label">Leave Types</span>
                 <span class="action-value">${leaveTypesCount} configured</span>
             </div>
-            <a href="{% url 'apply_leave' %}" class="action-link">
-                <span>Apply for Leave</span>
-                <i class="fa-regular fa-arrow-right"></i>
-            </a>
+            ${applyLeaveLink}
         </div>
     `;
     

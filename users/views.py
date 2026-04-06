@@ -1114,6 +1114,75 @@ def _build_role_permission_rows(role):
     return rows
 
 
+def _permission_group_meta(module_key):
+    module_map = {
+        key: {"label": label, "icon": icon}
+        for key, label, icon in MODULES
+    }
+    module_map.update({
+        "dashboard": {"label": "Dashboard", "icon": "fa-gauge-high"},
+        "user": {"label": "Users", "icon": "fa-users"},
+        "system": {"label": "System", "icon": "fa-gears"},
+        "leave": {"label": "Leave", "icon": "fa-calendar-days"},
+        "holiday": {"label": "Holiday", "icon": "fa-umbrella-beach"},
+        "report": {"label": "Reports", "icon": "fa-chart-bar"},
+        "team": {"label": "Team", "icon": "fa-people-group"},
+    })
+    return module_map.get(
+        module_key,
+        {
+            "label": module_key.replace("_", " ").title(),
+            "icon": "fa-shield-halved",
+        },
+    )
+
+
+def _build_role_permission_groups(role):
+    ensure_permission_catalog()
+
+    assignment_map = {
+        assignment.permission.codename: assignment.is_enabled
+        for assignment in RolePermissionAssignment.objects.filter(
+            role=role,
+            permission__is_active=True,
+        ).select_related("permission")
+    }
+
+    grouped = {}
+    for permission in RBACPermission.objects.filter(is_active=True).order_by("module", "name", "codename"):
+        module_key = permission.module or "general"
+        if module_key not in grouped:
+            meta = _permission_group_meta(module_key)
+            grouped[module_key] = {
+                "key": module_key,
+                "label": meta["label"],
+                "icon": meta["icon"],
+                "permissions": [],
+            }
+
+        grouped[module_key]["permissions"].append({
+            "id": permission.id,
+            "codename": permission.codename,
+            "name": permission.name,
+            "action": permission.action,
+            "description": permission.description,
+            "enabled": bool(assignment_map.get(permission.codename, False)),
+        })
+
+    ordered_group_keys = []
+    for module_key, _, _ in MODULES:
+        if module_key in grouped and module_key not in ordered_group_keys:
+            ordered_group_keys.append(module_key)
+    for module_key in ["user", "system", "leave", "holiday", "report", "team"]:
+        if module_key in grouped and module_key not in ordered_group_keys:
+            ordered_group_keys.append(module_key)
+    for module_key in grouped.keys():
+        if module_key not in ordered_group_keys:
+            ordered_group_keys.append(module_key)
+
+    return [grouped[module_key] for module_key in ordered_group_keys]
+
+
 def _serialize_assign_role_user(user):
     full_name = user.get_full_name() or user.username or user.email
     return {
@@ -1464,11 +1533,13 @@ def role_permission_list(request):
     selected_pk  = request.GET.get('role', '').strip()
     selected_role = None
     perm_rows    = []
+    permission_groups = []
 
     if selected_pk:
         try:
             selected_role = Role.objects.get(pk=selected_pk)
             perm_rows = _build_role_permission_rows(selected_role)
+            permission_groups = _build_role_permission_groups(selected_role)
         except Role.DoesNotExist:
             if _wants_json_response(request):
                 return JsonResponse({"success": False, "error": "Role not found."}, status=404)
@@ -1502,11 +1573,13 @@ def role_permission_list(request):
                 }
                 for row in perm_rows
             ],
+            "permission_groups": permission_groups,
         })
 
     return render(request, 'role_permission_list.html', {
         'roles': roles, 'selected_role': selected_role,
         'perm_rows': perm_rows, 'modules': MODULES,
+        'permission_groups': permission_groups,
     })
 
 
@@ -1545,16 +1618,38 @@ def role_permission_save(request):
             return redirect('role_permission_list')
 
         json_permissions = payload.get("permissions", {}) if isinstance(payload.get("permissions", {}), dict) else {}
+        explicit_codes = payload.get("permission_codes", [])
+        if not isinstance(explicit_codes, list):
+            explicit_codes = []
+        explicit_codes = {
+            str(code).strip()
+            for code in explicit_codes
+            if str(code).strip()
+        } or {
+            code.strip()
+            for code in request.POST.getlist("permission_codes")
+            if code.strip()
+        }
 
-        sync_matrix_permissions(role, json_permissions or {
-            mod_key: {
-                "can_view": f"{mod_key}_view" in request.POST,
-                "can_create": f"{mod_key}_create" in request.POST,
-                "can_edit": f"{mod_key}_edit" in request.POST,
-                "can_delete": f"{mod_key}_delete" in request.POST,
-            }
-            for mod_key, _, _ in MODULES
-        })
+        if explicit_codes:
+            ensure_permission_catalog()
+            active_permissions = RBACPermission.objects.filter(is_active=True)
+            for permission in active_permissions:
+                RolePermissionAssignment.objects.update_or_create(
+                    role=role,
+                    permission=permission,
+                    defaults={"is_enabled": permission.codename in explicit_codes},
+                )
+        else:
+            sync_matrix_permissions(role, json_permissions or {
+                mod_key: {
+                    "can_view": f"{mod_key}_view" in request.POST,
+                    "can_create": f"{mod_key}_create" in request.POST,
+                    "can_edit": f"{mod_key}_edit" in request.POST,
+                    "can_delete": f"{mod_key}_delete" in request.POST,
+                }
+                for mod_key, _, _ in MODULES
+            })
 
         messages.success(request, f'Permissions for "{role.name}" saved successfully!')
 
@@ -1577,6 +1672,7 @@ def role_permission_save(request):
                     }
                     for row in _build_role_permission_rows(role)
                 ],
+                "permission_groups": _build_role_permission_groups(role),
             })
     elif _wants_json_response(request):
         return JsonResponse({"success": False, "error": "Method not allowed."}, status=405)

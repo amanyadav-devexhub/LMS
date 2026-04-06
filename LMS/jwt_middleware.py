@@ -14,6 +14,11 @@ class JWTCookieMiddleware(MiddlewareMixin):
     """
     def process_request(self, request):
         # 1. Get token from cookies
+
+        if request.path.startswith('/superadmin/'):
+            return self.get_response(request)
+
+        
         token = request.COOKIES.get('access_token')
         
         request.user = None

@@ -322,6 +322,9 @@
                 {{ lt.monthly_accrual }}/month
               </div>
               {% endif %}
+              <div style="font-size:10px;color:var(--text-faint);margin-top:2px;">
+                Leave year starts in {{ item.starting_month_name|default:"April" }}
+              </div>
             </td>
 
             <!-- Paid / Accrual -->
@@ -355,6 +358,7 @@
                 {% if lt.carry_forward %}
                 <span class="rule-chip"><i class="fa-solid fa-forward"></i> Carry fwd</span>
                 {% endif %}
+                <span class="rule-chip"><i class="fa-solid fa-calendar-week"></i> {{ item.starting_month_name|default:"April"|slice:":3" }} start</span>
                 {% if not lt.max_consecutive_days and not lt.advance_notice_days and not lt.document_required_after and not lt.carry_forward %}
                 <span style="font-size:11px;color:var(--text-faint);">—</span>
                 {% endif %}
@@ -391,6 +395,7 @@
                   data-lt-paid="{{ lt.is_paid|yesno:'true,false' }}"
                   data-lt-accrual="{{ lt.is_accrual_based|yesno:'true,false' }}"
                   data-lt-monthly="{{ lt.monthly_accrual|default:0 }}"
+                  data-lt-starting-month="{{ lt.starting_month|default:4 }}"
                   data-lt-max-consec="{{ lt.max_consecutive_days|default:0 }}"
                   data-lt-advance="{{ lt.advance_notice_days|default:0 }}"
                   data-lt-doc-after="{{ lt.document_required_after|default:0 }}"
@@ -642,6 +647,25 @@
         <input type="number" name="monthly_accrual" id="lt-monthly-accrual" class="form-control" min="0" step="0.25" value="1.0" placeholder="Days earned per month">
       </div>
 
+      <div class="form-group">
+        <label class="form-label">Leave Year Start Month</label>
+        <select name="starting_month" id="lt-starting-month" class="form-control">
+          <option value="1">January</option>
+          <option value="2">February</option>
+          <option value="3">March</option>
+          <option value="4" selected>April</option>
+          <option value="5">May</option>
+          <option value="6">June</option>
+          <option value="7">July</option>
+          <option value="8">August</option>
+          <option value="9">September</option>
+          <option value="10">October</option>
+          <option value="11">November</option>
+          <option value="12">December</option>
+        </select>
+        <small style="font-size:10.5px;color:var(--text-faint);">Choose when the company leave year starts for this leave type.</small>
+      </div>
+
       <div class="form-row-3">
         <div class="form-group">
           <label class="form-label">Max Consecutive Days</label>
@@ -820,6 +844,21 @@ window.leavePolicyState = {
   currentYear: {{ current_year|default:0 }},
 };
 
+const leaveYearMonthNames = {
+  1: 'January',
+  2: 'February',
+  3: 'March',
+  4: 'April',
+  5: 'May',
+  6: 'June',
+  7: 'July',
+  8: 'August',
+  9: 'September',
+  10: 'October',
+  11: 'November',
+  12: 'December',
+};
+
 const leavePolicyApiUrl = "{% url 'api_admin_leave_policy' %}";
 const leaveTypeToggleUrlTemplate = "{% url 'api_admin_lt_toggle' 0 %}";
 const leaveTypeDeleteUrlTemplate = "{% url 'api_admin_lt_delete' 0 %}";
@@ -848,6 +887,10 @@ function formatNumber(value) {
   return Number.isInteger(num) ? String(num) : num.toFixed(1);
 }
 
+function getLeaveYearStartLabel(monthNumber) {
+  return leaveYearMonthNames[Number(monthNumber) || 4] || 'April';
+}
+
 function renderLeaveTypes(leaveTypes) {
   const tbody = document.getElementById('leave-types-body');
   if (!tbody) return;
@@ -874,6 +917,7 @@ function renderLeaveTypes(leaveTypes) {
     if (Number(lt.advance_notice_days) > 0) rules.push(`<span class="rule-chip"><i class="fa-solid fa-clock"></i> ${escapeHtml(lt.advance_notice_days)}d notice</span>`);
     if (Number(lt.document_required_after) > 0) rules.push(`<span class="rule-chip"><i class="fa-solid fa-file-medical"></i> Doc &gt;${escapeHtml(lt.document_required_after)}d</span>`);
     if (lt.carry_forward) rules.push(`<span class="rule-chip"><i class="fa-solid fa-forward"></i> Carry fwd</span>`);
+    rules.push(`<span class="rule-chip"><i class="fa-solid fa-calendar-week"></i> ${escapeHtml(getLeaveYearStartLabel(lt.starting_month).slice(0, 3))} start</span>`);
 
     return `
       <tr>
@@ -894,6 +938,7 @@ function renderLeaveTypes(leaveTypes) {
           <strong style="font-size:13px;font-weight:700;color:var(--aqua-deep);">${escapeHtml(formatNumber(lt.current_month_entitlement ?? lt.days_per_year))}</strong>
           <span style="font-size:10px;color:var(--text-faint);"> days</span>
           ${lt.is_accrual_based ? `<div style="font-size:10px;color:var(--text-faint);margin-top:2px;">${escapeHtml(formatNumber(lt.monthly_accrual))}/month</div>` : ''}
+          <div style="font-size:10px;color:var(--text-faint);margin-top:2px;">Leave year starts in ${escapeHtml(getLeaveYearStartLabel(lt.starting_month))}</div>
         </td>
         <td>
           <div style="display:flex;flex-direction:column;gap:4px;">
@@ -924,6 +969,7 @@ function renderLeaveTypes(leaveTypes) {
               data-lt-paid="${Boolean(lt.is_paid)}"
               data-lt-accrual="${Boolean(lt.is_accrual_based)}"
               data-lt-monthly="${escapeHtml(Number(lt.monthly_accrual || 0))}"
+              data-lt-starting-month="${escapeHtml(Number(lt.starting_month || 4))}"
               data-lt-max-consec="${escapeHtml(Number(lt.max_consecutive_days || 0))}"
               data-lt-advance="${escapeHtml(Number(lt.advance_notice_days || 0))}"
               data-lt-doc-after="${escapeHtml(Number(lt.document_required_after || 0))}"
@@ -1072,6 +1118,7 @@ function closeModal(id) {
     document.getElementById('lt-modal-title').textContent = 'Add Leave Type';
     document.getElementById('lt-save-btn-text').textContent = 'Create Leave Type';
     document.getElementById('lt-code').readOnly = false;
+    document.getElementById('lt-starting-month').value = '4';
   }
   if (id === 'create-policy-modal') {
     document.getElementById('policy-id-field').value = '';
@@ -1162,7 +1209,7 @@ document.getElementById('lt-color').addEventListener('input', function() {
 });
 
 /* ── Open EDIT modal for leave type ── */
-function openEditModal(id, name, code, days, isPaid, isAccrual, monthly, maxConsec, advance, docAfter, carry, carryLimit, color, appTo, desc, isActive) {
+function openEditModal(id, name, code, days, isPaid, isAccrual, monthly, startingMonth, maxConsec, advance, docAfter, carry, carryLimit, color, appTo, desc, isActive) {
   document.getElementById('lt-id-field').value = id;
   document.getElementById('lt-modal-title').textContent = 'Edit Leave Type';
   document.getElementById('lt-save-btn-text').textContent = 'Save Changes';
@@ -1170,6 +1217,7 @@ function openEditModal(id, name, code, days, isPaid, isAccrual, monthly, maxCons
   document.getElementById('lt-code').value = code;
   document.getElementById('lt-code').readOnly = true;  // Don't allow code change on edit
   document.getElementById('lt-days').value = days;
+  document.getElementById('lt-starting-month').value = String(startingMonth || 4);
   document.getElementById('lt-description').value = desc;
   document.getElementById('lt-max-consec').value = maxConsec;
   document.getElementById('lt-advance').value = advance;
@@ -1203,6 +1251,7 @@ function openEditModalFromButton(button) {
     d.ltPaid === 'true',
     d.ltAccrual === 'true',
     Number(d.ltMonthly || 0),
+    Number(d.ltStartingMonth || 4),
     Number(d.ltMaxConsec || 0),
     Number(d.ltAdvance || 0),
     Number(d.ltDocAfter || 0),
