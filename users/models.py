@@ -9,7 +9,55 @@ class Role(models.Model):
     name = models.CharField(max_length=50, unique=True)
     description = models.TextField(blank=True, default="")
     is_active = models.BooleanField(default=True)
-
+    
+    # Define role aliases (what names belong to which role)
+    ROLE_ALIASES = {
+        # TL role aliases
+        'TL': 'TL',
+        'Tl': 'TL',
+        'tl': 'TL',
+        'Team Lead': 'TL',
+        'Team Leader': 'TL',
+        'Lead': 'TL',
+        'team lead': 'TL',
+        'team leader': 'TL',
+        'lead': 'TL',
+        
+        # HR role aliases
+        'HR': 'HR',
+        'Hr': 'HR',
+        'hr': 'HR',
+        'Human Resources': 'HR',
+        'human resources': 'HR',
+        
+        # Manager role aliases
+        'Manager': 'Manager',
+        'manager': 'Manager',
+        
+        # Admin role aliases
+        'Admin': 'Admin',
+        'admin': 'Admin',
+        'Administrator': 'Admin',
+        'administrator': 'Admin',
+        
+        # Employee role aliases
+        'Employee': 'Employee',
+        'employee': 'Employee',
+        'Staff': 'Employee',
+        'staff': 'Employee',
+    }
+    
+    @classmethod
+    def get_canonical_name(cls, name):
+        """Convert any alias to canonical role name"""
+        return cls.ROLE_ALIASES.get(name, name)
+    
+    @classmethod
+    def is_alias_exists(cls, name):
+        """Check if a role alias already exists"""
+        canonical = cls.get_canonical_name(name)
+        return cls.objects.filter(name=canonical).exists()
+    
     def __str__(self):
         return self.name
 

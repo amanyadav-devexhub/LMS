@@ -198,7 +198,7 @@
   <div class="banner-inner">
     <div class="banner-left">
       <div class="b-eyebrow"><i class="fa-solid fa-user-tie"></i> HR Dashboard</div>
-      <div class="b-title" id="b-title">Welcome <span class="skel" style="width:100px;height:22px;vertical-align:middle;"></span> 👋</div>
+      <div class="b-title" id="b-title">Welcome <span class="skel" style="width:100px;height:22px;vertical-align:middle;"></span> </div>
       <div class="b-sub" id="b-date">
         <script>
           document.getElementById('b-date').textContent = new Date().toLocaleDateString('en-GB', {weekday:'long', day:'numeric', month:'long', year:'numeric'});
@@ -629,7 +629,7 @@ function loadDashboard() {
 
         // ── Banner
         const firstName = d.user?.first_name || 'HR';
-        document.getElementById('b-title').innerHTML = `Welcome, ${escHtml(firstName)} 👋`;
+        document.getElementById('b-title').innerHTML = `Welcome, ${escHtml(firstName)} `;
 
         // ── Pills
         animateCount(document.getElementById('pill-active'),  d.active_count        || 0);

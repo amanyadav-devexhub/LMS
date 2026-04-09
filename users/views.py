@@ -1254,23 +1254,29 @@ def department_edit(request, pk):
 
     dept = get_object_or_404(Department, pk=pk)
     if request.method == 'POST':
-        name  = request.POST.get('name', '').strip()
+        name = request.POST.get('name', '').strip()
         hr_id = request.POST.get('hr', '').strip()
+        
         if not name:
             messages.error(request, "Department name is required.")
         elif Department.objects.filter(name__iexact=name).exclude(pk=pk).exists():
             messages.error(request, f'Another department named "{name}" already exists.')
         else:
             dept.name = name
-            dept.hr   = User.objects.get(pk=hr_id) if hr_id else None
+            dept.hr = User.objects.get(pk=hr_id) if hr_id else None
             dept.save()
             messages.success(request, f'Department "{name}" updated successfully!')
             
             is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
             if is_ajax:
-                return JsonResponse({"success": True, "message": f'Department "{name}" updated successfully.'})
+                return JsonResponse({
+                    "success": True, 
+                    "message": f'Department "{name}" updated successfully.',
+                    "redirect_url": reverse('department_list')
+                })
                 
     return redirect('department_list')
+
 
 
 @login_required
@@ -1288,9 +1294,14 @@ def department_delete(request, pk):
         
         is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
         if is_ajax:
-            return JsonResponse({"success": True, "message": f'Department "{name}" deleted.'})
+            return JsonResponse({
+                "success": True, 
+                "message": f'Department "{name}" deleted.',
+                "redirect_url": reverse('department_list')
+            })
             
     return redirect('department_list')
+
 
 @login_required
 def department_create(request):
@@ -1326,14 +1337,20 @@ def department_create(request):
             
             department.save()
             
+            # ✅ FIX: For AJAX requests, return JSON with redirect URL
             if _wants_json_response(request):
                 return JsonResponse({
-                    "success": True, 
+                    "success": True,
                     "message": f'Department "{name}" created successfully!',
-                    "department": _serialize_department(department)
+                    "redirect_url": reverse('department_list'),
+                    "department": {
+                        "id": department.id,
+                        "name": department.name,
+                        "hr": department.hr.email if department.hr else None
+                    }
                 })
-            messages.success(request, f'Department "{name}" created successfully!')
             
+            messages.success(request, f'Department "{name}" created successfully!')
             return redirect('department_list')
     
     # GET request - show the create form
@@ -1356,6 +1373,7 @@ def department_create(request):
         'title': 'Create Department',
         'hr_users': users
     })
+
 @login_required
 def department_detail(request, pk):
     if not _is_admin(request):
@@ -1478,20 +1496,37 @@ def role_create(request):
     if not (request.user.is_superuser or user_has_permission(request.user, "role_create") or _is_admin(request)):
         messages.error(request, "Access denied.")
         return redirect('admin_dashboard')
+    
     if request.method == 'POST':
         name = request.POST.get('name', '').strip()
+        
         if not name:
             messages.error(request, "Role name is required.")
-        elif Role.objects.filter(name__iexact=name).exists():
-            messages.error(request, f'Role "{name}" already exists.')
         else:
-            Role.objects.create(name=name)
-            messages.success(request, f'Role "{name}" created successfully!')
+            # Get canonical role name
+            canonical_name = Role.get_canonical_name(name)
             
-            is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
-            if is_ajax:
-                return JsonResponse({"success": True, "message": f'Role "{name}" created successfully.'})
+            # Check if canonical role already exists
+            if Role.objects.filter(name=canonical_name).exists():
+                messages.error(
+                    request, 
+                    f'Role "{name}" is the same as "{canonical_name}" which already exists. '
+                    f'Please use the existing role.'
+                )
+            else:
+                # Create role with canonical name
+                role = Role.objects.create(name=canonical_name)
+                messages.success(request, f'Role "{canonical_name}" created successfully!')
                 
+                is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+                if is_ajax:
+                    return JsonResponse({
+                        "success": True, 
+                        "message": f'Role "{canonical_name}" created successfully.',
+                        "role_id": role.id,
+                        "role_name": canonical_name
+                    })
+                    
     return redirect('role_list')
 
 
@@ -1500,23 +1535,37 @@ def role_edit(request, pk):
     if not (request.user.is_superuser or user_has_permission(request.user, "role_update") or _is_admin(request)):
         messages.error(request, "Access denied.")
         return redirect('admin_dashboard')
+    
     role = get_object_or_404(Role, pk=pk)
+    
     if request.method == 'POST':
         name = request.POST.get('name', '').strip()
+        
         if not name:
             messages.error(request, "Role name is required.")
-        elif Role.objects.filter(name__iexact=name).exclude(pk=pk).exists():
-            messages.error(request, f'Role "{name}" already exists.')
         else:
-            old_name = role.name
-            role.name = name
-            role.save()
-            messages.success(request, f'Role "{old_name}" renamed to "{name}".')
+            canonical_name = Role.get_canonical_name(name)
             
-            is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
-            if is_ajax:
-                return JsonResponse({"success": True, "message": f'Role renamed to "{name}".'})
+            # Check if trying to change to a different canonical role
+            if canonical_name != role.name and Role.objects.filter(name=canonical_name).exclude(pk=pk).exists():
+                messages.error(
+                    request, 
+                    f'Cannot rename to "{name}" because "{canonical_name}" already exists.'
+                )
+            else:
+                old_name = role.name
+                role.name = canonical_name
+                role.save()
+                messages.success(request, f'Role "{old_name}" renamed to "{canonical_name}".')
                 
+                is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+                if is_ajax:
+                    return JsonResponse({
+                        "success": True, 
+                        "message": f'Role renamed to "{canonical_name}".',
+                        "role_name": canonical_name
+                    })
+                    
     return redirect('role_list')
 
 

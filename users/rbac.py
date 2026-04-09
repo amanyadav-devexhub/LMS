@@ -172,25 +172,69 @@ LEGACY_MATRIX_ACTIONS = {
 
 
 DEFAULT_ROLE_PERMISSION_CODES = {
+    # Admin
     "Admin": {
         "dashboard_admin",
         "leave_apply", "leave_view_own", "leave_view_all", "leave_balance_view",
         "user_view", "role_view", "permission_view", "notification_view",
     },
+    "Administrator": {
+        "dashboard_admin",
+        "leave_apply", "leave_view_own", "leave_view_all", "leave_balance_view",
+        "user_view", "role_view", "permission_view", "notification_view",
+    },
+    
+    # HR - maps to HR Dashboard
     "HR": {
         "dashboard_hr",
         "leave_apply", "leave_view_own", "leave_view_all", "leave_approve", "leave_reject", "leave_balance_view",
         "user_view", "team_view", "team_manage", "report_view", "notification_view",
     },
+    "Hr": {
+        "dashboard_hr",
+        "leave_apply", "leave_view_own", "leave_view_all", "leave_approve", "leave_reject", "leave_balance_view",
+        "user_view", "team_view", "team_manage", "report_view", "notification_view",
+    },
+    "Human Resources": {
+        "dashboard_hr",
+        "leave_apply", "leave_view_own", "leave_view_all", "leave_approve", "leave_reject", "leave_balance_view",
+        "user_view", "team_view", "team_manage", "report_view", "notification_view",
+    },
+    
+    # Manager
     "Manager": {
         "dashboard_manager",
         "leave_view_all", "leave_approve", "leave_reject", "team_view", "notification_view",
     },
+    
+    # TL - maps to TL Dashboard (same as Manager dashboard but different permission detection)
     "TL": {
-        "dashboard_manager",
+        "dashboard_tl",
         "leave_apply", "leave_view_own", "leave_view_all", "leave_approve", "leave_reject", "leave_balance_view", "team_view", "notification_view",
     },
+    "Tl": {
+        "dashboard_tl",
+        "leave_apply", "leave_view_own", "leave_view_all", "leave_approve", "leave_reject", "leave_balance_view", "team_view", "notification_view",
+    },
+    "Team Lead": {
+        "dashboard_tl",
+        "leave_apply", "leave_view_own", "leave_view_all", "leave_approve", "leave_reject", "leave_balance_view", "team_view", "notification_view",
+    },
+    "Team Leader": {
+        "dashboard_tl",
+        "leave_apply", "leave_view_own", "leave_view_all", "leave_approve", "leave_reject", "leave_balance_view", "team_view", "notification_view",
+    },
+    "Lead": {
+        "dashboard_tl",
+        "leave_apply", "leave_view_own", "leave_view_all", "leave_approve", "leave_reject", "leave_balance_view", "team_view", "notification_view",
+    },
+    
+    # Employee
     "Employee": {
+        "dashboard_employee",
+        "leave_apply", "leave_view_own", "leave_balance_view", "notification_view",
+    },
+    "Staff": {
         "dashboard_employee",
         "leave_apply", "leave_view_own", "leave_balance_view", "notification_view",
     },

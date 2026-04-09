@@ -194,8 +194,8 @@ urlpatterns = [
     path('admin/policy/<int:policy_id>/toggle/',      views.admin_policy_toggle,           name='admin_policy_toggle'),
     path('admin/policy/<int:policy_id>/delete/',      views.admin_policy_delete,           name='admin_policy_delete'),
     path('admin/apply-to-all/',                       views.admin_apply_to_all_employees,  name='admin_apply_to_all_employees'),
-    path('admin/academic-settings/',                  views.admin_academic_settings,       name='admin_academic_settings'),
-    path('admin/academic-settings/save/',             views.admin_academic_settings_save,  name='admin_academic_settings_save'),
+    path('admin/settings/',                  views.admin_academic_settings,       name='admin_academic_settings'),
+    path('admin/settings/save/',             views.admin_academic_settings_save,  name='admin_academic_settings_save'),
 
     # ════════════════════════════════════════════════════════════════
     #  JSON API VIEWS  (all responses are pure JSON — no HTML)
