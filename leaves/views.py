@@ -929,18 +929,32 @@ def unified_dashboard_api(request):
     which dashboard view to load.
     """
     role = get_user_role(request.user)
-    dashboard_map = {
-        "HR":      "/api/dashboard/hr/",
-        "TL":      "/api/dashboard/tl/",
-        "Manager": "/api/dashboard/manager/",
-        "Admin":   "/api/admin/dashboard/",
+    
+    # Normalize role names
+    role_mapping = {
+        'Admin': '/api/admin/dashboard/',
+        'Administrator': '/api/admin/dashboard/',
+        'HR': '/api/dashboard/hr/',
+        'Hr': '/api/dashboard/hr/',
+        'Human Resources': '/api/dashboard/hr/',
+        'Manager': '/api/dashboard/manager/',
+        'TL': '/api/dashboard/tl/',
+        'Tl': '/api/dashboard/tl/',
+        'Team Lead': '/api/dashboard/tl/',
+        'Team Leader': '/api/dashboard/tl/',
+        'Lead': '/api/dashboard/tl/',
+        'Employee': '/api/dashboard/employee/',
+        'Staff': '/api/dashboard/employee/',
     }
+    
     if request.user.is_superuser:
         role = "Admin"
 
+    dashboard_url = role_mapping.get(role, "/api/dashboard/employee/")
+
     return _ok({
         "role": role,
-        "dashboard_url": dashboard_map.get(role, "/api/dashboard/employee/"),
+        "dashboard_url": dashboard_url,
         "user": _serialize_user(request.user),
     })
 
@@ -2298,24 +2312,20 @@ def tl_dashboard_api(request):
             "is_on_leave": on_leave_today.filter(employee=member).exists(),
         })
 
-    # Get pagination parameters
-    pending_page = int(request.GET.get('pending_page', 1))
-    history_page = int(request.GET.get('history_page', 1))
-    my_leaves_page = int(request.GET.get('my_leaves_page', 1))
+    # ✅ Database pagination for pending leaves
+    pending_paginator = Paginator(all_pending, 10)
+    pending_page = request.GET.get('pending_page', 1)
+    pending_page_obj = pending_paginator.get_page(pending_page)
     
-    per_page = 10
-
-    # Paginate pending leaves
-    paginator_pending = Paginator(all_pending, per_page)
-    pending_page_obj = paginator_pending.get_page(pending_page)
+    # ✅ Database pagination for team history
+    history_paginator = Paginator(all_team, 10)
+    history_page = request.GET.get('history_page', 1)
+    history_page_obj = history_paginator.get_page(history_page)
     
-    # Paginate team history
-    paginator_history = Paginator(all_team, per_page)
-    history_page_obj = paginator_history.get_page(history_page)
-    
-    # Paginate my leaves
-    paginator_myleaves = Paginator(my_leaves_qs, per_page)
-    my_leaves_page_obj = paginator_myleaves.get_page(my_leaves_page)
+    # ✅ Database pagination for my leaves
+    my_leaves_paginator = Paginator(my_leaves_qs, 10)
+    my_leaves_page = request.GET.get('my_leaves_page', 1)
+    my_leaves_page_obj = my_leaves_paginator.get_page(my_leaves_page)
 
     # Get active leave types for apply form
     active_leave_types = []
@@ -2347,6 +2357,40 @@ def tl_dashboard_api(request):
         force_monthly=True,
     )
 
+    # ✅ Build pagination responses
+    pending_data = {
+        "page": pending_page_obj.number,
+        "num_pages": pending_paginator.num_pages,
+        "total_count": pending_paginator.count,
+        "has_next": pending_page_obj.has_next(),
+        "has_previous": pending_page_obj.has_previous(),
+        "start_index": pending_page_obj.start_index() if pending_paginator.count else 0,
+        "end_index": pending_page_obj.end_index() if pending_paginator.count else 0,
+        "results": [_serialize_leave_with_employee(leave) for leave in pending_page_obj],
+    }
+    
+    history_data = {
+        "page": history_page_obj.number,
+        "num_pages": history_paginator.num_pages,
+        "total_count": history_paginator.count,
+        "has_next": history_page_obj.has_next(),
+        "has_previous": history_page_obj.has_previous(),
+        "start_index": history_page_obj.start_index() if history_paginator.count else 0,
+        "end_index": history_page_obj.end_index() if history_paginator.count else 0,
+        "results": [_serialize_leave_with_employee(leave) for leave in history_page_obj],
+    }
+    
+    my_leaves_data = {
+        "page": my_leaves_page_obj.number,
+        "num_pages": my_leaves_paginator.num_pages,
+        "total_count": my_leaves_paginator.count,
+        "has_next": my_leaves_page_obj.has_next(),
+        "has_previous": my_leaves_page_obj.has_previous(),
+        "start_index": my_leaves_page_obj.start_index() if my_leaves_paginator.count else 0,
+        "end_index": my_leaves_page_obj.end_index() if my_leaves_paginator.count else 0,
+        "results": [_serialize_leave_with_employee(leave) for leave in my_leaves_page_obj],
+    }
+
     return _ok({
         "user": _serialize_user(request.user),
         
@@ -2361,44 +2405,16 @@ def tl_dashboard_api(request):
         # Team data
         "team_data": team_data,
         
-        # Paginated data
-        "pending_leaves": {
-            "page": pending_page_obj.number,
-            "num_pages": paginator_pending.num_pages,
-            "total_count": paginator_pending.count,
-            "has_next": pending_page_obj.has_next(),
-            "has_previous": pending_page_obj.has_previous(),
-            "start_index": pending_page_obj.start_index(),
-            "end_index": pending_page_obj.end_index(),
-            "results": [_serialize_leave_with_employee(leave) for leave in pending_page_obj],
-        },
-        "team_history": {
-            "page": history_page_obj.number,
-            "num_pages": paginator_history.num_pages,
-            "total_count": paginator_history.count,
-            "has_next": history_page_obj.has_next(),
-            "has_previous": history_page_obj.has_previous(),
-            "start_index": history_page_obj.start_index(),
-            "end_index": history_page_obj.end_index(),
-            "results": [_serialize_leave_with_employee(leave) for leave in history_page_obj],
-        },
-        "my_leaves": {
-            "page": my_leaves_page_obj.number,
-            "num_pages": paginator_myleaves.num_pages,
-            "total_count": paginator_myleaves.count,
-            "has_next": my_leaves_page_obj.has_next(),
-            "has_previous": my_leaves_page_obj.has_previous(),
-            "start_index": my_leaves_page_obj.start_index(),
-            "end_index": my_leaves_page_obj.end_index(),
-            "results": [_serialize_leave_with_employee(leave) for leave in my_leaves_page_obj],
-        },
+        # ✅ Paginated data (now database paginated)
+        "pending_leaves": pending_data,
+        "team_history": history_data,
+        "my_leaves": my_leaves_data,
         
         # Additional data
         "active_leave_types": active_leave_types,
         "my_leave_summary": my_leave_summary,
         "current_year": current_year,
     })
-
 # ════════════════════════════════════════════════════════════════════
 #  HR DASHBOARD
 # ════════════════════════════════════════════════════════════════════
@@ -3019,12 +3035,14 @@ def hr_employee_list_api(request):
     role_filter = request.GET.get("role", "").strip()
     status_filter = request.GET.get("status", "").strip()
 
+    # ✅ START: Use database-level pagination
     employees = (
         User.objects.exclude(role__name__iexact="Admin")
         .exclude(is_superuser=True)
         .select_related("role", "department")
         .order_by("-date_joined")
     )
+    
     if search_query:
         employees = employees.filter(
             Q(first_name__icontains=search_query)
@@ -3039,38 +3057,68 @@ def hr_employee_list_api(request):
     if role_filter:
         employees = employees.filter(role__pk=role_filter)
 
-    employee_data = []
-    for emp in employees:
-        on_leave = LeaveRequest.objects.filter(
-            employee=emp, status="APPROVED", start_date__lte=today, end_date__gte=today
-        ).exists()
-        if status_filter == "on_leave" and not on_leave:
-            continue
-        if status_filter == "active" and not emp.is_active:
-            continue
-        if status_filter == "inactive" and emp.is_active:
-            continue
-        employee_data.append({**_serialize_user(emp), "on_leave": on_leave})
+    # ✅ Apply status filter BEFORE pagination
+    if status_filter == "on_leave":
+        employees = employees.filter(
+            leaves__final_status="APPROVED",
+            leaves__start_date__lte=today,
+            leaves__end_date__gte=today
+        ).distinct()
+    elif status_filter == "active":
+        employees = employees.filter(is_active=True)
+    elif status_filter == "inactive":
+        employees = employees.filter(is_active=False)
 
+    # ✅ Database pagination - only load current page
+    paginator = Paginator(employees, 20)
+    page = request.GET.get("page", 1)
+    page_obj = paginator.get_page(page)
+    
+    # ✅ Build employee data only for current page
+    employee_data = []
+    for emp in page_obj:
+        # Check on-leave status for this employee only
+        on_leave = LeaveRequest.objects.filter(
+            employee=emp,
+            final_status="APPROVED",
+            start_date__lte=today,
+            end_date__gte=today
+        ).exists()
+        
+        employee_data.append({**_serialize_user(emp), "on_leave": on_leave})
+    
+    # Get counts (still need total counts for stats)
     all_emps = User.objects.exclude(role__name__iexact="Admin").exclude(is_superuser=True)
+    active_count = all_emps.filter(is_active=True).count()
+    inactive_count = all_emps.filter(is_active=False).count()
     on_leave_count = (
         LeaveRequest.objects.filter(
-            status="APPROVED", start_date__lte=today, end_date__gte=today
+            final_status="APPROVED",
+            start_date__lte=today,
+            end_date__gte=today
         )
         .values("employee")
         .distinct()
         .count()
     )
-
-    page_data = _paginate(employee_data, request, per_page=20)
-    results = page_data.pop("_page_obj")  # already list-of-dicts, Paginator wraps them
-    page_data["results"] = list(page_data["results"])
+    
+    # ✅ Build pagination response
+    page_data = {
+        "page": page_obj.number,
+        "num_pages": paginator.num_pages,
+        "total_count": paginator.count,
+        "has_next": page_obj.has_next(),
+        "has_previous": page_obj.has_previous(),
+        "start_index": page_obj.start_index() if paginator.count else 0,
+        "end_index": page_obj.end_index() if paginator.count else 0,
+        "results": employee_data,
+    }
 
     return _ok(
         {
             "total_count": all_emps.count(),
-            "active_count": all_emps.filter(is_active=True).count(),
-            "inactive_count": all_emps.filter(is_active=False).count(),
+            "active_count": active_count,
+            "inactive_count": inactive_count,
             "on_leave_count": on_leave_count,
             "result_count": len(employee_data),
             "employees": page_data,
@@ -3084,7 +3132,6 @@ def hr_employee_list_api(request):
             "roles": [{"id": r.id, "name": r.name} for r in Role.objects.exclude(name="Admin").order_by("name")],
         }
     )
-
 
 # ════════════════════════════════════════════════════════════════════
 #  MANAGER DASHBOARD
@@ -3101,7 +3148,7 @@ def manager_dashboard_api(request):
 
     team_pending = (
         LeaveRequest.objects.filter(
-            manager_voted=False,           # ← only this condition
+            manager_voted=False,
         )
         .filter(Q(employee__reporting_manager=request.user) | Q(approvers=request.user))
         .exclude(employee=request.user)
@@ -3110,10 +3157,9 @@ def manager_dashboard_api(request):
         .order_by("-created_at")
     )
 
-
     team_on_leave = (
         LeaveRequest.objects.filter(
-            status="APPROVED",
+            final_status="APPROVED",
             start_date__lte=today,
             end_date__gte=today,
         )
@@ -3154,28 +3200,52 @@ def manager_dashboard_api(request):
     # Check for AJAX request
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
     
-    # Pending — paginated
-    pending_page = _paginate(
-        [_serialize_leave_with_employee(l) for l in team_pending],
-        request,
-        "page",
-        8,
-    )
-    page_obj_pending = pending_page.pop("_page_obj") if "_page_obj" in pending_page else None
+    # ✅ Database pagination for pending
+    pending_paginator = Paginator(team_pending, 8)
+    pending_page = request.GET.get('page', 1)
+    pending_page_obj = pending_paginator.get_page(pending_page)
+    pending_data = {
+        "page": pending_page_obj.number,
+        "num_pages": pending_paginator.num_pages,
+        "total_count": pending_paginator.count,
+        "has_next": pending_page_obj.has_next(),
+        "has_previous": pending_page_obj.has_previous(),
+        "start_index": pending_page_obj.start_index() if pending_paginator.count else 0,
+        "end_index": pending_page_obj.end_index() if pending_paginator.count else 0,
+        "results": [_serialize_leave_with_employee(leave) for leave in pending_page_obj],
+    }
 
-    history_page = _paginate(
-        [_serialize_leave_with_employee(l) for l in team_history_qs],
-        request,
-        "hpage",
-        10,
-    )
-    page_obj_history = history_page.pop("_page_obj") if "_page_obj" in history_page else None
+    # ✅ Database pagination for history
+    history_paginator = Paginator(team_history_qs, 10)
+    history_page = request.GET.get('hpage', 1)
+    history_page_obj = history_paginator.get_page(history_page)
+    history_data = {
+        "page": history_page_obj.number,
+        "num_pages": history_paginator.num_pages,
+        "total_count": history_paginator.count,
+        "has_next": history_page_obj.has_next(),
+        "has_previous": history_page_obj.has_previous(),
+        "start_index": history_page_obj.start_index() if history_paginator.count else 0,
+        "end_index": history_page_obj.end_index() if history_paginator.count else 0,
+        "results": [_serialize_leave_with_employee(leave) for leave in history_page_obj],
+    }
 
-    my_leaves_page = _paginate(
-        [_serialize_leave_with_employee(l) for l in my_leaves_qs], request, "mypage", 10
-    )
-    page_obj_myleaves = my_leaves_page.pop("_page_obj") if "_page_obj" in my_leaves_page else None
+    # ✅ Database pagination for my leaves
+    my_leaves_paginator = Paginator(my_leaves_qs, 10)
+    my_leaves_page = request.GET.get('mypage', 1)
+    my_leaves_page_obj = my_leaves_paginator.get_page(my_leaves_page)
+    my_leaves_data = {
+        "page": my_leaves_page_obj.number,
+        "num_pages": my_leaves_paginator.num_pages,
+        "total_count": my_leaves_paginator.count,
+        "has_next": my_leaves_page_obj.has_next(),
+        "has_previous": my_leaves_page_obj.has_previous(),
+        "start_index": my_leaves_page_obj.start_index() if my_leaves_paginator.count else 0,
+        "end_index": my_leaves_page_obj.end_index() if my_leaves_paginator.count else 0,
+        "results": [_serialize_leave_with_employee(leave) for leave in my_leaves_page_obj],
+    }
 
+    # Build team data
     team_data = []
     for member in team_members:
         member_leaves = LeaveRequest.objects.filter(
@@ -3194,8 +3264,8 @@ def manager_dashboard_api(request):
             {
                 "member": _serialize_user(member),
                 "total_leaves": member_leaves.count(),
-                "approved": member_leaves.filter(status="APPROVED").count(),
-                "pending": member_leaves.filter(status="PENDING").count(),
+                "approved": member_leaves.filter(final_status="APPROVED").count(),
+                "pending": member_leaves.filter(final_status="PENDING").count(),
                 "leave_summary": summary,
                 "is_on_leave": team_on_leave.filter(employee=member).exists(),
                 "casual_balance": casual_balance,
@@ -3203,48 +3273,71 @@ def manager_dashboard_api(request):
             }
         )
 
-    team_page = _paginate(team_data, request, "tpage", 8)
-    page_obj_team = team_page.pop("_page_obj") if "_page_obj" in team_page else None
+    # ✅ Database pagination for team data
+    team_paginator = Paginator(team_data, 8)
+    team_page = request.GET.get('tpage', 1)
+    team_page_obj = team_paginator.get_page(team_page)
+    team_page_data = {
+        "page": team_page_obj.number,
+        "num_pages": team_paginator.num_pages,
+        "total_count": team_paginator.count,
+        "has_next": team_page_obj.has_next(),
+        "has_previous": team_page_obj.has_previous(),
+        "start_index": team_page_obj.start_index() if team_paginator.count else 0,
+        "end_index": team_page_obj.end_index() if team_paginator.count else 0,
+        "results": list(team_page_obj.object_list),
+    }
 
-    onleave_page = _paginate(team_on_leave, request, "opage", 8)
-    page_obj_onleave = onleave_page.pop("_page_obj") if "_page_obj" in onleave_page else None
+    # ✅ Database pagination for on leave
+    onleave_paginator = Paginator(team_on_leave, 8)
+    onleave_page = request.GET.get('opage', 1)
+    onleave_page_obj = onleave_paginator.get_page(onleave_page)
+    onleave_data = {
+        "page": onleave_page_obj.number,
+        "num_pages": onleave_paginator.num_pages,
+        "total_count": onleave_paginator.count,
+        "has_next": onleave_page_obj.has_next(),
+        "has_previous": onleave_page_obj.has_previous(),
+        "start_index": onleave_page_obj.start_index() if onleave_paginator.count else 0,
+        "end_index": onleave_page_obj.end_index() if onleave_paginator.count else 0,
+        "results": [_serialize_user(leave.employee) for leave in onleave_page_obj],
+    }
 
     my_leave_summary = get_employee_leave_summary(request.user, current_year)
-
     unread = Notification.objects.filter(user=request.user, read_status=False).count()
 
     # Handle AJAX requests for pagination
     if is_ajax:
         partial_type = request.GET.get('partial')
         
-        if partial_type == 'pending' and page_obj_pending:
+        if partial_type == 'pending' and pending_page_obj:
             html = render_to_string('partials/mgr_pending_leaves.html', {
-                'pending_page': page_obj_pending,
+                'pending_page': pending_page_obj,
             }, request=request)
             return JsonResponse({'success': True, 'html': html})
         
-        elif partial_type == 'history' and page_obj_history:
+        elif partial_type == 'history' and history_page_obj:
             html = render_to_string('partials/mgr_team_history.html', {
-                'team_history_page': page_obj_history,
+                'team_history_page': history_page_obj,
                 'current_year': current_year,
             }, request=request)
             return JsonResponse({'success': True, 'html': html})
         
-        elif partial_type == 'myleaves' and page_obj_myleaves:
+        elif partial_type == 'myleaves' and my_leaves_page_obj:
             html = render_to_string('partials/mgr_my_leaves.html', {
-                'my_leaves_page': page_obj_myleaves,
+                'my_leaves_page': my_leaves_page_obj,
             }, request=request)
             return JsonResponse({'success': True, 'html': html})
 
-        elif partial_type == 'team' and page_obj_team:
+        elif partial_type == 'team' and team_page_obj:
             html = render_to_string('partials/mgr_team_list.html', {
-                'team_page': page_obj_team,
+                'team_page': team_page_obj,
             }, request=request)
             return JsonResponse({'success': True, 'html': html})
 
-        elif partial_type == 'onleave' and page_obj_onleave:
+        elif partial_type == 'onleave' and onleave_page_obj:
             html = render_to_string('partials/mgr_onleave_today.html', {
-                'onleave_page': page_obj_onleave,
+                'onleave_page': onleave_page_obj,
             }, request=request)
             return JsonResponse({'success': True, 'html': html})
 
@@ -3252,14 +3345,14 @@ def manager_dashboard_api(request):
     return _ok(
         {
             "user": _serialize_user(request.user),
-            "pending": pending_page,
+            "pending": pending_data,
             "pending_count": team_pending.count(),
             "team_count": team_members.count(),
-            "team_data": team_data,
-            "team_on_leave": [_serialize_user(l.employee) for l in team_on_leave],
+            "team_data": team_page_data,
+            "team_on_leave": onleave_data,
             "team_on_leave_count": team_on_leave.count(),
-            "history": history_page,
-            "my_leaves": my_leaves_page,
+            "history": history_data,
+            "my_leaves": my_leaves_data,
             "my_leave_summary": my_leave_summary,
             "active_leave_types": active_leave_types,
             "unread_count": unread,

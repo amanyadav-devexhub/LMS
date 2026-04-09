@@ -12,9 +12,29 @@ def _sidebar_role_from_permissions(user):
         return 'Admin'
 
     role_name = getattr(getattr(user, 'role', None), 'name', None)
-    if role_name in {'Admin', 'HR', 'Manager', 'TL', 'Employee'}:
-        return role_name
-
+    
+    # Direct role name to sidebar role mapping
+    role_mapping = {
+        'Admin': 'Admin',
+        'Administrator': 'Admin',
+        'HR': 'HR',
+        'Hr': 'HR',
+        'Human Resources': 'HR',
+        'Manager': 'Manager',
+        'TL': 'TL',
+        'Tl': 'TL',
+        'Team Lead': 'TL',
+        'Team Leader': 'TL',
+        'Lead': 'TL',
+        'Employee': 'Employee',
+        'Staff': 'Employee',
+    }
+    
+    # Check if role name exists in mapping
+    if role_name in role_mapping:
+        return role_mapping[role_name]
+    
+    # Fallback to permission-based detection
     perms = set(get_user_permission_codes(user))
 
     if perms & {
@@ -37,13 +57,10 @@ def _sidebar_role_from_permissions(user):
         'dashboard_manager', 'team_view', 'leave_view_all', 'leave_approve', 'leave_reject',
         'leave_balance_view',
     }:
+        # Check if user has TL role
+        if role_name in ['TL', 'Tl', 'Team Lead', 'Team Leader', 'Lead']:
+            return 'TL'
         return 'Manager'
-
-    if perms & {
-        'dashboard_manager', 'leave_apply', 'leave_view_own', 'leave_approve', 'leave_reject',
-        'leave_balance_view',
-    }:
-        return 'TL'
 
     if perms & {
         'dashboard_employee', 'leave_apply', 'leave_view_own', 'leave_balance_view',

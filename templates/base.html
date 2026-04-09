@@ -650,7 +650,7 @@
             <a href="{% url 'admin_academic_settings' %}"
             class="nav-item {% if request.resolver_match.url_name == 'admin_academic_settings' %}active{% endif %}">
                 <span class="nav-icon"><i class="fa-solid fa-gear"></i></span>
-                <span class="nav-text">Academic Settings</span>
+                <span class="nav-text">Settings</span>
             </a>
             {% endif %}
             
@@ -737,7 +737,7 @@
             {% if rbac_flags.settings_view %}
             <a href="{% url 'admin_academic_settings' %}" class="nav-item {% if request.resolver_match.url_name == 'admin_academic_settings' %}active{% endif %}">
                 <span class="nav-icon"><i class="fa-solid fa-gear"></i></span>
-                <span class="nav-text">Academic Settings</span>
+                <span class="nav-text">Settings</span>
             </a>
             {% endif %}
             {% if rbac_flags.holiday_view %}
@@ -1182,7 +1182,6 @@ $(document).on('submit', '.ajax-form', function(e) {
     const url = $form.attr('action') || window.location.href;
     const method = $form.attr('method') || 'POST';
     const formData = new FormData(this);
-    const skipReload = $form.hasClass('redirect-on-success');
 
     // Disable buttons to prevent double click
     const $btn = $form.find('button[type="submit"]');
@@ -1200,17 +1199,24 @@ $(document).on('submit', '.ajax-form', function(e) {
     }).then(response => {
         if (response.data.success) {
             showToast(response.data.message || 'Success', 'success');
-            if (response.data.redirect) {
-                window.location.href = response.data.redirect;
-            } else if (!skipReload && response.data.reload !== false) {
-                // If reload is not explicitly false, we reload by default to see changes
-                window.location.reload();
-            } else {
-                this.dispatchEvent(new CustomEvent('employee:created', {
-                    detail: response.data
-                }));
-                $btn.prop('disabled', false).html(originalBtnHtml);
+            
+            // ✅ Handle redirect if provided
+            if (response.data.redirect_url) {
+                setTimeout(() => {
+                    window.location.href = response.data.redirect_url;
+                }, 500);
+            } 
+            // Handle page reload if needed
+            else if (response.data.reload !== false && !response.data.redirect_url) {
+                setTimeout(() => {
+                    window.location.reload();
+                }, 500);
             }
+            
+            // Dispatch custom event for any additional handlers
+            this.dispatchEvent(new CustomEvent('ajax:success', {
+                detail: response.data
+            }));
         } else {
             showToast(response.data.error || 'Action failed', 'error');
             $btn.prop('disabled', false).html(originalBtnHtml);

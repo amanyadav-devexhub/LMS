@@ -43,8 +43,11 @@
     border-radius: 12px;
     background: var(--aqua-glass);
     border: 1px solid var(--border-mid);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 17px; color: var(--aqua-deep);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 17px;
+    color: var(--aqua-deep);
     margin-bottom: 14px;
     transition: all 0.22s;
 }
@@ -107,7 +110,9 @@
     width: 50px; height: 50px;
     border-radius: 14px;
     background: linear-gradient(135deg, var(--ink), var(--ink-mid));
-    display: flex; align-items: center; justify-content: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     font-size: 20px;
     color: var(--aqua-light);
     flex-shrink: 0;
@@ -188,13 +193,17 @@
     backdrop-filter: blur(6px);
     -webkit-backdrop-filter: blur(6px);
     z-index: 500;
-    display: flex; align-items: center; justify-content: center;
-    opacity: 0; pointer-events: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
     transition: opacity 0.25s ease;
 }
 
 .modal-overlay.open {
-    opacity: 1; pointer-events: all;
+    opacity: 1;
+    pointer-events: all;
 }
 
 .modal-box {
@@ -215,21 +224,30 @@
 .modal-header {
     padding: 20px 24px;
     border-bottom: 1px solid var(--border);
-    display: flex; align-items: center; justify-content: space-between;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     background: linear-gradient(90deg, rgba(0,198,212,0.05), transparent);
 }
 
 .modal-title {
-    display: flex; align-items: center; gap: 12px;
-    font-size: 15px; font-weight: 800; color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 15px;
+    font-weight: 800;
+    color: var(--text);
 }
 
 .modal-title-icon {
     width: 34px; height: 34px;
     border-radius: 9px;
     background: linear-gradient(135deg, var(--aqua-deep), var(--aqua));
-    display: flex; align-items: center; justify-content: center;
-    font-size: 13px; color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    color: #fff;
     box-shadow: 0 4px 12px rgba(0,198,212,0.38);
 }
 
@@ -239,8 +257,11 @@
     background: var(--surface2);
     border: 1px solid var(--border);
     color: var(--text-muted);
-    display: flex; align-items: center; justify-content: center;
-    cursor: pointer; font-size: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 13px;
     transition: all 0.18s;
 }
 
@@ -250,7 +271,10 @@
 .modal-footer {
     padding: 16px 24px;
     border-top: 1px solid var(--border);
-    display: flex; align-items: center; justify-content: flex-end; gap: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
     background: var(--surface2);
 }
 
@@ -270,7 +294,8 @@
     border-radius: var(--radius-sm);
     padding: 14px 16px;
     font-size: 13.5px; color: #b01530;
-    display: flex; align-items: center; gap: 11px;
+    display: flex;
+    align-items: center; gap: 11px;
     margin-top: 12px;
 }
 
@@ -294,9 +319,11 @@
 
 /* Search bar */
 .search-topbar {
-    display: flex; align-items: center;
+    display: flex;
+    align-items: center;
     justify-content: space-between;
-    gap: 14px; flex-wrap: wrap;
+    gap: 14px;
+    flex-wrap: wrap;
     margin-bottom: 20px;
 }
 
@@ -308,7 +335,9 @@
     font-size: 13px; font-weight: 700;
     cursor: pointer;
     transition: all 0.22s;
-    display: inline-flex; align-items: center; gap: 9px;
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
     box-shadow: 0 4px 18px rgba(0,198,212,0.38);
     font-family: 'Plus Jakarta Sans', sans-serif;
     text-decoration: none;
@@ -328,21 +357,12 @@
 <div class="dept-stats animate-in">
     <div class="dept-stat">
         <div class="dept-stat-icon"><i class="fa-solid fa-building"></i></div>
-        <div class="dept-stat-val">{{ total }}</div>
+        <div class="dept-stat-val">{{ departments|length }}</div>
         <div class="dept-stat-label">Total Departments</div>
     </div>
     <div class="dept-stat">
         <div class="dept-stat-icon"><i class="fa-solid fa-users"></i></div>
-        <div class="dept-stat-val">
-            {% with total_emp=departments|length %}
-            {{ departments.aggregate_emp_count|default:"—" }}
-            {% endwith %}
-            <!-- Fallback: sum via template -->
-            {% with emp_sum=0 %}
-            {% for d in departments %}{% with emp_sum=emp_sum|add:d.emp_count %}{% endwith %}{% endfor %}
-            {% endwith %}
-            —
-        </div>
+        <div class="dept-stat-val">{{ total_employees|default:"0" }}</div>
         <div class="dept-stat-label">Total Employees</div>
     </div>
     <div class="dept-stat">
@@ -438,7 +458,7 @@
                 <i class="fa-solid fa-xmark"></i>
             </button>
         </div>
-        <form method="post" action="{% url 'department_create' %}" class="ajax-form redirect-on-success">
+        <form method="post" action="{% url 'department_create' %}" class="ajax-form">
             {% csrf_token %}
             <div class="modal-body">
                 <div class="form-group">
@@ -479,7 +499,7 @@
                 <i class="fa-solid fa-xmark"></i>
             </button>
         </div>
-        <form method="post" id="editForm" action="" class="ajax-form redirect-on-success">
+        <form method="post" id="editForm" action="" class="ajax-form">
             {% csrf_token %}
             <div class="modal-body">
                 <div class="form-group">
@@ -520,7 +540,7 @@
                 <i class="fa-solid fa-xmark"></i>
             </button>
         </div>
-        <form method="post" id="deleteForm" action="" class="ajax-form redirect-on-success">
+        <form method="post" id="deleteForm" action="" class="ajax-form">
             {% csrf_token %}
             <div class="modal-body">
                 <p style="font-size:14px; color:var(--text-mid);">

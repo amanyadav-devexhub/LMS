@@ -937,7 +937,7 @@ function loadHistoryPage(page) {
 // Update all counts in UI
 function updateCounts(data) {
     // Update hero section
-    document.getElementById('heroName').innerHTML = `Welcome, ${escapeHtml(data.user?.first_name || 'Team Lead')} 👋`;
+    document.getElementById('heroName').innerHTML = `Welcome, ${escapeHtml(data.user?.first_name || 'Team Lead')} `;
     document.getElementById('heroTeamCount').textContent = data.team_count || 0;
     document.getElementById('heroPendingCount').textContent = data.pending_count || 0;
     document.getElementById('heroApprovedCount').textContent = data.approved_count || 0;

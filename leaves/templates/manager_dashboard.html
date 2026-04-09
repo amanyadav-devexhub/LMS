@@ -513,7 +513,7 @@
 {# Hero Section #}
 <div class="mgr-hero animate-in">
     <div class="hero-label">Manager Dashboard</div>
-    <div class="hero-name">Welcome back, {{ request.user.first_name|default:request.user.username }} 🚀</div>
+    <div class="hero-name">Welcome back, {{ request.user.first_name|default:request.user.username }} </div>
     <div class="hero-date">{% now "l, j F Y" %} &nbsp;·&nbsp; Leave Approval Authority (Manager Override Enabled)</div>
     
     <div class="hero-pills">
