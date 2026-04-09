@@ -1,4 +1,5 @@
 import json
+from datetime import datetime
 
 from django.db import models as django_models
 from django.shortcuts import render, redirect, get_object_or_404
@@ -744,11 +745,15 @@ def profile_api(request):
                     target_additional.alternate_phone = request.POST.get('alternate_phone').strip()
                 if request.POST.get('phone'):
                     target_additional.phone = request.POST.get('phone').strip()
-                if request.POST.get('date_of_birth'):
-                    try:
-                        target_additional.date_of_birth = datetime.strptime(request.POST.get('date_of_birth'), '%Y-%m-%d').date()
-                    except:
-                        pass
+                if 'date_of_birth' in request.POST:
+                    date_of_birth_raw = (request.POST.get('date_of_birth') or '').strip()
+                    if date_of_birth_raw:
+                        try:
+                            target_additional.date_of_birth = datetime.strptime(date_of_birth_raw, '%Y-%m-%d').date()
+                        except ValueError:
+                            return JsonResponse({"success": False, "error": "Invalid date of birth format."}, status=400)
+                    else:
+                        target_additional.date_of_birth = None
                 if request.POST.get('gender'):
                     target_additional.gender = request.POST.get('gender')
                 if request.POST.get('marital_status'):
@@ -793,11 +798,15 @@ def profile_api(request):
                 if request.POST.get('phone'):
                     target_user.phone = request.POST.get('phone').strip()
                     target_additional.phone = request.POST.get('phone').strip()
-                if request.POST.get('date_of_joining'):
-                    try:
-                        target_user.date_of_joining = datetime.strptime(request.POST.get('date_of_joining'), '%Y-%m-%d').date()
-                    except:
-                        pass
+                if 'date_of_joining' in request.POST:
+                    date_of_joining_raw = (request.POST.get('date_of_joining') or '').strip()
+                    if date_of_joining_raw:
+                        try:
+                            target_user.date_of_joining = datetime.strptime(date_of_joining_raw, '%Y-%m-%d').date()
+                        except ValueError:
+                            return JsonResponse({"success": False, "error": "Invalid date of joining format."}, status=400)
+                    else:
+                        target_user.date_of_joining = None
                 
                 # Update department
                 dept_id = request.POST.get('department')
@@ -1014,29 +1023,23 @@ def home_view(request):
 # ══════════════════════════════════════════════════════════════
 
 def _is_admin(request):
-    role = getattr(request.user, 'role', None)
     return (
         request.user.is_superuser
         or user_has_permission(request.user, "dashboard_admin")
         or user_has_permission(request.user, "settings_update")
         or user_has_permission(request.user, "role_assign_permissions")
-        or role_has_permission(role, "system_manage")
-        or (role and role.name == 'Admin')
     )
 
 
 def _is_hr_or_admin(request):
-    role = getattr(request.user, 'role', None)
     return (
         request.user.is_superuser
+        or user_has_permission(request.user, "dashboard_admin")
         or user_has_permission(request.user, "dashboard_hr")
         or user_has_permission(request.user, "user_view")
         or user_has_permission(request.user, "leave_view_all")
         or user_has_permission(request.user, "leave_approve")
         or user_has_permission(request.user, "team_manage")
-        or role_has_permission(role, "leave_manage")
-        or role_has_permission(role, "user_manage")
-        or (role and role.name in ['Admin', 'HR'])
     )
 
 
@@ -1112,6 +1115,75 @@ def _build_role_permission_rows(role):
         rows.append({'key': mod_key, 'label': mod_label, 'icon': mod_icon, 'perm': perm, 'definition': perm_map.get(mod_key)})
 
     return rows
+
+
+def _permission_group_meta(module_key):
+    module_map = {
+        key: {"label": label, "icon": icon}
+        for key, label, icon in MODULES
+    }
+    module_map.update({
+        "dashboard": {"label": "Dashboard", "icon": "fa-gauge-high"},
+        "user": {"label": "Users", "icon": "fa-users"},
+        "system": {"label": "System", "icon": "fa-gears"},
+        "leave": {"label": "Leave", "icon": "fa-calendar-days"},
+        "holiday": {"label": "Holiday", "icon": "fa-umbrella-beach"},
+        "report": {"label": "Reports", "icon": "fa-chart-bar"},
+        "team": {"label": "Team", "icon": "fa-people-group"},
+    })
+    return module_map.get(
+        module_key,
+        {
+            "label": module_key.replace("_", " ").title(),
+            "icon": "fa-shield-halved",
+        },
+    )
+
+
+def _build_role_permission_groups(role):
+    ensure_permission_catalog()
+
+    assignment_map = {
+        assignment.permission.codename: assignment.is_enabled
+        for assignment in RolePermissionAssignment.objects.filter(
+            role=role,
+            permission__is_active=True,
+        ).select_related("permission")
+    }
+
+    grouped = {}
+    for permission in RBACPermission.objects.filter(is_active=True).order_by("module", "name", "codename"):
+        module_key = permission.module or "general"
+        if module_key not in grouped:
+            meta = _permission_group_meta(module_key)
+            grouped[module_key] = {
+                "key": module_key,
+                "label": meta["label"],
+                "icon": meta["icon"],
+                "permissions": [],
+            }
+
+        grouped[module_key]["permissions"].append({
+            "id": permission.id,
+            "codename": permission.codename,
+            "name": permission.name,
+            "action": permission.action,
+            "description": permission.description,
+            "enabled": bool(assignment_map.get(permission.codename, False)),
+        })
+
+    ordered_group_keys = []
+    for module_key, _, _ in MODULES:
+        if module_key in grouped and module_key not in ordered_group_keys:
+            ordered_group_keys.append(module_key)
+    for module_key in ["user", "system", "leave", "holiday", "report", "team"]:
+        if module_key in grouped and module_key not in ordered_group_keys:
+            ordered_group_keys.append(module_key)
+    for module_key in grouped.keys():
+        if module_key not in ordered_group_keys:
+            ordered_group_keys.append(module_key)
+
+    return [grouped[module_key] for module_key in ordered_group_keys]
 
 
 def _serialize_assign_role_user(user):
@@ -1319,7 +1391,10 @@ def department_detail(request, pk):
 MODULES = [
     ('dashboard',     'Dashboard',         'fa-gauge-high'),
     ('leaves',        'Leave Management',  'fa-calendar-days'),
+    ('leave_type',    'Leave Type',        'fa-receipt'),
     ('leave_policy',  'Leave Policy/Balance', 'fa-sliders'),
+    ('academic_settings', 'Academic Settings', 'fa-cog'),
+    ('holiday',       'Holidays',          'fa-calendar-check'),
     ('employees',     'Employees',         'fa-users'),
     ('departments',   'Departments',       'fa-building'),
     ('salary',        'Salary Details',    'fa-indian-rupee-sign'),
@@ -1338,13 +1413,29 @@ ROLE_DEFAULTS = {
 }
 
 MODULE_ROLE_RESTRICTIONS = {
+    ('HR',       'leave_type'): dict(can_view=True,  can_create=True,  can_edit=True,  can_delete=False),
+    ('HR',       'leave_policy'): dict(can_view=True,  can_create=False, can_edit=False, can_delete=False),
+    ('HR',       'academic_settings'): dict(can_view=True,  can_create=False, can_edit=False, can_delete=False),
+    ('HR',       'holiday'): dict(can_view=True,  can_create=True,  can_edit=True,  can_delete=True),
     ('HR',       'departments'):  dict(can_view=False, can_create=False, can_edit=False, can_delete=False),
+    ('TL',       'leave_type'): dict(can_view=False, can_create=False, can_edit=False, can_delete=False),
+    ('TL',       'leave_policy'): dict(can_view=False, can_create=False, can_edit=False, can_delete=False),
+    ('TL',       'academic_settings'): dict(can_view=False, can_create=False, can_edit=False, can_delete=False),
+    ('TL',       'holiday'): dict(can_view=True,  can_create=False, can_edit=False, can_delete=False),
     ('TL',       'departments'):  dict(can_view=False, can_create=False, can_edit=False, can_delete=False),
     ('TL',       'salary'):       dict(can_view=False, can_create=False, can_edit=False, can_delete=False),
+    ('Employee', 'leave_type'): dict(can_view=False, can_create=False, can_edit=False, can_delete=False),
+    ('Employee', 'leave_policy'): dict(can_view=False, can_create=False, can_edit=False, can_delete=False),
+    ('Employee', 'academic_settings'): dict(can_view=False, can_create=False, can_edit=False, can_delete=False),
+    ('Employee', 'holiday'): dict(can_view=True,  can_create=False, can_edit=False, can_delete=False),
     ('Employee', 'departments'):  dict(can_view=False, can_create=False, can_edit=False, can_delete=False),
     ('Employee', 'salary'):       dict(can_view=False, can_create=False, can_edit=False, can_delete=False),
     ('Employee', 'bank'):         dict(can_view=True,  can_create=False, can_edit=True,  can_delete=False),
     ('Employee', 'employees'):    dict(can_view=False, can_create=False, can_edit=False, can_delete=False),
+    ('Manager',  'leave_type'): dict(can_view=False, can_create=False, can_edit=False, can_delete=False),
+    ('Manager',  'leave_policy'): dict(can_view=False, can_create=False, can_edit=False, can_delete=False),
+    ('Manager',  'academic_settings'): dict(can_view=False, can_create=False, can_edit=False, can_delete=False),
+    ('Manager',  'holiday'): dict(can_view=True,  can_create=False, can_edit=False, can_delete=False),
     ('Manager',  'departments'):  dict(can_view=True,  can_create=False, can_edit=True,  can_delete=False),
 }
 
@@ -1464,11 +1555,13 @@ def role_permission_list(request):
     selected_pk  = request.GET.get('role', '').strip()
     selected_role = None
     perm_rows    = []
+    permission_groups = []
 
     if selected_pk:
         try:
             selected_role = Role.objects.get(pk=selected_pk)
             perm_rows = _build_role_permission_rows(selected_role)
+            permission_groups = _build_role_permission_groups(selected_role)
         except Role.DoesNotExist:
             if _wants_json_response(request):
                 return JsonResponse({"success": False, "error": "Role not found."}, status=404)
@@ -1502,11 +1595,13 @@ def role_permission_list(request):
                 }
                 for row in perm_rows
             ],
+            "permission_groups": permission_groups,
         })
 
     return render(request, 'role_permission_list.html', {
         'roles': roles, 'selected_role': selected_role,
         'perm_rows': perm_rows, 'modules': MODULES,
+        'permission_groups': permission_groups,
     })
 
 
@@ -1545,16 +1640,39 @@ def role_permission_save(request):
             return redirect('role_permission_list')
 
         json_permissions = payload.get("permissions", {}) if isinstance(payload.get("permissions", {}), dict) else {}
+        explicit_codes = payload.get("permission_codes", [])
+        if not isinstance(explicit_codes, list):
+            explicit_codes = []
+        explicit_codes = {
+            str(code).strip()
+            for code in explicit_codes
+            if str(code).strip()
+        } or {
+            code.strip()
+            for code in request.POST.getlist("permission_codes")
+            if code.strip()
+        }
 
-        sync_matrix_permissions(role, json_permissions or {
-            mod_key: {
-                "can_view": f"{mod_key}_view" in request.POST,
-                "can_create": f"{mod_key}_create" in request.POST,
-                "can_edit": f"{mod_key}_edit" in request.POST,
-                "can_delete": f"{mod_key}_delete" in request.POST,
-            }
-            for mod_key, _, _ in MODULES
-        })
+        if explicit_codes:
+            ensure_permission_catalog()
+            RolePermissionAssignment.objects.filter(role=role).delete()
+            active_permissions = RBACPermission.objects.filter(is_active=True)
+            for permission in active_permissions:
+                RolePermissionAssignment.objects.update_or_create(
+                    role=role,
+                    permission=permission,
+                    defaults={"is_enabled": permission.codename in explicit_codes},
+                )
+        else:
+            sync_matrix_permissions(role, json_permissions or {
+                mod_key: {
+                    "can_view": f"{mod_key}_view" in request.POST,
+                    "can_create": f"{mod_key}_create" in request.POST,
+                    "can_edit": f"{mod_key}_edit" in request.POST,
+                    "can_delete": f"{mod_key}_delete" in request.POST,
+                }
+                for mod_key, _, _ in MODULES
+            })
 
         messages.success(request, f'Permissions for "{role.name}" saved successfully!')
 
@@ -1577,6 +1695,7 @@ def role_permission_save(request):
                     }
                     for row in _build_role_permission_rows(role)
                 ],
+                "permission_groups": _build_role_permission_groups(role),
             })
     elif _wants_json_response(request):
         return JsonResponse({"success": False, "error": "Method not allowed."}, status=405)
@@ -1790,14 +1909,111 @@ def assign_role(request):
 
     return JsonResponse({"success": False, "error": "Method not allowed."}, status=405)
 
-
 @login_required
 def assign_role_page(request):
-    if not (request.user.is_superuser or user_has_permission(request.user, "user_assign_role") or user_has_permission(request.user, "user_view") or _is_hr_or_admin(request)):
+    if not (
+        request.user.is_superuser
+        or user_has_permission(request.user, "user_assign_role")
+        or user_has_permission(request.user, "user_view")
+        or _is_hr_or_admin(request)
+    ):
+        if request.headers.get('Accept') == 'application/json' or request.GET.get('format') == 'json':
+            return JsonResponse({'success': False, 'error': 'Access denied'}, status=403)
+
         messages.error(request, "Access denied. Admins or HR only.")
         return redirect('admin_dashboard')
 
-    return render(request, 'assign_role.html', _get_assign_role_context(request))
+    context = _get_assign_role_context(request)
+    
+    # Get pagination parameters
+    page = int(request.GET.get('page', 1))
+    per_page = 10
+    start = (page - 1) * per_page
+    end = start + per_page
+    
+    users = context['users']
+    total_users = len(users)
+    total_pages = (total_users + per_page - 1) // per_page
+    
+    # Slice users for current page
+    paginated_users = users[start:end]
+
+    # ✅ FIX: Check for AJAX/JSON request FIRST
+    is_ajax = (
+        request.headers.get('X-Requested-With') == 'XMLHttpRequest' 
+        or request.GET.get('format') == 'json'
+        or request.headers.get('Accept') == 'application/json'
+    )
+    
+    # ✅ Return JSON for AJAX requests
+    if is_ajax:
+        users_data = [
+            {
+                'id': u.id,
+                'full_name': u.get_full_name() or u.username,
+                'email': u.email,
+                'is_senior': getattr(u, 'is_senior', False),
+                'department': {
+                    'id': u.department.id,
+                    'name': u.department.name
+                } if u.department else None,
+                'role': {
+                    'id': u.role.id,
+                    'name': u.role.name
+                } if u.role else None,
+                'reporting_manager': {
+                    'id': u.reporting_manager.id,
+                    'name': u.reporting_manager.get_full_name() or u.reporting_manager.username
+                } if getattr(u, 'reporting_manager', None) else None,
+            }
+            for u in paginated_users
+        ]
+        
+        # Build roles data for select dropdowns
+        roles_data = [
+            {'id': role.id, 'name': role.name}
+            for role in context['roles']
+        ]
+        
+        departments_data = [
+            {'id': dept.id, 'name': dept.name}
+            for dept in context['departments']
+        ]
+        
+        tl_users_data = [
+            {
+                'id': tl.id,
+                'name': tl.get_full_name() or tl.username,
+                'email': tl.email
+            }
+            for tl in context['tl_users']
+        ]
+        
+        return JsonResponse({
+            'success': True,
+            'users': users_data,
+            'roles': roles_data,
+            'departments': departments_data,
+            'tl_users': tl_users_data,
+            'stats': {
+                'total_users': total_users,
+                'page': page,
+                'per_page': per_page,
+            }
+        })
+
+    # Add pagination info to context for initial render (HTML only)
+    context.update({
+        'paginated_users': paginated_users,
+        'current_page': page,
+        'total_pages': total_pages,
+        'total_users': total_users,
+        'start_index': start + 1,
+        'end_index': min(end, total_users),
+        'per_page': per_page,
+    })
+
+    return render(request, 'assign_role.html', context)
 
 @login_required
 def assign_role_bulk(request):

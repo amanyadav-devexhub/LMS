@@ -1,0 +1,344 @@
+{% extends "base.html" %}
+{% block title %}{{ page_title_text }} - LeaveSetu{% endblock %}
+{% block page_title %}{{ page_title_text }}{% endblock %}
+
+{% block extra_head %}
+<style>
+.lt-page {
+  max-width: 980px;
+  margin: 0 auto;
+}
+.lt-hero {
+  background: linear-gradient(135deg, var(--ink), var(--ink-soft));
+  border-radius: 20px;
+  padding: 24px 28px;
+  color: #fff;
+  margin-bottom: 22px;
+}
+.lt-hero h2 {
+  margin: 0;
+  font-size: 24px;
+}
+.lt-hero p {
+  margin: 8px 0 0;
+  color: rgba(255,255,255,0.6);
+  font-size: 13px;
+}
+.lt-toolbar {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+.lt-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 22px;
+  box-shadow: var(--shadow-xs);
+}
+.lt-grid-2, .lt-grid-3 {
+  display: grid;
+  gap: 14px;
+}
+.lt-grid-2 { grid-template-columns: 1fr 1fr; }
+.lt-grid-3 { grid-template-columns: repeat(3, 1fr); }
+@media (max-width: 760px) {
+  .lt-grid-2, .lt-grid-3 { grid-template-columns: 1fr; }
+}
+.lt-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+}
+.toggle-group {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 12px;
+  background: var(--surface2);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer; transition: all 0.18s;
+}
+.toggle-group:hover { border-color: var(--aqua); background: rgba(0,198,212,0.04); }
+.toggle-group input[type=checkbox] { display: none; }
+.toggle-pill {
+  width: 34px; height: 18px;
+  background: var(--border-mid);
+  border-radius: 9px; position: relative;
+  flex-shrink: 0; transition: background 0.2s;
+}
+.toggle-pill::after {
+  content: '';
+  position: absolute; top: 2px; left: 2px;
+  width: 14px; height: 14px;
+  background: #fff; border-radius: 50%;
+  transition: transform 0.2s;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+}
+.toggle-group.checked .toggle-pill { background: var(--aqua); }
+.toggle-group.checked .toggle-pill::after { transform: translateX(16px); }
+.toggle-label { font-size: 13px; font-weight: 600; color: var(--text); flex: 1; }
+.toggle-hint  { font-size: 11px; color: var(--text-faint); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="lt-page">
+  <div class="lt-hero">
+    <h2>{{ page_title_text }}</h2>
+    <p>Use the existing leave type rules and CRUD flow on a dedicated full page.</p>
+  </div>
+
+  <div class="lt-toolbar">
+    <a href="{% url 'admin_leave_policy' %}" class="btn btn-ghost">
+      <i class="fa-solid fa-arrow-left"></i> Back to Leave Policy
+    </a>
+    {% if leave_type and rbac_flags.leave_policy_update %}
+    <form method="post" action="{% url 'admin_leave_type_toggle' leave_type.id %}" style="display:inline;">
+      {% csrf_token %}
+      <button type="submit" class="btn {% if leave_type.is_active %}btn-danger{% else %}btn-success{% endif %}">
+        <i class="fa-solid {% if leave_type.is_active %}fa-toggle-on{% else %}fa-toggle-off{% endif %}"></i>
+        {% if leave_type.is_active %}Deactivate{% else %}Activate{% endif %}
+      </button>
+    </form>
+    {% endif %}
+    {% if leave_type and rbac_flags.leave_policy_delete %}
+    <form method="post" action="{% url 'admin_leave_type_delete' leave_type.id %}" style="display:inline;">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-danger" onclick="return confirm('Delete {{ leave_type.name|escapejs }}? If employees already used it, deletion will be blocked.')">
+        <i class="fa-solid fa-trash"></i> Delete
+      </button>
+    </form>
+    {% endif %}
+  </div>
+
+  <div class="lt-card">
+    <form method="post" action="{% url 'admin_leave_type_save' %}">
+      {% csrf_token %}
+      <input type="hidden" name="lt_id" value="{{ leave_type.id|default:'' }}">
+
+      <div class="lt-grid-2">
+        <div class="form-group">
+          <label class="form-label">Leave Type Name</label>
+          <input type="text" name="name" class="form-control" required value="{{ leave_type.name|default:'' }}" placeholder="e.g. Annual Leave">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Code</label>
+          <input type="text" name="code" class="form-control" required value="{{ leave_type.code|default:'' }}" placeholder="e.g. ANNUAL" style="text-transform:uppercase;" oninput="this.value=this.value.toUpperCase()" {% if leave_type %}readonly{% endif %}>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Description</label>
+        <textarea name="description" class="form-control" rows="3" placeholder="What is this leave type for?">{{ leave_type.description|default:'' }}</textarea>
+      </div>
+
+      <div class="lt-grid-2">
+        <div class="form-group">
+          <label class="form-label">Days per Year</label>
+          <input type="number" name="days_per_year" class="form-control" min="0" step="0.5" value="{{ leave_type.days_per_year|default:12 }}" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Monthly Accrual</label>
+          <input type="number" name="monthly_accrual" class="form-control" min="0" step="0.25" value="{{ leave_type.monthly_accrual|default:1 }}">
+        </div>
+      </div>
+
+      <div class="lt-grid-2">
+        <div class="form-group">
+          <label class="form-label">Color</label>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <input type="color" name="color" id="lt-color" value="{{ leave_type.color|default:'#00c6d4' }}" style="width:44px;height:36px;border:1.5px solid var(--border);border-radius:var(--radius-xs);cursor:pointer;background:none;padding:2px;">
+            <input type="text" id="lt-color-text" class="form-control" value="{{ leave_type.color|default:'#00c6d4' }}" oninput="document.getElementById('lt-color').value=this.value">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Leave Year Start Month</label>
+          <select name="starting_month" class="form-control">
+            {% for num, label in month_choices|default:"" %}
+            <option value="{{ num }}" {% if leave_type.starting_month|default:4 == num %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+            {% if not month_choices %}
+            <option value="1" {% if leave_type.starting_month|default:4 == 1 %}selected{% endif %}>January</option>
+            <option value="2" {% if leave_type.starting_month|default:4 == 2 %}selected{% endif %}>February</option>
+            <option value="3" {% if leave_type.starting_month|default:4 == 3 %}selected{% endif %}>March</option>
+            <option value="4" {% if leave_type.starting_month|default:4 == 4 %}selected{% endif %}>April</option>
+            <option value="5" {% if leave_type.starting_month|default:4 == 5 %}selected{% endif %}>May</option>
+            <option value="6" {% if leave_type.starting_month|default:4 == 6 %}selected{% endif %}>June</option>
+            <option value="7" {% if leave_type.starting_month|default:4 == 7 %}selected{% endif %}>July</option>
+            <option value="8" {% if leave_type.starting_month|default:4 == 8 %}selected{% endif %}>August</option>
+            <option value="9" {% if leave_type.starting_month|default:4 == 9 %}selected{% endif %}>September</option>
+            <option value="10" {% if leave_type.starting_month|default:4 == 10 %}selected{% endif %}>October</option>
+            <option value="11" {% if leave_type.starting_month|default:4 == 11 %}selected{% endif %}>November</option>
+            <option value="12" {% if leave_type.starting_month|default:4 == 12 %}selected{% endif %}>December</option>
+            {% endif %}
+          </select>
+        </div>
+      </div>
+
+      <div class="lt-grid-3">
+        <div class="form-group">
+          <label class="form-label">Max Consecutive Days</label>
+          <input type="number" name="max_consecutive_days" class="form-control" min="0" value="{{ leave_type.max_consecutive_days|default:0 }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Advance Notice Days</label>
+          <input type="number" name="advance_notice_days" class="form-control" min="0" value="{{ leave_type.advance_notice_days|default:0 }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Document Required After</label>
+          <input type="number" name="document_required_after" class="form-control" min="0" value="{{ leave_type.document_required_after|default:0 }}">
+        </div>
+      </div>
+
+      <div class="lt-grid-2" style="margin-bottom:14px;">
+        <label class="toggle-group {% if leave_type.is_paid or not leave_type %}checked{% endif %}" id="tg-paid">
+          <input type="checkbox" name="is_paid" id="lt-paid" {% if leave_type.is_paid or not leave_type %}checked{% endif %} onchange="syncToggle('tg-paid','lt-paid')">
+          <div class="toggle-pill"></div>
+          <div>
+            <div class="toggle-label">Paid Leave</div>
+            <div class="toggle-hint">Salary is not deducted</div>
+          </div>
+        </label>
+        <label class="toggle-group {% if leave_type.is_accrual_based %}checked{% endif %}" id="tg-accrual">
+          <input type="checkbox" name="is_accrual_based" id="lt-accrual" {% if leave_type.is_accrual_based %}checked{% endif %} onchange="syncToggle('tg-accrual','lt-accrual')">
+          <div class="toggle-pill"></div>
+          <div>
+            <div class="toggle-label">Accrual Based</div>
+            <div class="toggle-hint">Earn monthly instead of full quota</div>
+          </div>
+        </label>
+      </div>
+
+      <div class="lt-grid-2" style="margin-bottom:14px;">
+        <label class="toggle-group {% if leave_type.carry_forward %}checked{% endif %}" id="tg-carry">
+          <input type="checkbox" name="carry_forward" id="lt-carry" {% if leave_type.carry_forward %}checked{% endif %} onchange="syncToggle('tg-carry','lt-carry');toggleCarry()">
+          <div class="toggle-pill"></div>
+          <div>
+            <div class="toggle-label">Carry Forward</div>
+            <div class="toggle-hint">Unused days roll to next year</div>
+          </div>
+        </label>
+        <label class="toggle-group {% if leave_type.is_active or not leave_type %}checked{% endif %}" id="tg-active">
+          <input type="checkbox" name="is_active" id="lt-active" {% if leave_type.is_active or not leave_type %}checked{% endif %} onchange="syncToggle('tg-active','lt-active')">
+          <div class="toggle-pill"></div>
+          <div>
+            <div class="toggle-label">Active</div>
+            <div class="toggle-hint">Employees can apply for this leave type</div>
+          </div>
+        </label>
+      </div>
+
+      <div id="carry-limit-row" class="form-group" style="{% if not leave_type.carry_forward %}display:none;{% endif %}">
+        <label class="form-label">Carry Forward Limit</label>
+        <input type="number" name="carry_forward_limit" id="lt-carry-limit" class="form-control" min="0" step="0.5" value="{{ leave_type.carry_forward_limit|default:0 }}">
+      </div>
+
+      <div class="lt-grid-2">
+        <div class="form-group">
+          <label class="form-label">Applicability</label>
+          <select name="applicable_to" class="form-control">
+            <option value="ALL" {% if leave_type.applicable_to|default:'ALL' == 'ALL' %}selected{% endif %}>All Employees</option>
+            <option value="ROLES" {% if leave_type.applicable_to == 'ROLES' %}selected{% endif %}>Specific Roles</option>
+            <option value="DEPARTMENTS" {% if leave_type.applicable_to == 'DEPARTMENTS' %}selected{% endif %}>Specific Departments</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Quota Type</label>
+          <select name="quota_type" class="form-control">
+            <option value="STANDARD" {% if leave_type.quota_type|default:'STANDARD' == 'STANDARD' %}selected{% endif %}>Standard</option>
+            <option value="ANNUAL_POOL" {% if leave_type.quota_type == 'ANNUAL_POOL' %}selected{% endif %}>Annual Pool</option>
+            <option value="SPECIAL_EVENT" {% if leave_type.quota_type == 'SPECIAL_EVENT' %}selected{% endif %}>Special Event</option>
+            <option value="MATERNITY_PATERNITY" {% if leave_type.quota_type == 'MATERNITY_PATERNITY' %}selected{% endif %}>Maternity/Paternity</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="lt-grid-3">
+        <div class="form-group">
+          <label class="form-label">Max Lifetime Usage</label>
+          <input type="number" name="max_lifetime_usage" class="form-control" min="0" step="0.5" value="{{ leave_type.max_lifetime_usage|default:0 }}">
+          <small style="font-size:10.5px;color:var(--text-faint);">0 = no cap</small>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Applicable Gender</label>
+          <select name="applicable_gender" class="form-control">
+            <option value="ALL" {% if leave_type.applicable_gender|default:'ALL' == 'ALL' %}selected{% endif %}>All</option>
+            <option value="MALE" {% if leave_type.applicable_gender == 'MALE' %}selected{% endif %}>Male</option>
+            <option value="FEMALE" {% if leave_type.applicable_gender == 'FEMALE' %}selected{% endif %}>Female</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Minimum Service Days</label>
+          <input type="number" name="min_service_days" class="form-control" min="0" value="{{ leave_type.min_service_days|default:0 }}">
+        </div>
+      </div>
+
+      <div class="lt-grid-2" style="margin-bottom:14px;">
+        <label class="toggle-group {% if leave_type.usage_resets_yearly or not leave_type %}checked{% endif %}" id="tg-reset-yearly">
+          <input type="checkbox" name="usage_resets_yearly" id="lt-reset-yearly" {% if leave_type.usage_resets_yearly or not leave_type %}checked{% endif %} onchange="syncToggle('tg-reset-yearly','lt-reset-yearly')">
+          <div class="toggle-pill"></div>
+          <div>
+            <div class="toggle-label">Usage Resets Yearly</div>
+            <div class="toggle-hint">Disable for one-time lifetime leaves</div>
+          </div>
+        </label>
+        <label class="toggle-group {% if leave_type.requires_document %}checked{% endif %}" id="tg-requires-doc">
+          <input type="checkbox" name="requires_document" id="lt-requires-doc" {% if leave_type.requires_document %}checked{% endif %} onchange="syncToggle('tg-requires-doc','lt-requires-doc')">
+          <div class="toggle-pill"></div>
+          <div>
+            <div class="toggle-label">Document Mandatory</div>
+            <div class="toggle-hint">Requires supporting attachment on apply</div>
+          </div>
+        </label>
+      </div>
+
+      <div class="lt-grid-2">
+        <div class="form-group" style="display:flex;align-items:end;">
+          <div style="background:rgba(0,198,212,0.05);border:1px solid rgba(0,198,212,0.15);border-radius:var(--radius-sm);padding:14px;width:100%;">
+            <label style="display:flex;align-items:center;gap:9px;cursor:pointer;font-size:13px;color:var(--text);margin-bottom:8px;">
+              <input type="checkbox" name="apply_to_all" checked style="width:15px;height:15px;accent-color:var(--aqua);">
+              Allocate this leave type to all active employees for {{ current_year }}
+            </label>
+            <label style="display:flex;align-items:center;gap:9px;cursor:pointer;font-size:13px;color:var(--text);">
+              <input type="checkbox" name="update_existing" {% if leave_type %}checked{% endif %} style="width:15px;height:15px;accent-color:var(--aqua);">
+              Also update existing allocations
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div class="lt-actions">
+        <button type="submit" class="btn btn-primary">
+          <i class="fa-solid fa-floppy-disk"></i> {% if leave_type %}Update Leave Type{% else %}Create Leave Type{% endif %}
+        </button>
+        <a href="{% url 'admin_leave_policy' %}" class="btn btn-ghost">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function syncToggle(groupId, inputId) {
+  const group = document.getElementById(groupId);
+  const input = document.getElementById(inputId);
+  if (group && input) group.classList.toggle('checked', input.checked);
+}
+function toggleCarry() {
+  const row = document.getElementById('carry-limit-row');
+  const input = document.getElementById('lt-carry');
+  if (row && input) row.style.display = input.checked ? '' : 'none';
+}
+document.addEventListener('DOMContentLoaded', function () {
+  ['tg-paid','tg-accrual','tg-carry','tg-active','tg-reset-yearly','tg-requires-doc'].forEach((id) => {
+    const group = document.getElementById(id);
+    const input = group?.querySelector('input[type="checkbox"]');
+    if (group && input) group.classList.toggle('checked', input.checked);
+  });
+  toggleCarry();
+});
+</script>
+{% endblock %}

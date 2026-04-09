@@ -1,0 +1,75 @@
+{% if team_page and team_page.paginator.count %}
+<table class="tt">
+    <thead>
+        <tr>
+            <th>Member</th>
+            <th>Status</th>
+            <th style="text-align:center;">Pending</th>
+            <th>Casual Bal</th>
+            <th>Sick Bal</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for item in team_page %}
+        <tr>
+            <td>
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <div class="lrav" style="width:30px;height:30px;font-size:10px;">
+                        {{ item.member.initials|default:'--' }}
+                    </div>
+                    <div>
+                        <div style="font-weight:700;">{{ item.member.name|default:item.member.username }}</div>
+                        <div style="font-size:10px;color:var(--text-muted);">{{ item.member.email|default:'-' }}</div>
+                    </div>
+                </div>
+            </td>
+            <td>
+                {% if item.is_on_leave %}<span class="chip ch-rd">On Leave</span>{% else %}<span class="chip ch-gn">Available</span>{% endif %}
+            </td>
+            <td style="text-align:center;font-weight:800;color:var(--warning);">{{ item.pending }}</td>
+            <td>
+                <div class="bw">
+                    <div class="bt"><div class="bf" style="background:#0d6efd;width:100%;"></div></div>
+                    <span style="font-weight:700;font-size:11px;">{{ item.casual_balance }}</span>
+                </div>
+            </td>
+            <td>
+                <div class="bw">
+                    <div class="bt"><div class="bf" style="background:#0dcaf0;width:100%;"></div></div>
+                    <span style="font-weight:700;font-size:11px;">{{ item.sick_balance }}</span>
+                </div>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+{% if team_page.has_other_pages %}
+<div class="pgn" id="team-pagination">
+    <span>{{ team_page.start_index }}-{{ team_page.end_index }} of {{ team_page.paginator.count }}</span>
+    <div style="display:flex;gap:4px;">
+        {% if team_page.has_previous %}
+            <a href="?tpage={{ team_page.previous_page_number }}&tab=team" class="pb ajax-pagination" data-target="team-list">
+                <i class="fa-solid fa-chevron-left"></i>
+            </a>
+        {% else %}
+            <span class="pb off"><i class="fa-solid fa-chevron-left"></i></span>
+        {% endif %}
+
+        {% if team_page.has_next %}
+            <a href="?tpage={{ team_page.next_page_number }}&tab=team" class="pb ajax-pagination" data-target="team-list">
+                <i class="fa-solid fa-chevron-right"></i>
+            </a>
+        {% else %}
+            <span class="pb off"><i class="fa-solid fa-chevron-right"></i></span>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+{% else %}
+<div class="emp">
+    <div class="emp-ico"><i class="fa-solid fa-user-slash"></i></div>
+    <div class="emp-ttl">No Direct Reports</div>
+    <div class="emp-sub">You don't have any employees assigned to you yet.</div>
+</div>
+{% endif %}

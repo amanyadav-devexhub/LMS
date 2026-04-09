@@ -34,6 +34,8 @@ API_PERMISSION_MAP = {
     "employee_search_json": ["user_view"],
     "create_employee_api": ["user_create"],
     "employee_detail_api": ["user_view"],
+    "update_employee_api": ["user_update"],
+    "delete_employee_api": ["user_delete"],
     "toggle_employee_status_api": ["user_activate", "user_deactivate"],
     "admin_leave_policy_api": ["leave_policy_view", "settings_view"],
     "admin_leave_type_save_api": ["leave_policy_create", "leave_policy_update"],
@@ -164,6 +166,8 @@ urlpatterns = [
     path('employee/list/page/',                    views.employee_list_page,     name='employee_list_page'),
     path('employee/<int:pk>/',                     views.employee_detail,        name='employee_detail'),
     path('employee/create/',                       views.create_employee,        name='create_employee'),
+    path('employee/<int:pk>/update/',              views.update_employee,        name='update_employee'),
+    path('employee/<int:pk>/delete/',              views.delete_employee,        name='delete_employee'),
     path('employee/toggle-status/<int:user_id>/', views.toggle_employee_status, name='toggle_employee_status'),
     path('employee/leave-balance/',                views.employee_leave_balance, name='employee_leave_balance'),
 
@@ -181,6 +185,8 @@ urlpatterns = [
 
     # ── Admin — Leave policy ───────────────────────────────────────────
     path('leave-policy/',                       views.admin_leave_policy,    name='admin_leave_policy'),
+    path('leave-policy/type/new/',             views.admin_leave_type_create_page, name='admin_leave_type_create'),
+    path('leave-policy/type/<int:lt_id>/edit/', views.admin_leave_type_edit_page, name='admin_leave_type_edit'),
     path('admin/leave-type/save/',                    views.admin_leave_type_save,         name='admin_leave_type_save'),
     path('admin/leave-type/<int:lt_id>/toggle/',      views.admin_leave_type_toggle,       name='admin_leave_type_toggle'),
     path('admin/leave-type/<int:lt_id>/delete/',      views.admin_leave_type_delete,       name='admin_leave_type_delete'),
@@ -188,6 +194,8 @@ urlpatterns = [
     path('admin/policy/<int:policy_id>/toggle/',      views.admin_policy_toggle,           name='admin_policy_toggle'),
     path('admin/policy/<int:policy_id>/delete/',      views.admin_policy_delete,           name='admin_policy_delete'),
     path('admin/apply-to-all/',                       views.admin_apply_to_all_employees,  name='admin_apply_to_all_employees'),
+    path('admin/academic-settings/',                  views.admin_academic_settings,       name='admin_academic_settings'),
+    path('admin/academic-settings/save/',             views.admin_academic_settings_save,  name='admin_academic_settings_save'),
 
     # ════════════════════════════════════════════════════════════════
     #  JSON API VIEWS  (all responses are pure JSON — no HTML)
@@ -226,6 +234,8 @@ urlpatterns = [
     path('api/admin/employees/search/',               api_endpoint(views.employee_search_json),                   name='employee_search_json'),
     path('api/admin/employees/create/',               api_endpoint(api_views.create_employee_api),                name='api_create_employee'),
     path('api/admin/employees/<int:pk>/',             api_endpoint(api_views.employee_detail_api),                name='api_employee_detail'),
+    path('api/admin/employees/<int:pk>/update/',      api_endpoint(api_views.update_employee_api),                name='api_update_employee'),
+    path('api/admin/employees/<int:pk>/delete/',      api_endpoint(api_views.delete_employee_api),                name='api_delete_employee'),
     path('api/admin/employees/<int:user_id>/toggle/', api_endpoint(api_views.toggle_employee_status_api),         name='api_toggle_employee'),
     path('api/leave-policy/',                         api_endpoint(api_views.admin_leave_policy_api),             name='api_admin_leave_policy'),
     path('api/admin/leave-type/save/',                api_endpoint(api_views.admin_leave_type_save_api),          name='api_admin_lt_save'),

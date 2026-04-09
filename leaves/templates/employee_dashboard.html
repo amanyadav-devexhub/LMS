@@ -823,6 +823,16 @@ function renderQuickActions() {
     const unreadCount = data.unread_count || 0;
     const totalRemaining = data.available_balance.toFixed(1);
     const leaveTypesCount = data.active_leave_types?.length || 0;
+    const canApplyLeave = Boolean(window.rbacFlags?.leave_apply);
+    const applyLeaveLink = canApplyLeave
+        ? `<a href="{% url 'apply_leave' %}" class="action-link">
+                <span>Apply for Leave</span>
+                <i class="fa-regular fa-arrow-right"></i>
+           </a>`
+        : `<div class="action-link" style="opacity:.5;pointer-events:none;cursor:not-allowed;" title="Permission required: leave_apply">
+                <span>Apply for Leave</span>
+                <i class="fa-regular fa-lock"></i>
+           </div>`;
     
     const html = `
         <div class="action-card animate-in delay-2">
@@ -870,10 +880,7 @@ function renderQuickActions() {
                 <span class="action-label">Leave Types</span>
                 <span class="action-value">${leaveTypesCount} configured</span>
             </div>
-            <a href="{% url 'apply_leave' %}" class="action-link">
-                <span>Apply for Leave</span>
-                <i class="fa-regular fa-arrow-right"></i>
-            </a>
+            ${applyLeaveLink}
         </div>
     `;
     
@@ -903,7 +910,7 @@ function renderLeaveHistory() {
         document.getElementById('leave-history-section').innerHTML = `
             <div class="section-card-header">
                 <div class="section-card-title">
-                    <div class="section-title-icon"><i class="fa-regular fa-clock-rotate-left"></i></div>
+                    <div class="section-title-icon"><i class="fa fa-history"></i></div>
                     Detailed Leave History
                 </div>
                 <span class="section-count">0 Records</span>
@@ -923,7 +930,7 @@ function renderLeaveHistory() {
     let html = `
         <div class="section-card-header">
             <div class="section-card-title">
-                <div class="section-title-icon"><i class="fa-regular fa-clock-rotate-left"></i></div>
+                <div class="section-title-icon"><i class="fa fa-history"></i></div>
                 Detailed Leave History
             </div>
             <span class="section-count">${data.all_leaves_count} Records</span>
@@ -980,9 +987,9 @@ function renderLeaveHistory() {
         
         // Previous button
         if (currentPage > 1) {
-            html += `<button class="pg-btn" onclick="goToPage(${currentPage - 1})"><i class="fa-regular fa-chevron-left"></i></button>`;
+            html += `<button class="pg-btn" onclick="goToPage(${currentPage - 1})"><i class="fa-solid fa-chevron-left"></i></button>`;
         } else {
-            html += `<button class="pg-btn disabled"><i class="fa-regular fa-chevron-left"></i></button>`;
+            html += `<button class="pg-btn disabled"><i class="fa-solid fa-chevron-left"></i></button>`;
         }
         
         // Page numbers
@@ -993,9 +1000,9 @@ function renderLeaveHistory() {
         
         // Next button
         if (currentPage < total_pages) {
-            html += `<button class="pg-btn" onclick="goToPage(${currentPage + 1})"><i class="fa-regular fa-chevron-right"></i></button>`;
+            html += `<button class="pg-btn" onclick="goToPage(${currentPage + 1})"><i class="fa-solid fa-chevron-right"></i></button>`;
         } else {
-            html += `<button class="pg-btn disabled"><i class="fa-regular fa-chevron-right"></i></button>`;
+            html += `<button class="pg-btn disabled"><i class="fa-solid fa-chevron-right"></i></button>`;
         }
         
         html += `

@@ -598,6 +598,8 @@ function formatLeaveType(leave) {
 function renderPendingLeaves(leavesData) {
     const container = document.getElementById('pending-list');
     if (!container) return;
+    const canApprove = Boolean(window.rbacFlags?.leave_approve);
+    const canReject = Boolean(window.rbacFlags?.leave_reject);
     
     const leaves = leavesData.results || [];
     
@@ -651,14 +653,17 @@ function renderPendingLeaves(leavesData) {
                 <td>${formatDateFull(leave.created_at)}</td>
                 <td>
                     <div style="display:flex;gap:5px;">
+                        ${canApprove ? `
                         <form method="POST" action="/approve_leave/${leave.id}/" class="tl-ajax-form" style="display:inline;" onclick="event.stopPropagation()">
                             <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
                             <button type="submit" class="btn btn-success btn-sm"><i class="fa-solid fa-check"></i> Approve</button>
-                        </form>
+                        </form>` : ''}
+                        ${canReject ? `
                         <form method="POST" action="/reject/leave/${leave.id}/" class="tl-ajax-form" style="display:inline;" onclick="event.stopPropagation()">
                             <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
                             <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Reject this leave request?')"><i class="fa-solid fa-xmark"></i> Reject</button>
-                        </form>
+                        </form>` : ''}
+                        ${!canApprove && !canReject ? `<span style="font-size:12px;color:var(--text-muted);font-weight:600;">No action permission</span>` : ''}
                     </div>
                 </td>
             </tr>`;

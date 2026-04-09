@@ -1,60 +1,8 @@
 from django.db import models
 from django.conf import settings
 from django.utils import timezone
+from datetime import date, timedelta
 from users.models import User, Department
-
-
-
-# ======================
-# LEAVE BALANCE
-# ======================
-class LeaveBalance(models.Model):
-    employee = models.OneToOneField(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name="leave_balance"
-    )
-    
-    # ===== OLD FIELDS (keep temporarily) =====
-    casual_leave = models.FloatField(default=12)
-    sick_leave = models.FloatField(default=10)
-    
-    # ===== NEW FIELDS for accrual system =====
-    total_accrued = models.FloatField(
-        default=0,
-        help_text="Total leaves earned since joining (1.5 per month)"
-    )
-    
-    total_paid_taken = models.FloatField(
-        default=0,
-        help_text="Total paid leaves used (deducted from balance)"
-    )
-    
-    monthly_accrual_rate = models.FloatField(
-        default=1.5,
-        help_text="Leaves earned per month"
-    )
-    
-    last_accrual_date = models.DateField(
-        auto_now_add=True,
-        help_text="Last date when monthly accrual was added"
-    )
-    
-    updated_at = models.DateTimeField(auto_now=True)
-    
-    class Meta:
-        verbose_name = "Leave Balance"
-        verbose_name_plural = "Leave Balances"
-    
-    @property
-    def available_balance(self):
-        """Current available paid leaves (never negative)"""
-        balance = self.total_accrued - self.total_paid_taken
-        return max(0, balance)
-    
-    def __str__(self):
-        return f"{self.employee.email} - Available: {self.available_balance}"
-
 
 # ======================
 # SALARY DEDUCTION
@@ -123,6 +71,13 @@ class LeaveRequest(models.Model):
     LEAVE_TYPE_CHOICES = (
         ("CASUAL",  "Casual Leave"),
         ("SICK",    "Sick Leave"),
+        ("URGENT", "Urgent Leave"),
+        ("HALF_DAY", "Half Day Leave"),
+        ("SHORT_LEAVE", "Short Leave"),
+        ("MARRIAGE", "Marriage Leave"),
+        ("BEREAVEMENT", "Bereavement Leave"),
+        ("MATERNITY", "Maternity Leave"),
+        ("PATERNITY", "Paternity Leave"),
         ("Casual",  "Casual Leave"),
         ("Sick",    "Sick Leave"),
         ("Urgent",  "Urgent Leave"),
@@ -193,9 +148,21 @@ class LeaveRequest(models.Model):
     hr_voted = models.BooleanField(default=False)
     manager_voted = models.BooleanField(default=False)
     
+
+
     # Vote counts
     approval_count = models.IntegerField(default=0)
     rejection_count = models.IntegerField(default=0)
+
+
+    manager_already_counted = models.BooleanField(
+        default=False,
+        help_text="Track if manager's approval vote was counted"
+    )
+    manager_already_counted_reject = models.BooleanField(
+        default=False,
+        help_text="Track if manager's rejection vote was counted"
+    )
     
     # Timestamps for auditing
     tl_acted_at = models.DateTimeField(null=True, blank=True)
@@ -231,6 +198,17 @@ class LeaveRequest(models.Model):
         help_text="When paid days were deducted from balance"
     )
 
+    eligibility_checked = models.BooleanField(
+        default=False,
+        help_text="Whether special leave eligibility checks were completed"
+    )
+
+    document_verified_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When an attached document was verified by approver/admin"
+    )
+
     @property
     def leave_duration_days(self):
         if self.duration == "FULL":
@@ -247,7 +225,8 @@ class LeaveRequest(models.Model):
         """
         Calculate how many days are paid vs unpaid based on available balance
         """
-        total_days = self.leave_duration_days
+        total_days = float(self.leave_duration_days or 0)
+        available_balance = max(0.0, float(available_balance or 0))
         
         if total_days <= available_balance:
             # Fully paid
@@ -260,6 +239,8 @@ class LeaveRequest(models.Model):
             self.unpaid_days = total_days - available_balance
             self.is_fully_paid = False
         
+        self.paid_days = round(float(self.paid_days or 0), 2)
+        self.unpaid_days = round(float(self.unpaid_days or 0), 2)
         return self.paid_days, self.unpaid_days
 
     def save(self, *args, **kwargs):
@@ -288,6 +269,48 @@ class LeaveRequest(models.Model):
     def __str__(self):
         status_display = self.final_status if self.final_status != 'PENDING' else self.status
         return f"{self.employee.username} - {self.leave_type} ({status_display})"
+    
+    def get_leave_type_config(self):
+        """Get the LeaveTypeConfig for this leave request"""
+        try:
+            return LeaveTypeConfig.objects.filter(
+                code__iexact=self.leave_type,
+                is_active=True
+            ).first()
+        except Exception:
+            return None
+    
+    def validate_against_rules(self):
+        """
+        Validate this leave request against LeaveTypeConfig rules.
+        Returns (is_valid, error_message)
+        """
+        config = self.get_leave_type_config()
+        if not config:
+            return True, None
+        
+        today = timezone.now().date()
+        
+        # Rule 1: Advance notice check
+        if config.advance_notice_days > 0:
+            min_allowed_date = today + timedelta(days=config.advance_notice_days)
+            if self.start_date < min_allowed_date:
+                return False, f"This leave type requires {config.advance_notice_days} days advance notice. Earliest start date is {min_allowed_date}."
+        
+        # Rule 2: Max consecutive days check
+        total_days = self.leave_duration_days
+        if config.max_consecutive_days > 0 and total_days > config.max_consecutive_days:
+            return False, f"This leave type allows maximum {config.max_consecutive_days} consecutive days. You requested {total_days} days."
+        
+        # Rule 3: Document required check
+        if config.document_required_after > 0 and total_days > config.document_required_after:
+            if not self.attachment:
+                return False, f"This leave type requires a supporting document for leaves longer than {config.document_required_after} days."
+
+        if config.requires_document and not self.attachment:
+            return False, "This leave type requires a supporting document."
+        
+        return True, None
 
 
 # -----------------------
@@ -434,6 +457,19 @@ class LeaveTypeConfig(models.Model):
         ('DEPARTMENTS', 'Specific Departments'),
     ]
 
+    QUOTA_TYPE_CHOICES = [
+        ('STANDARD', 'Standard'),
+        ('ANNUAL_POOL', 'Annual Pool'),
+        ('SPECIAL_EVENT', 'Special Event'),
+        ('MATERNITY_PATERNITY', 'Maternity/Paternity'),
+    ]
+
+    GENDER_CHOICES = [
+        ('ALL', 'All'),
+        ('MALE', 'Male'),
+        ('FEMALE', 'Female'),
+    ]
+
     # Identity
     name        = models.CharField(max_length=100)          # "Casual Leave"
     code        = models.CharField(max_length=30, unique=True)  # "CASUAL"
@@ -452,6 +488,42 @@ class LeaveTypeConfig(models.Model):
     # Pay type
     is_paid = models.BooleanField(default=True,
                 help_text="False = unpaid leave, salary will be deducted")
+    
+    starting_month = models.IntegerField(default=4,
+                            help_text="Month when leave year starts (1=Jan, 4=Apr, etc.)")
+
+    quota_type = models.CharField(
+        max_length=30,
+        choices=QUOTA_TYPE_CHOICES,
+        default='STANDARD',
+        help_text="How this leave type consumes quota"
+    )
+
+    max_lifetime_usage = models.FloatField(
+        default=0,
+        help_text="Lifetime cap for special leaves. 0 = no lifetime cap"
+    )
+
+    usage_resets_yearly = models.BooleanField(
+        default=True,
+        help_text="Whether usage resets every leave year"
+    )
+
+    applicable_gender = models.CharField(
+        max_length=10,
+        choices=GENDER_CHOICES,
+        default='ALL'
+    )
+
+    min_service_days = models.PositiveIntegerField(
+        default=0,
+        help_text="Minimum completed service days required"
+    )
+
+    requires_document = models.BooleanField(
+        default=False,
+        help_text="Whether a supporting document is mandatory"
+    )
 
     # Rules
     max_consecutive_days    = models.IntegerField(default=0,
@@ -488,6 +560,40 @@ class LeaveTypeConfig(models.Model):
     def __str__(self):
         paid_label = "Paid" if self.is_paid else "Unpaid"
         return f"{self.name} — {self.days_per_year} days/yr ({paid_label})"
+    
+    def get_current_leave_year(self, as_of_date=None):
+        """Get the current leave year for this leave type."""
+        if as_of_date is None:
+            as_of_date = timezone.now().date()
+        start_month = self.starting_month
+        if as_of_date.month >= start_month:
+            return as_of_date.year
+        else:
+            return as_of_date.year - 1
+    
+    def get_leave_year_range(self, as_of_date=None):
+        """Get (start_date, end_date) for the leave year."""
+        if as_of_date is None:
+            as_of_date = timezone.now().date()
+        year = self.get_current_leave_year(as_of_date)
+        start_date = date(year, self.starting_month, 1)
+
+        if self.starting_month == 1:
+            end_date = date(year, 12, 31)
+        else:
+            end_date = date(year + 1, self.starting_month, 1) - timedelta(days=1)
+        
+        return start_date, end_date
+    
+    def get_months_elapsed_in_leave_year(self, as_of_date=None):
+        """Get how many months have passed in the current leave year."""
+        if as_of_date is None:
+            as_of_date = timezone.now().date()
+        year = self.get_current_leave_year(as_of_date)
+        start_date = date(year, self.starting_month, 1)
+
+        months_elapsed = (as_of_date.year - start_date.year) * 12 + (as_of_date.month - start_date.month) + 1
+        return max(1, min(12, months_elapsed))
 
 
 # ======================
@@ -566,6 +672,23 @@ class EmployeeLeaveAllocation(models.Model):
     carried_forward  = models.FloatField(default=0,
                         help_text="Days carried over from previous year")
 
+    lifetime_used = models.FloatField(
+        default=0,
+        help_text="Total lifetime usage for capped/special leaves"
+    )
+
+    last_used_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When this leave type was last consumed"
+    )
+
+    event_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Relevant event date for document-backed leave (e.g. marriage, birth)"
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -580,7 +703,76 @@ class EmployeeLeaveAllocation(models.Model):
     @property
     def remaining_days(self):
         """Live remaining balance for this leave type"""
-        return max(0.0, self.allocated_days + self.carried_forward - self.used_days)
+        return self.get_available_paid_balance()
+
+    def get_monthly_accrual_rate(self):
+        if self.leave_type.quota_type == 'ANNUAL_POOL':
+            settings_obj = AcademicLeaveSettings.get_solo()
+            annual_quota = float(getattr(settings_obj, 'annual_leave_quota', 12) or 12)
+            return round(annual_quota / 12.0, 4)
+        if self.leave_type.is_accrual_based:
+            return float(self.leave_type.monthly_accrual or 0)
+        return 0.0
+
+    def get_accrued_days(self, as_of_date=None):
+        as_of_date = as_of_date or timezone.now().date()
+
+        if self.leave_type.quota_type == 'ANNUAL_POOL':
+            settings_obj = AcademicLeaveSettings.get_solo()
+            annual_quota = float(getattr(settings_obj, 'annual_leave_quota', 12) or 12)
+            months_elapsed = self.leave_type.get_months_elapsed_in_leave_year(as_of_date)
+            return round(min(annual_quota, (annual_quota / 12.0) * months_elapsed), 2)
+
+        if self.leave_type.is_accrual_based:
+            months_elapsed = self.leave_type.get_months_elapsed_in_leave_year(as_of_date)
+            accrued = float(self.leave_type.monthly_accrual or 0) * months_elapsed
+            return round(min(float(self.leave_type.days_per_year or 0), accrued), 2)
+
+        return round(float(self.allocated_days or 0), 2)
+
+    def get_annual_pool_usage(self):
+        if self.leave_type.quota_type != 'ANNUAL_POOL':
+            return float(self.used_days or 0)
+
+        return float(
+            EmployeeLeaveAllocation.objects.filter(
+                employee=self.employee,
+                year=self.year,
+                leave_type__quota_type='ANNUAL_POOL',
+            ).aggregate(total=models.Sum('used_days'))['total'] or 0
+        )
+
+    def get_available_paid_balance(self, as_of_date=None):
+        if self.leave_type.quota_type == 'ANNUAL_POOL':
+            accrued = self.get_accrued_days(as_of_date=as_of_date)
+            used = self.get_annual_pool_usage()
+            return max(0.0, round(accrued - used, 2))
+        return max(0.0, round(float(self.allocated_days or 0) + float(self.carried_forward or 0) - float(self.used_days or 0), 2))
+
+    @staticmethod
+    def remaining_prorated_months(joining_date, period_end):
+        """
+        Count remaining months in the period using the business rule:
+        - include joining month only when joining day <= 15
+        - otherwise start from next month
+        """
+        if not joining_date or not period_end or joining_date > period_end:
+            return 0
+
+        start_year = joining_date.year
+        start_month = joining_date.month
+
+        if joining_date.day > 15:
+            start_month += 1
+            if start_month > 12:
+                start_month = 1
+                start_year += 1
+
+        start_index = (start_year * 12) + start_month
+        end_index = (period_end.year * 12) + period_end.month
+        if start_index > end_index:
+            return 0
+        return (end_index - start_index) + 1
 
     @property
     def used_percent(self):
@@ -594,3 +786,103 @@ class EmployeeLeaveAllocation(models.Model):
             f"{self.employee.email} | {self.leave_type.name} | "
             f"{self.year} | {self.remaining_days} remaining"
         )
+
+
+class AcademicLeaveSettings(models.Model):
+    MONTH_CHOICES = [
+        (1, "January"),
+        (2, "February"),
+        (3, "March"),
+        (4, "April"),
+        (5, "May"),
+        (6, "June"),
+        (7, "July"),
+        (8, "August"),
+        (9, "September"),
+        (10, "October"),
+        (11, "November"),
+        (12, "December"),
+    ]
+
+    leave_year_start_month = models.IntegerField(choices=MONTH_CHOICES, default=4)
+
+    default_casual_quota = models.FloatField(default=12)
+    default_sick_quota = models.FloatField(default=8)
+    default_annual_quota = models.FloatField(default=18)
+    annual_leave_quota = models.FloatField(default=12)
+    show_only_monthly_in_balance = models.BooleanField(
+        default=True,
+        help_text="If enabled, employee balance widgets show only monthly-accrual leave types"
+    )
+
+    working_hours_per_day = models.DecimalField(max_digits=4, decimal_places=2, default=8)
+    grace_period_minutes = models.PositiveIntegerField(default=10)
+    auto_deduction_enabled = models.BooleanField(default=False)
+    auto_deduction_after_minutes = models.PositiveIntegerField(default=30)
+
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="updated_academic_settings",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Academic & Leave Settings"
+        verbose_name_plural = "Academic & Leave Settings"
+
+    @classmethod
+    def get_solo(cls):
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+    def save(self, *args, **kwargs):
+        self.pk = 1
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"Settings (Leave year starts: {self.get_leave_year_start_month_display()})"
+
+
+class LeaveAllocationLedger(models.Model):
+    employee = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='leave_allocation_ledger_entries'
+    )
+    leave_type = models.ForeignKey(
+        LeaveTypeConfig,
+        on_delete=models.CASCADE,
+        related_name='allocation_ledger_entries'
+    )
+    allocation = models.ForeignKey(
+        EmployeeLeaveAllocation,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='ledger_entries'
+    )
+
+    year = models.IntegerField()
+    annual_quota = models.FloatField(default=0)
+    allocated_quota = models.FloatField(default=0)
+    used_leaves = models.FloatField(default=0)
+    remaining_leaves = models.FloatField(default=0)
+
+    action = models.CharField(max_length=50, default='PRORATED_ALLOCATION')
+    note = models.TextField(default='Pro-rated allocation generated on employee onboarding')
+    metadata = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['employee', 'year']),
+            models.Index(fields=['leave_type', 'year']),
+        ]
+
+    def __str__(self):
+        return f"{self.employee.email} | {self.leave_type.code} | {self.action}"

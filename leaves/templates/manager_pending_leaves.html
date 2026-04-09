@@ -116,18 +116,22 @@
 
     function loadPending(url) {
         container.style.opacity = '0.55';
-        fetch(url, {
-            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        $.ajax({
+            url: url,
+            method: 'GET',
+            dataType: 'json',
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
         })
-        .then(res => res.json())
-        .then(data => {
+        .done((data) => {
             if (!data.success) return;
             container.innerHTML = data.html;
             badge.textContent = `${data.pending_count} pending`;
-            container.style.opacity = '1';
             window.history.replaceState({}, '', url);
         })
-        .catch(() => {
+        .always(() => {
             container.style.opacity = '1';
         });
     }

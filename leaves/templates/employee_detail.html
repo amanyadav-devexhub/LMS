@@ -98,9 +98,33 @@
       <h1 class="page-title">Employee Profile</h1>
       <p class="page-subtitle">Viewing details for {{ employee.get_full_name|default:employee.username }}</p>
     </div>
-    <a href="javascript:history.back()" class="btn btn-ghost">
-      <i class="fa-solid fa-arrow-left"></i> Back
-    </a>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      {% if rbac_flags.user_update %}
+      <a href="?edit=1" class="btn btn-primary">
+        <i class="fa-solid fa-pen"></i> Edit
+      </a>
+      {% endif %}
+      {% if employee.is_active and rbac_flags.user_deactivate or not employee.is_active and rbac_flags.user_activate %}
+      <form method="POST" action="{% url 'toggle_employee_status' employee.pk %}" class="ajax-form" style="display:inline;">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-ghost">
+          <i class="fa-solid {% if employee.is_active %}fa-user-slash{% else %}fa-user-check{% endif %}"></i>
+          {% if employee.is_active %}Deactivate{% else %}Activate{% endif %}
+        </button>
+      </form>
+      {% endif %}
+      {% if rbac_flags.user_delete %}
+      <form method="POST" action="{% url 'delete_employee' employee.pk %}" class="ajax-form" style="display:inline;" onsubmit="return confirm('Delete this employee permanently?');">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-ghost" style="color:var(--danger);border-color:rgba(240,64,88,0.2);">
+          <i class="fa-solid fa-trash"></i> Delete
+        </button>
+      </form>
+      {% endif %}
+      <a href="javascript:history.back()" class="btn btn-ghost">
+        <i class="fa-solid fa-arrow-left"></i> Back
+      </a>
+    </div>
   </div>
 </div>
 
@@ -166,6 +190,45 @@
 
   <!-- Leave History -->
   <div class="animate-in delay-2">
+    {% if rbac_flags.user_update %}
+    <div class="table-container" style="margin-bottom:24px;">
+      <div class="table-header">
+        <h2 class="table-title"><i class="fa-solid fa-user-pen" style="color:var(--accent);margin-right:8px;"></i>Edit Employee</h2>
+      </div>
+      <form method="POST" action="{% url 'update_employee' employee.pk %}" class="ajax-form" style="padding:20px;display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+        {% csrf_token %}
+        <input type="text" name="first_name" value="{{ employee.first_name }}" placeholder="First name" class="form-control" required>
+        <input type="text" name="last_name" value="{{ employee.last_name }}" placeholder="Last name" class="form-control" required>
+        <input type="text" name="username" value="{{ employee.username }}" placeholder="Username" class="form-control" required>
+        <input type="email" name="email" value="{{ employee.email }}" placeholder="Email" class="form-control" required>
+        <input type="text" name="designation" value="{{ employee.designation|default:'' }}" placeholder="Designation" class="form-control">
+        <input type="text" name="phone" value="{{ employee.phone|default:'' }}" placeholder="Phone" class="form-control">
+        <select name="department_id" class="form-control">
+          <option value="">Select Department</option>
+          {% for dept in departments %}
+          <option value="{{ dept.pk }}" {% if employee.department_id == dept.pk %}selected{% endif %}>{{ dept.name }}</option>
+          {% endfor %}
+        </select>
+        <select name="role_id" class="form-control">
+          <option value="">Select Role</option>
+          {% for role in roles %}
+          <option value="{{ role.pk }}" {% if employee.role_id == role.pk %}selected{% endif %}>{{ role.name }}</option>
+          {% endfor %}
+        </select>
+        <select name="reporting_manager_id" class="form-control">
+          <option value="">Select Reporting Manager</option>
+          {% for manager in managers %}
+          <option value="{{ manager.pk }}" {% if employee.reporting_manager_id == manager.pk %}selected{% endif %}>{{ manager.get_full_name|default:manager.username }}</option>
+          {% endfor %}
+        </select>
+        <input type="password" name="password" placeholder="New password (optional)" class="form-control">
+        <div style="grid-column:1 / -1;display:flex;justify-content:flex-end;">
+          <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> Save Changes</button>
+        </div>
+      </form>
+    </div>
+    {% endif %}
+
     <div class="table-container">
       <div class="table-header">
         <h2 class="table-title"><i class="fa-solid fa-calendar-days" style="color:var(--accent);margin-right:8px;"></i>Leave History</h2>

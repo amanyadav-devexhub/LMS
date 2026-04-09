@@ -198,6 +198,46 @@
 .toggle-group.checked .toggle-pill::after { transform: translateX(16px); }
 .toggle-label { font-size: 13px; font-weight: 600; color: var(--text); flex: 1; }
 .toggle-hint  { font-size: 11px; color: var(--text-faint); }
+
+.special-card {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  overflow: hidden;
+}
+.special-head {
+  width: 100%;
+  border: none;
+  background: linear-gradient(90deg, rgba(0,198,212,0.06), transparent);
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  color: var(--text);
+}
+.special-title { font-size: 13px; font-weight: 800; }
+.special-sub { font-size: 11px; color: var(--text-faint); margin-top: 2px; }
+.special-chevron { color: var(--aqua-deep); transition: transform 0.2s ease; }
+.special-card.open .special-chevron { transform: rotate(180deg); }
+.special-body {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.25s ease;
+  border-top: 1px solid transparent;
+}
+.special-card.open .special-body {
+  max-height: 520px;
+  border-top-color: var(--border);
+}
+.special-item {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.special-item:last-child { border-bottom: none; }
+.special-name { font-size: 12.5px; font-weight: 700; color: var(--text); }
+.special-meta { font-size: 10.5px; color: var(--text-faint); margin-top: 2px; }
+.special-desc { font-size: 11px; color: var(--text-muted); margin-top: 4px; line-height: 1.45; }
 </style>
 {% endblock %}
 
@@ -231,9 +271,9 @@
         <i class="fa-solid fa-calendar-days"></i> Full-Year Sync All Employees
       </button>
     </form>
-    <button {% if rbac_flags.leave_policy_create %}onclick="openModal('create-lt-modal')"{% endif %} class="btn btn-ghost" style="color:#fff;border-color:rgba(255,255,255,0.2);" {% if not rbac_flags.leave_policy_create %}disabled title="Permission required: leave_policy_create"{% endif %}>
+    <a href="{% url 'admin_leave_type_create' %}" class="btn btn-ghost" style="color:#fff;border-color:rgba(255,255,255,0.2);{% if not rbac_flags.leave_policy_create %}opacity:.45;pointer-events:none;{% endif %}" {% if not rbac_flags.leave_policy_create %}title="Permission required: leave_policy_create"{% endif %}>
       <i class="fa-solid fa-plus"></i> New Leave Type
-    </button>
+    </a>
     <button {% if rbac_flags.leave_policy_create %}onclick="openModal('create-policy-modal')"{% endif %} class="btn btn-ghost" style="color:#fff;border-color:rgba(255,255,255,0.2);" {% if not rbac_flags.leave_policy_create %}disabled title="Permission required: leave_policy_create"{% endif %}>
       <i class="fa-solid fa-file-contract"></i> New Policy
     </button>
@@ -276,9 +316,9 @@
         <div class="ptt-icon"><i class="fa-solid fa-list-check"></i></div>
         Leave Types & Quotas
       </div>
-      <button {% if rbac_flags.leave_policy_create %}onclick="openModal('create-lt-modal')"{% endif %} class="btn btn-primary btn-sm" {% if not rbac_flags.leave_policy_create %}disabled title="Permission required: leave_policy_create"{% endif %}>
+      <a href="{% url 'admin_leave_type_create' %}" class="btn btn-primary btn-sm" style="{% if not rbac_flags.leave_policy_create %}opacity:.45;pointer-events:none;{% endif %}" {% if not rbac_flags.leave_policy_create %}title="Permission required: leave_policy_create"{% endif %}>
         <i class="fa-solid fa-plus"></i> Add Type
-      </button>
+      </a>
     </div>
 
     <div style="overflow-x:auto;">
@@ -322,6 +362,9 @@
                 {{ lt.monthly_accrual }}/month
               </div>
               {% endif %}
+              <div style="font-size:10px;color:var(--text-faint);margin-top:2px;">
+                Leave year starts in {{ item.starting_month_name|default:"April" }}
+              </div>
             </td>
 
             <!-- Paid / Accrual -->
@@ -355,6 +398,7 @@
                 {% if lt.carry_forward %}
                 <span class="rule-chip"><i class="fa-solid fa-forward"></i> Carry fwd</span>
                 {% endif %}
+                <span class="rule-chip"><i class="fa-solid fa-calendar-week"></i> {{ item.starting_month_name|default:"April"|slice:":3" }} start</span>
                 {% if not lt.max_consecutive_days and not lt.advance_notice_days and not lt.document_required_after and not lt.carry_forward %}
                 <span style="font-size:11px;color:var(--text-faint);">—</span>
                 {% endif %}
@@ -383,27 +427,13 @@
             <td>
               <div style="display:flex;gap:5px;flex-wrap:wrap;">
                 <!-- Edit -->
-                <button
-                  data-lt-id="{{ lt.id }}"
-                  data-lt-name="{{ lt.name|escape }}"
-                  data-lt-code="{{ lt.code|escape }}"
-                  data-lt-days="{{ lt.days_per_year|default:0 }}"
-                  data-lt-paid="{{ lt.is_paid|yesno:'true,false' }}"
-                  data-lt-accrual="{{ lt.is_accrual_based|yesno:'true,false' }}"
-                  data-lt-monthly="{{ lt.monthly_accrual|default:0 }}"
-                  data-lt-max-consec="{{ lt.max_consecutive_days|default:0 }}"
-                  data-lt-advance="{{ lt.advance_notice_days|default:0 }}"
-                  data-lt-doc-after="{{ lt.document_required_after|default:0 }}"
-                  data-lt-carry="{{ lt.carry_forward|yesno:'true,false' }}"
-                  data-lt-carry-limit="{{ lt.carry_forward_limit|default:0 }}"
-                  data-lt-color="{{ lt.color|default:'#00c6d4'|escape }}"
-                  data-lt-applicable-to="{{ lt.applicable_to|default:'ALL'|escape }}"
-                  data-lt-desc="{{ lt.description|default:''|escape }}"
-                  data-lt-active="{{ lt.is_active|yesno:'true,false' }}"
-                  {% if rbac_flags.leave_policy_update %}onclick="openEditModalFromButton(this)"{% endif %}
-                  class="btn btn-ghost btn-sm" title="Edit" {% if not rbac_flags.leave_policy_update %}disabled style="opacity:.45;cursor:not-allowed;"{% endif %}>
+                <a
+                  href="{% url 'admin_leave_type_edit' lt.id %}"
+                  class="btn btn-ghost btn-sm"
+                  title="Edit"
+                  {% if not rbac_flags.leave_policy_update %}style="opacity:.45;pointer-events:none;cursor:not-allowed;"{% endif %}>
                   <i class="fa-solid fa-pen-to-square"></i>
-                </button>
+                </a>
                 <!-- Toggle active/inactive -->
                 <form method="POST" action="{% url 'api_admin_lt_toggle' lt.id %}" class="ajax-form" style="margin:0;">
                   {% csrf_token %}
@@ -552,6 +582,51 @@
         <p>Employee dashboards automatically show updated balances — no page reload needed.</p>
       </div>
     </div>
+
+    <div class="card animate-in delay-4" style="margin-top:16px;">
+      <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px;">
+        <i class="fa-solid fa-certificate" style="color:var(--aqua-deep);"></i>
+        Special Leave Types
+      </div>
+      <div class="special-card" id="special-leave-card">
+        <button type="button" class="special-head" onclick="toggleSpecialLeaveCard()">
+          <div>
+            <div class="special-title">All Special Leave Types</div>
+            <div class="special-sub">Click to view eligibility rules and descriptions</div>
+          </div>
+          <i class="fa-solid fa-chevron-down special-chevron"></i>
+        </button>
+        <div class="special-body" id="special-leave-body">
+          {% for item in lt_stats %}
+            {% if item.lt.quota_type == 'SPECIAL_EVENT' or item.lt.quota_type == 'MATERNITY_PATERNITY' %}
+            <div class="special-item">
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+                <div class="special-name">{{ item.lt.name }}</div>
+                {% if item.lt.is_active %}
+                  <span class="tag tag-on">Enabled</span>
+                {% else %}
+                  <span class="tag tag-off">Disabled</span>
+                {% endif %}
+              </div>
+              <div class="special-meta">
+                {% if item.lt.max_lifetime_usage > 0 %}Lifetime cap: {{ item.lt.max_lifetime_usage }} day(s){% else %}No lifetime cap{% endif %}
+                | Gender: {{ item.lt.get_applicable_gender_display }}
+                | Min service: {{ item.lt.min_service_days }} days
+                | {% if item.lt.requires_document %}Document required{% else %}Document optional{% endif %}
+              </div>
+              <div class="special-desc">{{ item.lt.description|default:"No description provided." }}</div>
+            </div>
+            {% endif %}
+          {% empty %}
+          {% endfor %}
+          {% if not lt_stats %}
+          <div class="special-item">
+            <div class="special-desc">No special leave types configured.</div>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
   </div>
 
 </div><!-- end policy-grid -->
@@ -642,6 +717,57 @@
         <input type="number" name="monthly_accrual" id="lt-monthly-accrual" class="form-control" min="0" step="0.25" value="1.0" placeholder="Days earned per month">
       </div>
 
+      <div class="form-group">
+        <label class="form-label">Leave Year Start Month</label>
+        <select name="starting_month" id="lt-starting-month" class="form-control">
+          <option value="1">January</option>
+          <option value="2">February</option>
+          <option value="3">March</option>
+          <option value="4" selected>April</option>
+          <option value="5">May</option>
+          <option value="6">June</option>
+          <option value="7">July</option>
+          <option value="8">August</option>
+          <option value="9">September</option>
+          <option value="10">October</option>
+          <option value="11">November</option>
+          <option value="12">December</option>
+        </select>
+        <small style="font-size:10.5px;color:var(--text-faint);">Choose when the company leave year starts for this leave type.</small>
+      </div>
+
+      <div class="form-row-2">
+        <div class="form-group">
+          <label class="form-label">Quota Type</label>
+          <select name="quota_type" id="lt-quota-type" class="form-control">
+            <option value="STANDARD">Standard</option>
+            <option value="ANNUAL_POOL">Annual Pool</option>
+            <option value="SPECIAL_EVENT">Special Event</option>
+            <option value="MATERNITY_PATERNITY">Maternity/Paternity</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Applicable Gender</label>
+          <select name="applicable_gender" id="lt-applicable-gender" class="form-control">
+            <option value="ALL">All</option>
+            <option value="MALE">Male</option>
+            <option value="FEMALE">Female</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row-2">
+        <div class="form-group">
+          <label class="form-label">Max Lifetime Usage (days)</label>
+          <input type="number" name="max_lifetime_usage" id="lt-max-lifetime" class="form-control" min="0" step="0.5" value="0">
+          <small style="font-size:10.5px;color:var(--text-faint);">0 = no cap</small>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Minimum Service Days</label>
+          <input type="number" name="min_service_days" id="lt-min-service" class="form-control" min="0" value="0">
+        </div>
+      </div>
+
       <div class="form-row-3">
         <div class="form-group">
           <label class="form-label">Max Consecutive Days</label>
@@ -676,6 +802,25 @@
           <div>
             <div class="toggle-label">Active</div>
             <div class="toggle-hint">Employees can apply for this</div>
+          </div>
+        </label>
+      </div>
+
+      <div class="form-row-2" style="margin-bottom:14px;">
+        <label class="toggle-group checked" id="tg-reset-yearly">
+          <input type="checkbox" name="usage_resets_yearly" id="lt-reset-yearly" checked onchange="syncToggle('tg-reset-yearly','lt-reset-yearly')">
+          <div class="toggle-pill"></div>
+          <div>
+            <div class="toggle-label">Usage Resets Yearly</div>
+            <div class="toggle-hint">Disable for one-time lifetime leaves</div>
+          </div>
+        </label>
+        <label class="toggle-group" id="tg-requires-doc">
+          <input type="checkbox" name="requires_document" id="lt-requires-doc" onchange="syncToggle('tg-requires-doc','lt-requires-doc')">
+          <div class="toggle-pill"></div>
+          <div>
+            <div class="toggle-label">Document Mandatory</div>
+            <div class="toggle-hint">Attachment required while applying</div>
           </div>
         </label>
       </div>
@@ -820,6 +965,21 @@ window.leavePolicyState = {
   currentYear: {{ current_year|default:0 }},
 };
 
+const leaveYearMonthNames = {
+  1: 'January',
+  2: 'February',
+  3: 'March',
+  4: 'April',
+  5: 'May',
+  6: 'June',
+  7: 'July',
+  8: 'August',
+  9: 'September',
+  10: 'October',
+  11: 'November',
+  12: 'December',
+};
+
 const leavePolicyApiUrl = "{% url 'api_admin_leave_policy' %}";
 const leaveTypeToggleUrlTemplate = "{% url 'api_admin_lt_toggle' 0 %}";
 const leaveTypeDeleteUrlTemplate = "{% url 'api_admin_lt_delete' 0 %}";
@@ -848,6 +1008,10 @@ function formatNumber(value) {
   return Number.isInteger(num) ? String(num) : num.toFixed(1);
 }
 
+function getLeaveYearStartLabel(monthNumber) {
+  return leaveYearMonthNames[Number(monthNumber) || 4] || 'April';
+}
+
 function renderLeaveTypes(leaveTypes) {
   const tbody = document.getElementById('leave-types-body');
   if (!tbody) return;
@@ -874,6 +1038,7 @@ function renderLeaveTypes(leaveTypes) {
     if (Number(lt.advance_notice_days) > 0) rules.push(`<span class="rule-chip"><i class="fa-solid fa-clock"></i> ${escapeHtml(lt.advance_notice_days)}d notice</span>`);
     if (Number(lt.document_required_after) > 0) rules.push(`<span class="rule-chip"><i class="fa-solid fa-file-medical"></i> Doc &gt;${escapeHtml(lt.document_required_after)}d</span>`);
     if (lt.carry_forward) rules.push(`<span class="rule-chip"><i class="fa-solid fa-forward"></i> Carry fwd</span>`);
+    rules.push(`<span class="rule-chip"><i class="fa-solid fa-calendar-week"></i> ${escapeHtml(getLeaveYearStartLabel(lt.starting_month).slice(0, 3))} start</span>`);
 
     return `
       <tr>
@@ -894,6 +1059,7 @@ function renderLeaveTypes(leaveTypes) {
           <strong style="font-size:13px;font-weight:700;color:var(--aqua-deep);">${escapeHtml(formatNumber(lt.current_month_entitlement ?? lt.days_per_year))}</strong>
           <span style="font-size:10px;color:var(--text-faint);"> days</span>
           ${lt.is_accrual_based ? `<div style="font-size:10px;color:var(--text-faint);margin-top:2px;">${escapeHtml(formatNumber(lt.monthly_accrual))}/month</div>` : ''}
+          <div style="font-size:10px;color:var(--text-faint);margin-top:2px;">Leave year starts in ${escapeHtml(getLeaveYearStartLabel(lt.starting_month))}</div>
         </td>
         <td>
           <div style="display:flex;flex-direction:column;gap:4px;">
@@ -924,6 +1090,7 @@ function renderLeaveTypes(leaveTypes) {
               data-lt-paid="${Boolean(lt.is_paid)}"
               data-lt-accrual="${Boolean(lt.is_accrual_based)}"
               data-lt-monthly="${escapeHtml(Number(lt.monthly_accrual || 0))}"
+              data-lt-starting-month="${escapeHtml(Number(lt.starting_month || 4))}"
               data-lt-max-consec="${escapeHtml(Number(lt.max_consecutive_days || 0))}"
               data-lt-advance="${escapeHtml(Number(lt.advance_notice_days || 0))}"
               data-lt-doc-after="${escapeHtml(Number(lt.document_required_after || 0))}"
@@ -931,6 +1098,12 @@ function renderLeaveTypes(leaveTypes) {
               data-lt-carry-limit="${escapeHtml(Number(lt.carry_forward_limit || 0))}"
               data-lt-color="${escapeHtml(lt.color || '#00c6d4')}"
               data-lt-applicable-to="${escapeHtml(lt.applicable_to || 'ALL')}"
+              data-lt-quota-type="${escapeHtml(lt.quota_type || 'STANDARD')}"
+              data-lt-max-lifetime="${escapeHtml(Number(lt.max_lifetime_usage || 0))}"
+              data-lt-usage-resets="${Boolean(lt.usage_resets_yearly)}"
+              data-lt-applicable-gender="${escapeHtml(lt.applicable_gender || 'ALL')}"
+              data-lt-min-service="${escapeHtml(Number(lt.min_service_days || 0))}"
+              data-lt-requires-document="${Boolean(lt.requires_document)}"
               data-lt-desc="${escapeHtml(lt.description || '')}"
               data-lt-active="${Boolean(lt.is_active)}"
               onclick="openEditModalFromButton(this)"
@@ -1064,6 +1237,13 @@ async function loadLeavePolicyData() {
 function openModal(id) {
   document.getElementById(id).style.display = 'flex';
 }
+
+function toggleSpecialLeaveCard() {
+  const card = document.getElementById('special-leave-card');
+  if (!card) return;
+  card.classList.toggle('open');
+}
+
 function closeModal(id) {
   document.getElementById(id).style.display = 'none';
   // Reset LT form
@@ -1072,6 +1252,13 @@ function closeModal(id) {
     document.getElementById('lt-modal-title').textContent = 'Add Leave Type';
     document.getElementById('lt-save-btn-text').textContent = 'Create Leave Type';
     document.getElementById('lt-code').readOnly = false;
+    document.getElementById('lt-starting-month').value = '4';
+    document.getElementById('lt-quota-type').value = 'STANDARD';
+    document.getElementById('lt-applicable-gender').value = 'ALL';
+    document.getElementById('lt-max-lifetime').value = '0';
+    document.getElementById('lt-min-service').value = '0';
+    setCheck('lt-reset-yearly', true, 'tg-reset-yearly');
+    setCheck('lt-requires-doc', false, 'tg-requires-doc');
   }
   if (id === 'create-policy-modal') {
     document.getElementById('policy-id-field').value = '';
@@ -1162,7 +1349,7 @@ document.getElementById('lt-color').addEventListener('input', function() {
 });
 
 /* ── Open EDIT modal for leave type ── */
-function openEditModal(id, name, code, days, isPaid, isAccrual, monthly, maxConsec, advance, docAfter, carry, carryLimit, color, appTo, desc, isActive) {
+function openEditModal(id, name, code, days, isPaid, isAccrual, monthly, startingMonth, maxConsec, advance, docAfter, carry, carryLimit, color, appTo, quotaType, maxLifetime, usageResets, applicableGender, minServiceDays, requiresDocument, desc, isActive) {
   document.getElementById('lt-id-field').value = id;
   document.getElementById('lt-modal-title').textContent = 'Edit Leave Type';
   document.getElementById('lt-save-btn-text').textContent = 'Save Changes';
@@ -1170,7 +1357,12 @@ function openEditModal(id, name, code, days, isPaid, isAccrual, monthly, maxCons
   document.getElementById('lt-code').value = code;
   document.getElementById('lt-code').readOnly = true;  // Don't allow code change on edit
   document.getElementById('lt-days').value = days;
+  document.getElementById('lt-starting-month').value = String(startingMonth || 4);
   document.getElementById('lt-description').value = desc;
+  document.getElementById('lt-quota-type').value = quotaType || 'STANDARD';
+  document.getElementById('lt-max-lifetime').value = maxLifetime || 0;
+  document.getElementById('lt-applicable-gender').value = applicableGender || 'ALL';
+  document.getElementById('lt-min-service').value = minServiceDays || 0;
   document.getElementById('lt-max-consec').value = maxConsec;
   document.getElementById('lt-advance').value = advance;
   document.getElementById('lt-doc-after').value = docAfter;
@@ -1183,6 +1375,8 @@ function openEditModal(id, name, code, days, isPaid, isAccrual, monthly, maxCons
   setCheck('lt-accrual', isAccrual, 'tg-accrual');
   setCheck('lt-carry',   carry,     'tg-carry');
   setCheck('lt-active',  isActive,  'tg-active');
+  setCheck('lt-reset-yearly', usageResets, 'tg-reset-yearly');
+  setCheck('lt-requires-doc', requiresDocument, 'tg-requires-doc');
 
   // Conditional rows
   document.getElementById('lt-monthly-accrual').value = monthly;
@@ -1203,6 +1397,7 @@ function openEditModalFromButton(button) {
     d.ltPaid === 'true',
     d.ltAccrual === 'true',
     Number(d.ltMonthly || 0),
+    Number(d.ltStartingMonth || 4),
     Number(d.ltMaxConsec || 0),
     Number(d.ltAdvance || 0),
     Number(d.ltDocAfter || 0),
@@ -1210,6 +1405,12 @@ function openEditModalFromButton(button) {
     Number(d.ltCarryLimit || 0),
     d.ltColor || '#00c6d4',
     d.ltApplicableTo || 'ALL',
+    d.ltQuotaType || 'STANDARD',
+    Number(d.ltMaxLifetime || 0),
+    d.ltUsageResets === 'true',
+    d.ltApplicableGender || 'ALL',
+    Number(d.ltMinService || 0),
+    d.ltRequiresDocument === 'true',
     d.ltDesc || '',
     d.ltActive === 'true'
   );

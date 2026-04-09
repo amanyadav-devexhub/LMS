@@ -67,7 +67,11 @@ VIEW_PERMISSION_MAP = {
     "assign_role_page": ["user_assign_role"],
     "assign_role_bulk": ["user_assign_role", "team_manage"],
     "admin_dashboard_page": ["dashboard_admin"],
+    "admin_leave_type_create_page": ["leave_policy_create"],
+    "admin_leave_type_edit_page": ["leave_policy_update"],
     "create_employee_api": ["user_create"],
+    "admin_academic_settings": ["settings_view"],
+    "admin_academic_settings_save": ["settings_update"],
     "toggle_employee_status_api": ["user_activate", "user_deactivate"],
     "admin_leave_policy": ["leave_policy_view", "settings_view"],
     "admin_leave_policy_api": ["leave_policy_view", "settings_view"],
@@ -143,7 +147,31 @@ def role_required(allowed_roles=None):
                 return _auth_failure_response(request, "Authentication required.", 401, redirect_to="login")
 
             permission_codes = VIEW_PERMISSION_MAP.get(view_func.__name__, [])
-            if any(user_has_permission(request.user, code) for code in permission_codes):
+            # Strict mode for mapped views: access is permission-driven.
+            if permission_codes:
+                if request.user.is_superuser or any(user_has_permission(request.user, code) for code in permission_codes):
+                    log_access_attempt(
+                        request.user,
+                        action=f"view:{view_func.__name__}",
+                        status="allowed",
+                        request=request,
+                    )
+                    return view_func(request, *args, **kwargs)
+
+                return _auth_failure_response(
+                    request,
+                    "You don't have permission to access this page.",
+                    403,
+                )
+
+            # Backward-compatible fallback for unmapped views only.
+            if request.user.is_superuser:
+                return view_func(request, *args, **kwargs)
+
+            if not request.user.role:
+                return _auth_failure_response(request, "You don't have a role assigned.", 403)
+
+            if request.user.role.name in allowed_roles:
                 log_access_attempt(
                     request.user,
                     action=f"view:{view_func.__name__}",
@@ -152,21 +180,7 @@ def role_required(allowed_roles=None):
                 )
                 return view_func(request, *args, **kwargs)
 
-            # Superusers can access role-protected views even without a role relation.
-            if request.user.is_superuser:
-                return view_func(request, *args, **kwargs)
-
-            if not request.user.role:
-                return _auth_failure_response(request, "You don't have a role assigned.", 403)
-
-            if request.user.role.name in allowed_roles:
-                return view_func(request, *args, **kwargs)
-
-            return _auth_failure_response(
-                request,
-                f"Required roles: {', '.join(allowed_roles)}",
-                403,
-            )
+            return _auth_failure_response(request, f"Required roles: {', '.join(allowed_roles)}", 403)
 
         return _wrapped_view
 

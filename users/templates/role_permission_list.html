@@ -200,9 +200,6 @@
     border-top: 1px solid #e2e8f0;
     display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;
 }
-.legend { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
-.leg-item { display: flex; align-items: center; gap: 7px; font-size: 11.5px; font-weight: 600; color: #64748b; }
-.leg-dot  { width: 12px; height: 12px; border-radius: 3px; }
 
 /* Toast */
 .rp-toast {
@@ -236,7 +233,7 @@
             <i class="fa-solid fa-key" style="color:var(--aqua);margin-right:10px;"></i>Role Permissions
         </div>
         <div style="font-size:13px;color:var(--text-muted);margin-top:4px;">
-            Select a role to view and edit its module-level access rights.
+            Select a role to edit both the quick module matrix and the full RBAC permission catalog.
         </div>
     </div>
     <a href="{% url 'role_list' %}"
@@ -300,11 +297,11 @@
                     {% elif selected_role.name == "TL" %}<i class="fa-solid fa-code-branch"></i>
                     {% else %}<i class="fa-solid fa-user-tie"></i>{% endif %}
                 </div>
-                <div>
-                    <div class="pph-role-name">{{ selected_role.name }}</div>
-                    <div class="pph-role-lbl">Module Permissions</div>
+                    <div>
+                        <div class="pph-role-name">{{ selected_role.name }}</div>
+                        <div class="pph-role-lbl">Role Permissions</div>
+                    </div>
                 </div>
-            </div>
             <button form="permForm" type="submit" class="btn-save-perm">
                 <i class="fa-solid fa-floppy-disk"></i> Save Permissions
             </button>
@@ -357,13 +354,13 @@
             </div>
 
             <div class="perm-footer">
-                <div class="legend">
+                <!-- <div class="legend">
                     <div class="leg-item"><div class="leg-dot" style="background:#0891b2;"></div>View</div>
                     <div class="leg-item"><div class="leg-dot" style="background:#16a34a;"></div>Create</div>
                     <div class="leg-item"><div class="leg-dot" style="background:#d97706;"></div>Edit</div>
                     <div class="leg-item"><div class="leg-dot" style="background:#dc2626;"></div>Delete</div>
                     <div class="leg-item"><div class="leg-dot" style="background:#e2e8f0;border:1px solid #cbd5e1;"></div>No Access</div>
-                </div>
+                </div> -->
                 <button type="submit" class="btn-save-perm">
                     <i class="fa-solid fa-floppy-disk"></i> Save Permissions
                 </button>
@@ -455,6 +452,7 @@ if (permForm) {
             }
 
             showPermissionToast(data.message || 'Permissions saved successfully.');
+            window.setTimeout(() => window.location.reload(), 450);
         } catch (error) {
             showPermissionToast(error.message || 'Unable to save permissions.', true);
         } finally {

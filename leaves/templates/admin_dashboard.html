@@ -890,40 +890,15 @@
     <a href="{% url 'admin_leave_policy' %}" class="btn btn-primary">
       <i class="fa-solid fa-sliders"></i> Manage Leave Policy
     </a>
+
     <a href="{% url 'hr_leave_analytics' %}" class="btn btn-ghost">
       <i class="fa-solid fa-chart-pie"></i> Analytics
     </a>
+    <a href="{% url 'admin_academic_settings' %}" class="btn btn-ghost">
+     <i class="fa-solid fa-gear"></i> Academic Settings
+    </a>
   </div>
 </div>
-
-<!-- ══════════ FRONTEND ROLE PERMISSION MATRIX ══════════ -->
-{% comment %} <div class="perm-matrix-card animate-in delay-2">
-  <div class="perm-matrix-header">
-    <div class="perm-matrix-title">
-      <i class="fa-solid fa-table-cells-large" style="color:var(--aqua-deep);"></i>
-      Frontend Permission Matrix
-    </div>
-    <div class="perm-matrix-sub">Apply Leave, Leave Balance, and Leave History visibility by role</div>
-  </div>
-  <div class="perm-matrix-table-wrap">
-    <table class="perm-matrix-table">
-      <thead>
-        <tr>
-          <th>Frontend Feature</th>
-          <th>Employee</th>
-          <th>HR</th>
-          <th>TL</th>
-          <th>Manager</th>
-        </tr>
-      </thead>
-      <tbody id="frontendPermissionBody">
-        <tr>
-          <td colspan="5" style="text-align:center;color:var(--text-muted);">Loading permissions...</td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-</div> {% endcomment %}
 
 
 <!-- ══════════ TWO COLUMN GRID ══════════ -->
@@ -1505,13 +1480,11 @@ function renderFrontendPermissionMatrix(matrix) {
   if (!frontendPermissionBody) return;
 
   const roleOrder = ['employee', 'hr', 'tl', 'manager'];
-  const features = [
-    { key: 'apply_leave', label: 'Apply Leave' },
-    { key: 'leave_balance', label: 'Leave Balance' },
-    { key: 'leave_history', label: 'Leave History' },
-  ];
+  const features = Array.isArray(window.frontendPermissionFeatures)
+    ? window.frontendPermissionFeatures
+    : [];
 
-  if (!matrix) {
+  if (!matrix || !features.length) {
     frontendPermissionBody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);">Permission data unavailable.</td></tr>';
     return;
   }
@@ -1556,6 +1529,15 @@ function updateStats(data) {
   document.getElementById('policySummaryText').innerHTML = data.stats.leave_types_count
     ? `Set leave quotas, rules, carry-forward, and sync changes to all employees in one click. Currently <strong>${data.stats.leave_types_count}</strong> active leave type${data.stats.leave_types_count === 1 ? '' : 's'} configured.`
     : 'Set leave quotas, rules, carry-forward, and sync changes to all employees in one click. No leave types configured yet - set them up now.';
+  updateNotificationBadges(data.unread_count ?? data.stats.unread_count ?? 0);
+}
+
+function updateNotificationBadges(count) {
+  document.querySelectorAll('.js-unread-badge').forEach((badge) => {
+    const safeCount = Number(count) || 0;
+    badge.textContent = safeCount;
+    badge.style.display = safeCount > 0 ? '' : 'none';
+  });
 }
 
 function setActiveTab(tab) {
@@ -1588,6 +1570,7 @@ function fetchDashboardData() {
     })
     .then(data => {
       if (!data.success) return renderEmptyEmployees('Unable to load employees right now.');
+      window.frontendPermissionFeatures = data.frontend_permission_features || [];
       dashboardState.tab = data.filters.tab;
       dashboardState.search = data.filters.search;
       dashboardState.page = data.pagination.page;

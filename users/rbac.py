@@ -69,26 +69,105 @@ PERMISSION_SEEDS: tuple[PermissionSeed, ...] = (
 )
 
 LEGACY_MATRIX_ACTIONS = {
-    "dashboard": {"can_view": ["dashboard_admin", "dashboard_hr", "dashboard_manager", "dashboard_employee"], "can_create": [], "can_edit": [], "can_delete": []},
-    "leaves": {"can_view": ["leave_view_own", "leave_view_all", "leave_balance_view"], "can_create": ["leave_apply"], "can_edit": ["leave_approve", "leave_reject", "leave_update_own", "leave_cancel"], "can_delete": ["leave_delete_own"]},
-    "employees": {"can_view": ["user_view", "team_view"], "can_create": ["user_create"], "can_edit": ["user_update", "user_activate", "user_deactivate", "user_assign_role"], "can_delete": ["user_delete"]},
-    "departments": {"can_view": ["team_view"], "can_create": ["team_manage"], "can_edit": ["team_manage"], "can_delete": ["team_manage"]},
-    "salary": {"can_view": ["salary_view"], "can_create": [], "can_edit": ["salary_update"], "can_delete": []},
-    "bank": {"can_view": ["bank_view"], "can_create": [], "can_edit": ["bank_update"], "can_delete": []},
-    "verification": {"can_view": ["verification_view"], "can_create": [], "can_edit": ["verification_update"], "can_delete": []},
-    "reports": {"can_view": ["report_view"], "can_create": [], "can_edit": ["report_export"], "can_delete": []},
-    "notifications": {"can_view": ["notification_view"], "can_create": [], "can_edit": [], "can_delete": []},
-    "users": {"can_view": ["user_view"], "can_create": ["user_create"], "can_edit": ["user_update", "user_activate", "user_deactivate", "user_assign_role"], "can_delete": ["user_delete"]},
-    "roles": {"can_view": ["role_view"], "can_create": ["role_create"], "can_edit": ["role_update", "role_assign_permissions", "permission_assign"], "can_delete": ["role_delete"]},
-    "leave": {"can_view": ["leave_view_own", "leave_view_all"], "can_create": ["leave_apply"], "can_edit": ["leave_update_own", "leave_cancel"], "can_delete": ["leave_delete_own"]},
-    "leave_policy": {"can_view": ["leave_policy_view", "leave_balance_view"], "can_create": ["leave_policy_create"], "can_edit": ["leave_policy_update", "leave_balance_update"], "can_delete": ["leave_policy_delete"]},
-    "leave_balance": {"can_view": ["leave_balance_view"], "can_create": [], "can_edit": ["leave_balance_update"], "can_delete": []},
-    "management": {"can_view": ["leave_view_all"], "can_create": [], "can_edit": ["leave_approve", "leave_reject"], "can_delete": []},
-    "holiday": {"can_view": ["holiday_view"], "can_create": ["holiday_create"], "can_edit": ["holiday_update"], "can_delete": ["holiday_delete"]},
-    "reports": {"can_view": ["report_view"], "can_create": [], "can_edit": ["report_export"], "can_delete": []},
-    "team": {"can_view": ["team_view"], "can_create": [], "can_edit": ["team_manage"], "can_delete": []},
-    "settings": {"can_view": ["settings_view"], "can_create": [], "can_edit": ["settings_update"], "can_delete": []},
-    "audit": {"can_view": ["audit_view"], "can_create": [], "can_edit": [], "can_delete": []},
+    # Active matrix modules (must match users.views.MODULES keys)
+    "dashboard": {
+        "can_view": ["dashboard_admin", "dashboard_hr", "dashboard_manager", "dashboard_employee"],
+        "can_create": [],
+        "can_edit": [],
+        "can_delete": [],
+    },
+    "leaves": {
+        "can_view": ["leave_view_own", "leave_view_all", "leave_balance_view"],
+        "can_create": ["leave_apply"],
+        "can_edit": ["leave_approve", "leave_reject", "leave_update_own", "leave_cancel"],
+        "can_delete": ["leave_delete_own"],
+    },
+    "leave_type": {
+        "can_view": ["leave_policy_view"],
+        "can_create": ["leave_policy_create"],
+        "can_edit": ["leave_policy_update"],
+        "can_delete": ["leave_policy_delete"],
+    },
+    "leave_policy": {
+        "can_view": ["leave_policy_view", "leave_balance_view"],
+        "can_create": ["leave_policy_create"],
+        "can_edit": ["leave_policy_update", "leave_balance_update"],
+        "can_delete": ["leave_policy_delete"],
+    },
+    "academic_settings": {
+        "can_view": ["settings_view"],
+        "can_create": [],
+        "can_edit": ["settings_update"],
+        "can_delete": [],
+    },
+    "holiday": {
+        "can_view": ["holiday_view"],
+        "can_create": ["holiday_create"],
+        "can_edit": ["holiday_update"],
+        "can_delete": ["holiday_delete"],
+    },
+    "employees": {
+        "can_view": ["user_view", "team_view"],
+        "can_create": ["user_create"],
+        "can_edit": ["user_update", "user_activate", "user_deactivate", "user_assign_role"],
+        "can_delete": ["user_delete"],
+    },
+    "departments": {
+        "can_view": ["team_view"],
+        "can_create": ["team_manage"],
+        "can_edit": ["team_manage"],
+        "can_delete": ["team_manage"],
+    },
+    "salary": {
+        "can_view": ["salary_view"],
+        "can_create": [],
+        "can_edit": ["salary_update"],
+        "can_delete": [],
+    },
+    "bank": {
+        "can_view": ["bank_view"],
+        "can_create": [],
+        "can_edit": ["bank_update"],
+        "can_delete": [],
+    },
+    "verification": {
+        "can_view": ["verification_view"],
+        "can_create": [],
+        "can_edit": ["verification_update"],
+        "can_delete": [],
+    },
+    "reports": {
+        "can_view": ["report_view"],
+        "can_create": [],
+        "can_edit": ["report_export"],
+        "can_delete": [],
+    },
+    "notifications": {
+        "can_view": ["notification_view"],
+        "can_create": [],
+        "can_edit": [],
+        "can_delete": [],
+    },
+
+    # Legacy aliases kept for backward compatibility with older payload keys.
+    "users": {
+        "can_view": ["user_view"],
+        "can_create": ["user_create"],
+        "can_edit": ["user_update", "user_activate", "user_deactivate", "user_assign_role"],
+        "can_delete": ["user_delete"],
+    },
+    "roles": {
+        "can_view": ["role_view"],
+        "can_create": ["role_create"],
+        "can_edit": ["role_update", "role_assign_permissions", "permission_assign"],
+        "can_delete": ["role_delete"],
+    },
+    "leave": {
+        "can_view": ["leave_view_own", "leave_view_all"],
+        "can_create": ["leave_apply"],
+        "can_edit": ["leave_update_own", "leave_cancel"],
+        "can_delete": ["leave_delete_own"],
+    },
 }
 
 
@@ -139,12 +218,7 @@ def _permission_queryset_for_codes(codes: Iterable[str]):
 
 def grant_permissions(role, codenames: Iterable[str]):
     permissions = _permission_queryset_for_codes(codenames)
-    existing_ids = set(
-        RolePermissionAssignment.objects.filter(role=role).values_list("permission_id", flat=True)
-    )
-    wanted_ids = set(permissions.values_list("id", flat=True))
-
-    RolePermissionAssignment.objects.filter(role=role).exclude(permission_id__in=wanted_ids).delete()
+    RolePermissionAssignment.objects.filter(role=role).delete()
 
     for permission in permissions:
         RolePermissionAssignment.objects.update_or_create(
@@ -170,6 +244,8 @@ def sync_matrix_permissions(role, matrix_payload: dict):
             all_relevant_codes.update(codes)
 
     relevant_permissions = RBACPermission.objects.filter(codename__in=all_relevant_codes)
+
+    RolePermissionAssignment.objects.filter(role=role).delete()
 
     for permission in relevant_permissions:
         RolePermissionAssignment.objects.update_or_create(
@@ -252,56 +328,58 @@ def menu_permission_flags(user):
         return {}
 
     perms = set(get_user_permission_codes(user))
-
-    return {
-        "dashboard_admin": "dashboard_admin" in perms,
-        "dashboard_hr": "dashboard_hr" in perms,
-        "dashboard_manager": "dashboard_manager" in perms,
-        "dashboard_employee": "dashboard_employee" in perms,
-        "user_view": "user_view" in perms,
-        "role_view": "role_view" in perms,
-        "leave_apply": "leave_apply" in perms,
-        "leave_view_own": "leave_view_own" in perms,
-        "leave_view_all": "leave_view_all" in perms,
-        "leave_approve": "leave_approve" in perms,
-        "leave_reject": "leave_reject" in perms,
-        "leave_policy_view": "leave_policy_view" in perms,
-        "leave_policy_create": "leave_policy_create" in perms,
-        "leave_policy_update": "leave_policy_update" in perms,
-        "leave_policy_delete": "leave_policy_delete" in perms,
-        "leave_balance_view": "leave_balance_view" in perms,
-        "leave_balance_update": "leave_balance_update" in perms,
-        "holiday_view": "holiday_view" in perms,
-        "report_view": "report_view" in perms,
-        "team_view": "team_view" in perms,
-        "settings_view": "settings_view" in perms,
-        "audit_view": "audit_view" in perms,
-        "user_create": "user_create" in perms,
-        "user_update": "user_update" in perms,
-        "user_delete": "user_delete" in perms,
-        "user_activate": "user_activate" in perms,
-        "user_deactivate": "user_deactivate" in perms,
-        "user_assign_role": "user_assign_role" in perms,
-        "role_create": "role_create" in perms,
-        "role_update": "role_update" in perms,
-        "role_delete": "role_delete" in perms,
-        "role_assign_permissions": "role_assign_permissions" in perms,
-        "permission_view": "permission_view" in perms,
-        "permission_assign": "permission_assign" in perms,
-        "leave_update_own": "leave_update_own" in perms,
-        "leave_delete_own": "leave_delete_own" in perms,
-        "leave_cancel": "leave_cancel" in perms,
-        "holiday_create": "holiday_create" in perms,
-        "holiday_update": "holiday_update" in perms,
-        "holiday_delete": "holiday_delete" in perms,
-        "report_export": "report_export" in perms,
-        "team_manage": "team_manage" in perms,
-        "settings_update": "settings_update" in perms,
-        "notification_view": "notification_view" in perms,
-        "salary_view": "salary_view" in perms,
-        "salary_update": "salary_update" in perms,
-        "bank_view": "bank_view" in perms,
-        "bank_update": "bank_update" in perms,
-        "verification_view": "verification_view" in perms,
-        "verification_update": "verification_update" in perms,
+    permission_codes = {
+        seed.codename for seed in PERMISSION_SEEDS
+    } | {
+        "dashboard_admin",
+        "dashboard_hr",
+        "dashboard_manager",
+        "dashboard_employee",
+        "user_view",
+        "role_view",
+        "leave_apply",
+        "leave_view_own",
+        "leave_view_all",
+        "leave_approve",
+        "leave_reject",
+        "leave_policy_view",
+        "leave_policy_create",
+        "leave_policy_update",
+        "leave_policy_delete",
+        "leave_balance_view",
+        "leave_balance_update",
+        "holiday_view",
+        "report_view",
+        "team_view",
+        "settings_view",
+        "audit_view",
+        "user_create",
+        "user_update",
+        "user_delete",
+        "user_activate",
+        "user_deactivate",
+        "user_assign_role",
+        "role_create",
+        "role_update",
+        "role_delete",
+        "role_assign_permissions",
+        "permission_view",
+        "permission_assign",
+        "leave_update_own",
+        "leave_delete_own",
+        "leave_cancel",
+        "holiday_create",
+        "holiday_update",
+        "holiday_delete",
+        "report_export",
+        "team_manage",
+        "settings_update",
+        "notification_view",
+        "salary_view",
+        "salary_update",
+        "bank_view",
+        "bank_update",
+        "verification_view",
+        "verification_update",
     }
+    return {code: code in perms for code in sorted(permission_codes)}

@@ -45,7 +45,7 @@
   
   <div style="display:flex; justify-content:space-between; margin-bottom:20px;">
     <h2>Notifications</h2>
-    <div id="notif-count">0 Total</div>
+    <div id="notif-count">0 Unread</div>
   </div>
 
   <div class="notif-list" id="notif-list">
@@ -74,11 +74,15 @@ async function loadNotifications() {
         const data = await response.json();
         console.log("API DATA:", data);
 
-        // Adjust key if needed
         const notifications = data.results || data.data || [];
+        const unreadCount = Number(data.unread_count) || 0;
 
         document.getElementById("notif-count").innerText =
-            notifications.length + " Total";
+          unreadCount + " Unread";
+
+        if (typeof updateGlobalNotificationBadges === "function") {
+          updateGlobalNotificationBadges(unreadCount);
+        }
 
         renderNotifications(notifications);
 
