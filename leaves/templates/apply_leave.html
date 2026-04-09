@@ -77,6 +77,44 @@
 }
 .lt-remaining.zero { background:rgba(220,38,38,.08); color:var(--red); border-color:rgba(220,38,38,.2); }
 
+.special-group {
+  border: 1.5px solid var(--bd);
+  border-radius: var(--r);
+  background: var(--bg-input);
+  overflow: hidden;
+  grid-column: 1 / -1;
+}
+.special-group-head {
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: .85rem .95rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+}
+.special-group-title { font-size: .82rem; font-weight: 700; color: var(--text-mid); display: flex; align-items: center; gap: .5rem; }
+.special-group-sub { font-size: .68rem; color: var(--text-faint); margin-top: 2px; }
+.special-group-chevron { color: var(--aqua-deep); transition: transform .2s ease; }
+.special-group.open .special-group-chevron { transform: rotate(180deg); }
+.special-group-body {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height .25s ease;
+  border-top: 1px solid transparent;
+}
+.special-group.open .special-group-body {
+  max-height: 380px;
+  border-top-color: var(--bd);
+}
+.special-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px,1fr));
+  gap: .65rem;
+  padding: .85rem;
+}
+
 /* Duration pills */
 .dur-pills { display:flex; gap:.5rem; flex-wrap:wrap; margin-bottom:1.35rem; }
 .dp { position:relative; }
@@ -244,6 +282,7 @@
           {% if active_leave_types %}
           <div class="lt-grid" id="lt-grid">
             {% for lt in active_leave_types %}
+            {% if lt.code != 'MARRIAGE' and lt.code != 'MATERNITY' and lt.code != 'PATERNITY' %}
             <div class="lt-card" style="
               --lt-color:{{ lt.color }};
               --lt-bg:{{ lt.color }}18;
@@ -277,7 +316,68 @@
                 {% endfor %}
               </label>
             </div>
+            {% endif %}
             {% endfor %}
+
+            <div class="special-group" id="special-leave-group">
+              <button type="button" class="special-group-head" onclick="toggleSpecialLeaveGroup()">
+                <div>
+                  <div class="special-group-title">
+                    <i class="fa-solid fa-certificate"></i>
+                    Special Leave
+                  </div>
+                  <div class="special-group-sub">Maternity, Paternity, Marriage</div>
+                </div>
+                <i class="fa-solid fa-chevron-down special-group-chevron"></i>
+              </button>
+              <div class="special-group-body" id="special-leave-group-body">
+                <div class="special-grid">
+                  {% for lt in active_leave_types %}
+                  {% if lt.code == 'MARRIAGE' or lt.code == 'MATERNITY' or lt.code == 'PATERNITY' %}
+                  <div class="lt-card" style="
+                    --lt-color:{{ lt.color }};
+                    --lt-bg:{{ lt.color }}18;
+                    --lt-ico-bg:{{ lt.color }}22;">
+                    <input type="radio"
+                           name="leave_type"
+                           id="ltype-{{ lt.code }}"
+                           value="{{ lt.code }}"
+                           data-code="{{ lt.code }}"
+                           onchange="onTypeChange('{{ lt.code }}', {{ lt.max_consecutive_days }})">
+                    <label class="lt-lbl" for="ltype-{{ lt.code }}">
+                      <div class="lt-ico">
+                        {% if lt.code == 'MATERNITY' or lt.code == 'PATERNITY' %}<i class="fa-solid fa-baby"></i>
+                        {% elif lt.code == 'MARRIAGE' %}<i class="fa-solid fa-rings-wedding"></i>
+                        {% else %}<i class="fa-solid fa-calendar-check"></i>
+                        {% endif %}
+                      </div>
+                      {{ lt.name }}
+                      <div style="font-size:.68rem;color:var(--text-muted);font-weight:500;line-height:1.35;margin-top:-2px;">
+                        {% if lt.max_lifetime_usage > 0 %}
+                          {{ lt.max_lifetime_usage|floatformat:0 }} days total
+                        {% elif lt.days_per_year > 0 %}
+                          {{ lt.days_per_year|floatformat:0 }} days
+                        {% else %}
+                          Special leave
+                        {% endif %}
+                      </div>
+                      <div style="font-size:.65rem;color:var(--text-faint);font-weight:500;line-height:1.4;max-width:100%;">
+                        {{ lt.description|default:"No description provided." }}
+                      </div>
+                      {% for b in leave_breakdown %}
+                        {% if b.code == lt.code %}
+                          <span class="lt-remaining {% if b.remaining == 0 %}zero{% endif %}">
+                            {{ b.remaining|floatformat:1 }}d left
+                          </span>
+                        {% endif %}
+                      {% endfor %}
+                    </label>
+                  </div>
+                  {% endif %}
+                  {% endfor %}
+                </div>
+              </div>
+            </div>
           </div>
 
           {% else %}
@@ -564,6 +664,12 @@
 
 <script>
 $(document).ready(function () {
+
+  window.toggleSpecialLeaveGroup = function () {
+    const group = document.getElementById('special-leave-group');
+    if (!group) return;
+    group.classList.toggle('open');
+  };
 
   /* ════════════════════════════════════════════════
      STATE
@@ -966,13 +1072,13 @@ $(document).ready(function () {
      ROLE-BASED REDIRECT
   ════════════════════════════════════════════════ */
   function getRoleHistoryUrl() {
-    {% if request.user.is_superuser or request.user.role.name == 'Admin' %}
+    {% if request.user.is_superuser or rbac_flags.dashboard_admin %}
       return "{% url 'admin_dashboard' %}";
-    {% elif request.user.role.name == 'HR' %}
+    {% elif rbac_flags.dashboard_hr %}
       return "{% url 'hr_my_leave_balance' %}";
-    {% elif request.user.role.name == 'TL' %}
+    {% elif request.user.role.name == 'TL' and rbac_flags.dashboard_manager %}
       return "{% url 'tl_dashboard' %}";
-    {% elif request.user.role.name == 'Manager' %}
+    {% elif request.user.role.name == 'Manager' and rbac_flags.dashboard_manager %}
       return "{% url 'manager_dashboard' %}";
     {% else %}
       return "{% url 'employee_dashboard' %}";
@@ -989,6 +1095,13 @@ $(document).ready(function () {
   if (!$('#end_date').val())   $('#end_date').val($('#start_date').val());
 
   applyDurationUI($('input[name="duration"]:checked').val() || 'FULL');
+  if ($('input[name="leave_type"]:checked').length === 0) {
+    const $first = $('input[name="leave_type"]').first();
+    if ($first.length) {
+      $first.prop('checked', true);
+      onTypeChange($first.val(), Number($first.data('maxConsecutiveDays') || 0));
+    }
+  }
   refreshZeroBalanceBanner();
   highlightBalanceRow();   // ★ highlight on page load for whichever type is pre-checked
   updateDayCounter();

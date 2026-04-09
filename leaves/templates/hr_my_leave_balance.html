@@ -99,14 +99,16 @@
     padding: 20px 24px;
     background: rgba(0, 198, 212, 0.05);
     border-bottom: 1px solid var(--border);
-    display: flex; align-items: center; justify-content: space-between;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
 }
 .bc-title { display: flex; align-items: center; gap: 12px; font-size: 16px; font-weight: 800; }
 .bc-title i { color: var(--aqua-deep); }
 
 .bc-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
     gap: 20px;
     padding: 24px;
 }
@@ -135,7 +137,7 @@
 
 .item-foot { display: flex; justify-content: space-between; font-size: 11px; font-weight: 600; color: var(--text-muted); }
 
-/* ── History Table ── */
+/* ── History Table with Clickable Rows ── */
 .history-panel {
     background: var(--card-bg);
     backdrop-filter: var(--card-blur);
@@ -149,7 +151,9 @@
     padding: 20px 24px;
     border-bottom: 1px solid var(--border);
     background: rgba(0, 198, 212, 0.05);
-    display: flex; justify-content: space-between; align-items: center;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 .hp-title { display: flex; align-items: center; gap: 12px; font-size: 16px; font-weight: 800; }
 .hp-count { background: var(--aqua-glass); padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; color: var(--aqua-deep); }
@@ -166,152 +170,396 @@
 .status-REJECTED { background: #fee2e2; color: #b91c1c; }
 .status-PENDING { background: #fef9c3; color: #854d0e; }
 
+/* Clickable row styles */
+.clickable-row {
+    cursor: pointer;
+    transition: background 0.2s;
+}
+.clickable-row:hover {
+    background: rgba(0, 198, 212, 0.05) !important;
+}
+
 /* Animations */
 .animate-in { animation: fadeUp 0.5s ease both; }
 @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
 .delay-1 { animation-delay: 0.1s; }
 .delay-2 { animation-delay: 0.2s; }
+
+.empty-state {
+    text-align: center;
+    padding: 20px;
+}
+.empty-icon {
+    width: 60px;
+    height: 60px;
+    margin: 0 auto 16px;
+    background: var(--aqua-glass);
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    color: var(--aqua);
+}
+.empty-state h4 {
+    font-size: 14px;
+    font-weight: 800;
+    color: var(--text);
+    margin-bottom: 8px;
+}
+.empty-state p {
+    color: var(--text-muted);
+    font-size: 12px;
+    margin-bottom: 0;
+}
+.btn-primary {
+    background: linear-gradient(135deg, var(--aqua-deep), var(--aqua));
+    color: white;
+    padding: 8px 20px;
+    border-radius: 30px;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 12px;
+    display: inline-block;
+    transition: all 0.2s;
+}
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,198,212,0.4);
+    color: white;
+}
+
+/* Special leave styles */
+.special-wrap {
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    background: rgba(0, 198, 212, 0.04);
+    overflow: hidden;
+}
+.special-toggle {
+    width: 100%;
+    border: none;
+    background: transparent;
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+}
+.special-title { font-size: 13px; font-weight: 800; color: var(--text); }
+.special-subtitle { font-size: 10.5px; color: var(--text-faint); margin-top: 2px; }
+.special-chevron { color: var(--aqua-deep); transition: transform .2s ease; }
+.special-wrap.open .special-chevron { transform: rotate(180deg); }
+.special-body {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height .25s ease;
+    border-top: 1px solid transparent;
+}
+.special-wrap.open .special-body {
+    max-height: 420px;
+    border-top-color: var(--border);
+}
+.special-entry {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+}
+.special-entry:last-child { border-bottom: none; }
+.special-entry-head { display:flex; justify-content:space-between; align-items:center; gap:8px; }
+.special-name { font-size: 12.5px; font-weight: 700; color: var(--text); }
+.special-desc { font-size: 11px; color: var(--text-muted); margin-top: 4px; line-height: 1.45; }
+.hero-sub { font-size: 12px; opacity: 0.7; margin-top: 8px; }
+
+/* Loading state */
+.loading-state {
+    text-align: center;
+    padding: 50px;
+}
+.loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid var(--border);
+    border-top-color: var(--aqua);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 16px;
+}
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Shared pool highlight */
+.shared-pool-badge {
+    background: linear-gradient(135deg, rgba(0,198,212,0.1), rgba(0,198,212,0.05));
+    border-radius: 12px;
+    padding: 4px 10px;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--aqua-deep);
+    display: inline-block;
+}
 </style>
 
-<div class="aero-container">
+<div class="aero-container" id="app">
+    <!-- Loading State
+    <div v-if="loading" class="loading-state">
+        <div class="loading-spinner"></div>
+        <p>Loading your leave balance...</p>
+    </div> -->
 
-    <!-- Hero Balance Section -->
-    <div class="hero-balance-card animate-in">
-        <div class="hero-left">
-            <div class="hero-label">Personal Balance</div>
-            <div class="hero-total-val" id="total-val">0</div>
-        </div>
-        
-        <div class="hero-right">
-            <svg width="140" height="140" viewBox="0 0 140 140">
-                <circle class="ring-bg" cx="70" cy="70" r="62"></circle>
-                <circle class="ring-fill" id="main-ring" cx="70" cy="70" r="62" 
-                        stroke-dasharray="389.5" stroke-dashoffset="389.5"></circle>
-            </svg>
-            <div class="ring-text">
-                <div class="ring-pct" id="ring-pct">0%</div>
-                <div class="ring-lbl">Quota Used</div>
+    <!-- Main Content -->
+    <div v-else>
+        <!-- Hero Balance Section -->
+        <div class="hero-balance-card animate-in">
+            <div class="hero-left">
+                <div class="hero-label">Monthly Leave Balance</div>
+                <div class="hero-total-val">{{ total_remaining|default:0|floatformat:1 }}<span>days</span></div>
+                <div class="hero-sub">Available quota for current month (shared pool)</div>
+            </div>
+            
+            <div class="hero-right">
+                <svg width="140" height="140" viewBox="0 0 140 140">
+                    <circle class="ring-bg" cx="70" cy="70" r="62"></circle>
+                    <circle class="ring-fill" id="main-ring" cx="70" cy="70" r="62" 
+                            stroke-dasharray="389.5" stroke-dashoffset="389.5"></circle>
+                </svg>
+                <div class="ring-text">
+                    <div class="ring-pct" id="ring-pct">0%</div>
+                    <div class="ring-lbl">Monthly Used</div>
+                </div>
             </div>
         </div>
-    </div>
 
-    <!-- Quick Stats Grid -->
-    <div class="stats-row">
-        <div class="glow-card animate-in delay-1">
-            <div class="gc-ico"><i class="fa-regular fa-chart-line"></i></div>
-            <div class="gc-val">{{ total_allocated|default:"0"|floatformat:1 }}</div>
-            <div class="gc-lbl">Allocated</div>
-        </div>
-        <div class="glow-card animate-in delay-1">
-            <div class="gc-ico" style="background:rgba(5,201,138,0.1);color:#05c98a;"><i class="fa-regular fa-clock"></i></div>
-            <div class="gc-val">{{ total_used_new|default:"0"|floatformat:1 }}</div>
-            <div class="gc-lbl">Used</div>
-        </div>
-        <div class="glow-card animate-in delay-1">
-            <div class="gc-ico" style="background:rgba(245,166,35,0.1);color:#f5a623;"><i class="fa-regular fa-hourglass-half"></i></div>
-            <div class="gc-val">{{ pending_leaves|default:"0" }}</div>
-            <div class="gc-lbl">Pending</div>
-        </div>
-        <div class="glow-card animate-in delay-1">
-            <div class="gc-ico" style="background:rgba(0,198,212,0.1);color:var(--aqua-deep);"><i class="fa-solid fa-calendar-check"></i></div>
-            <div class="gc-val">{{ my_leaves|length }}</div>
-            <div class="gc-lbl">Total Requests</div>
-        </div>
-    </div>
-
-    <!-- Breakdown -->
-    <div class="breakdown-card animate-in delay-2">
-        <div class="bc-head">
-            <div class="bc-title"><i class="fa-solid fa-layer-group"></i> Policy Breakdown</div>
-        </div>
-        
-        <div class="bc-grid">
-            {% for b in leave_breakdown %}
-            <div class="leave-item">
-                <div class="item-accent" style="background:{{ b.color }};"></div>
-                <div class="item-head">
-                    <div class="item-name">{{ b.name }}</div>
-                    <span class="item-tag {% if b.is_paid %}tag-paid{% else %}tag-unpaid{% endif %}">
-                        {% if b.is_paid %}Paid{% else %}Unpaid{% endif %}
-                    </span>
-                </div>
-                <div class="item-main">
-                    <div class="item-val">{{ b.remaining|floatformat:1 }}</div>
-                    <div class="item-unit">days left</div>
-                </div>
-                <div class="bar-wrap">
-                    <div class="bar-fill" style="width:{{ b.used_percent }}%; background:{{ b.color }};"></div>
-                </div>
-                <div class="item-foot">
-                    <span>Allocated: {{ b.allocated|floatformat:0 }}</span>
-                    <span>Used: {{ b.used|floatformat:1 }}</span>
-                </div>
+        <!-- Quick Stats Grid -->
+        <div class="stats-row">
+            <div class="glow-card animate-in delay-1">
+                <div class="gc-ico"><i class="fa-regular fa-chart-line"></i></div>
+                <div class="gc-val">{{ total_allocated|default:0|floatformat:1 }}</div>
+                <div class="gc-lbl">Yearly Allocated (Shared Pool)</div>
             </div>
-            {% endfor %}
+            <div class="glow-card animate-in delay-1">
+                <div class="gc-ico" style="background:rgba(5,201,138,0.1);color:#05c98a;"><i class="fa-regular fa-clock"></i></div>
+                <div class="gc-val">
+                    {% if monthly_quota_breakdown %}
+                        {{ monthly_quota_breakdown.0.monthly_quota|default:1.5|floatformat:1 }}
+                    {% else %}
+                        1.5
+                    {% endif %}
+                </div>
+                <div class="gc-lbl">Monthly Quota (Total)</div>
+            </div>
+            <div class="glow-card animate-in delay-1">
+                <div class="gc-ico" style="background:rgba(245,166,35,0.1);color:#f5a623;"><i class="fa-regular fa-hourglass-half"></i></div>
+                <div class="gc-val">{{ pending_leaves|default:"0" }}</div>
+                <div class="gc-lbl">Pending</div>
+            </div>
+            <div class="glow-card animate-in delay-1">
+                <div class="gc-ico" style="background:rgba(0,198,212,0.1);color:var(--aqua-deep);"><i class="fa-solid fa-calendar-check"></i></div>
+                <div class="gc-val">{{ my_leaves|length }}</div>
+                <div class="gc-lbl">Total Requests</div>
+            </div>
         </div>
-    </div>
 
-    <!-- History -->
-    <div class="history-panel animate-in delay-2">
-        <div class="hp-head">
-            <div class="hp-title"><i class="fa-solid fa-history"></i> My Recent Requests</div>
-            <span class="hp-count">{{ my_leaves|length }} Records</span>
-        </div>
-        <table class="aero-table">
-            <thead>
-                <tr>
-                    <th>Leave Type</th>
-                    <th>Duration</th>
-                    <th>Dates</th>
-                    <th>Status</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for leave in my_leaves %}
-                <tr>
-                    <td style="font-weight:700;">{{ leave.leave_type }}</td>
-                    <td>{{ leave.duration }} days</td>
-                    <td style="font-size:12px; color:var(--text-muted);">
-                        <i class="fa-regular fa-calendar" style="margin-right:4px;"></i>
-                        {{ leave.start_date }} → {{ leave.end_date }}
-                    </td>
-                    <td>
-                        <span class="status-pill status-{{ leave.status|upper }}">
-                            {{ leave.status|title }}
+        <!-- Breakdown - Monthly Leave Quota (Shared Pool) -->
+        <div class="breakdown-card animate-in delay-2">
+            <div class="bc-head">
+                <div class="bc-title"><i class="fa-solid fa-layer-group"></i> Leave Type Breakdown</div>
+                <span class="shared-pool-badge"><i class="fa-solid fa-users"></i> Shared Pool</span>
+            </div>
+            
+            <div class="bc-grid">
+                {% for b in monthly_quota_breakdown %}
+                <div class="leave-item">
+                    <div class="item-accent" style="background:{{ b.color|default:'#00c6d4' }};"></div>
+                    <div class="item-head">
+                        <div class="item-name">{{ b.name }}</div>
+                        <span class="item-tag {% if b.is_paid %}tag-paid{% else %}tag-unpaid{% endif %}">
+                            {% if b.is_paid %}Paid{% else %}Unpaid{% endif %}
                         </span>
-                    </td>
-                </tr>
+                    </div>
+                    <div class="item-main">
+                        <div class="item-val">{{ b.remaining_this_month|floatformat:1 }}</div>
+                        <div class="item-unit">days left (shared)</div>
+                    </div>
+                    <div class="bar-wrap">
+                        <div class="bar-fill" style="width:{{ b.used_percent|default:0 }}%; background:{{ b.color|default:'#00c6d4' }};"></div>
+                    </div>
+                    <div class="item-foot">
+                        <span>Annual Pool: {{ b.yearly_allocated|default:0|floatformat:0 }} days</span>
+                        <span>Monthly: {{ b.monthly_quota|default:1.5|floatformat:1 }}</span>
+                        <span>Used this month: {{ b.used_this_month|default:0|floatformat:1 }}</span>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="leave-item" style="grid-column:1 / -1;">
+                    <div class="item-head">
+                        <div class="item-name">No leave types configured</div>
+                    </div>
+                    <div class="item-foot">
+                        <span>Admin needs to create and assign leave policies.</span>
+                    </div>
+                </div>
                 {% endfor %}
-            </tbody>
-        </table>
-    </div>
+            </div>
+            
+            {% if monthly_quota_breakdown %}
+            <!-- Shared pool info -->
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 24px;border-top:1px solid var(--border);background:linear-gradient(90deg,rgba(0,198,212,0.03),transparent);flex-wrap:wrap;gap:8px;">
+                <div style="font-size:12px;color:var(--text-muted);font-weight:600;">
+                    <i class="fa-solid fa-layer-group" style="color:var(--aqua-deep);margin-right:6px;"></i>
+                    Shared Annual Pool (All monthly leave types share this quota)
+                </div>
+                <div style="font-size:20px;font-weight:800;color:var(--aqua-deep);">
+                    {{ total_remaining|default:0|floatformat:1 }} / {{ total_allocated|default:0|floatformat:1 }} days remaining this month
+                </div>
+            </div>
+            {% endif %}
+        </div>
 
+        <!-- Special Leave Types Section -->
+        {% if special_leave_breakdown %}
+        <div class="breakdown-card animate-in delay-2">
+            <div class="bc-head">
+                <div class="bc-title"><i class="fa-solid fa-star"></i> Special Leave Types</div>
+                <span class="shared-pool-badge"><i class="fa-solid fa-database"></i> Separate Quota</span>
+            </div>
+            <div class="bc-grid">
+                <div class="leave-item" style="grid-column:1 / -1;">
+                    <div class="special-wrap" id="special-leave-summary-card">
+                        <button type="button" class="special-toggle" onclick="toggleSpecialLeaveSummary()">
+                            <div>
+                                <div class="special-title">Special Leave Types</div>
+                                <div class="special-subtitle">Click to view all special leave balances and descriptions</div>
+                            </div>
+                            <i class="fa-solid fa-chevron-down special-chevron"></i>
+                        </button>
+                        <div class="special-body">
+                            {% for s in special_leave_breakdown %}
+                            <div class="special-entry">
+                                <div class="special-entry-head">
+                                    <div class="special-name">{{ s.name }} ({{ s.remaining|floatformat:1 }} / {{ s.allocated|floatformat:1 }}d)</div>
+                                    <span class="item-tag {% if s.is_paid %}tag-paid{% else %}tag-unpaid{% endif %}">{% if s.is_paid %}Paid{% else %}Unpaid{% endif %}</span>
+                                </div>
+                                <div class="special-desc">{{ s.description|default:"No description provided." }}</div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- History Table - Clickable -->
+        <div class="history-panel animate-in delay-2">
+            <div class="hp-head">
+                <div class="hp-title"><i class="fa-solid fa-history"></i> My Recent Requests</div>
+                <span class="hp-count">{{ my_leaves|length }} Records</span>
+            </div>
+            <table class="aero-table">
+                <thead>
+                    <tr>
+                        <th>Leave Type</th>
+                        <th>Duration</th>
+                        <th>Dates</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for leave in my_leaves %}
+                    <tr class="clickable-row" data-leave-id="{{ leave.id }}" onclick="viewLeaveDetails({{ leave.id }})">
+                        <td style="font-weight:700;">{{ leave.leave_type }}</td>
+                        <td>{{ leave.duration }} days</td>
+                        <td style="font-size:12px; color:var(--text-muted);">
+                            <i class="fa-regular fa-calendar" style="margin-right:4px;"></i>
+                            {{ leave.start_date }} → {{ leave.end_date }}
+                        </td>
+                        <td>
+                            <span class="status-pill status-{{ leave.status|upper }}">
+                                {{ leave.status|title }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" style="text-align:center; padding:40px;">
+                            <div class="empty-state">
+                                <div class="empty-icon"><i class="fa-solid fa-calendar"></i></div>
+                                <h4>No Leave Records</h4>
+                                <p>You haven't applied for any leave yet.</p>
+                                <a href="{% url 'apply_leave' %}" class="btn-primary" style="display:inline-block; margin-top:10px;">
+                                    <i class="fa-regular fa-calendar-plus"></i> Apply for Leave
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
 </div>
 
 <script>
+function toggleSpecialLeaveSummary() {
+    const card = document.getElementById("special-leave-summary-card");
+    if (!card) return;
+    card.classList.toggle("open");
+}
+
+function viewLeaveDetails(leaveId) {
+    window.location.href = `/leave-detail/${leaveId}/`;
+}
+
 $(document).ready(function() {
-    const totalRemaining = parseFloat("{{ total_remaining|default:0 }}");
-    const totalAllocated = parseFloat("{{ total_allocated|default:40 }}") || 40;
-    const used = totalAllocated - totalRemaining;
-    const pct = Math.min(Math.max((used / totalAllocated) * 100, 0), 100);
-    const circumference = 389.5;
-    const offset = circumference - (pct / 100) * circumference;
-    
-    setTimeout(() => {
-        $('#main-ring').css('stroke-dashoffset', offset);
-        $('#ring-pct').text(Math.round(pct) + '%');
-        
-        let current = 0;
-        const target = totalRemaining;
-        const duration = 1000;
-        const steps = 60;
-        const inc = target / steps;
-        const interval = setInterval(() => {
-            current += inc;
-            if (current >= target) { current = target; clearInterval(interval); }
-            $('#total-val').html(current.toFixed(1) + '<span>days</span>');
-        }, duration / steps);
-    }, 300);
+    // Get data from Django template variables
+    {% with primary_leave=monthly_quota_breakdown|first %}
+        {% if primary_leave %}
+            const monthlyQuota = parseFloat("{{ primary_leave.monthly_quota|default:1.5 }}");
+            const remainingThisMonth = parseFloat("{{ total_remaining|default:0 }}");
+            const usedThisMonth = monthlyQuota - remainingThisMonth;
+            const usedPercent = monthlyQuota > 0 ? (usedThisMonth / monthlyQuota) * 100 : 0;
+            const totalRemaining = parseFloat("{{ total_remaining|default:0 }}");
+            
+            const circumference = 389.5;
+            const offset = circumference - (usedPercent / 100) * circumference;
+            
+            setTimeout(() => {
+                $('#main-ring').css('stroke-dashoffset', offset);
+                $('#ring-pct').text(Math.round(usedPercent) + '%');
+                
+                let current = 0;
+                const target = totalRemaining;
+                if (target > 0) {
+                    const duration = 1000;
+                    const steps = 60;
+                    const inc = target / steps;
+                    const interval = setInterval(() => {
+                        current += inc;
+                        if (current >= target) { 
+                            current = target; 
+                            clearInterval(interval); 
+                        }
+                        $('.hero-total-val').html(current.toFixed(1) + '<span>days</span>');
+                    }, duration / steps);
+                } else {
+                    $('.hero-total-val').html('0<span>days</span>');
+                }
+            }, 300);
+        {% else %}
+            // Fallback if no leave types
+            setTimeout(() => {
+                $('.hero-total-val').html('0<span>days</span>');
+                $('#ring-pct').text('0%');
+            }, 300);
+        {% endif %}
+    {% endwith %}
 });
+
+// Auto-refresh data every 30 seconds (optional)
+setTimeout(function() {
+    location.reload();
+}, 30000);
 </script>
 {% endblock %}

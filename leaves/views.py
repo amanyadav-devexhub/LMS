@@ -78,7 +78,7 @@ from django.utils.timesince import timesince
 from django.views.decorators.csrf import csrf_exempt
 
 # ── App models ───────────────────────────────────────────────────────
-from .models import LeaveRequest, Notification, SalaryDeduction
+from .models import AcademicLeaveSettings, LeaveRequest, Notification, SalaryDeduction
 from users.models import User, Department, Role, RolePermissionAssignment, SalaryDetails
 from users.rbac import user_has_permission
 
@@ -93,7 +93,7 @@ except ImportError:
     HOLIDAYS_ENABLED = False
 
 try:
-    from .models import LeaveTypeConfig, LeavePolicy, EmployeeLeaveAllocation
+    from .models import LeaveTypeConfig, LeavePolicy, EmployeeLeaveAllocation, LeaveAllocationLedger
     POLICY_ENABLED = True
 except ImportError:
     POLICY_ENABLED = False
@@ -205,6 +205,19 @@ def get_leave_year_range(leave_type_config, date_obj=None):
 def _target_allocation_days_for_leave_type(leave_type, sync_mode="monthly", as_of_date=None):
     as_of_date = as_of_date or timezone.now().date()
     target_days = float(leave_type.days_per_year or 0)
+
+    if getattr(leave_type, "quota_type", "STANDARD") == "ANNUAL_POOL":
+        settings_obj = AcademicLeaveSettings.get_solo()
+        annual_quota = float(getattr(settings_obj, "annual_leave_quota", 12) or 12)
+        target_days = annual_quota
+        if sync_mode == "monthly":
+            start_month = getattr(leave_type, 'starting_month', 4)
+            leave_year_start = get_leave_year_for_date(as_of_date, start_month)
+            leave_start_date = date(leave_year_start, start_month, 1)
+            months_elapsed = (as_of_date.year - leave_start_date.year) * 12 + (as_of_date.month - start_month) + 1
+            months_elapsed = max(1, min(12, months_elapsed))
+            target_days = min(annual_quota, (annual_quota / 12.0) * months_elapsed)
+        return round(float(target_days), 2)
     
     if sync_mode == "monthly" and leave_type.is_accrual_based:
         # Calculate months elapsed since leave year started
@@ -219,6 +232,99 @@ def _target_allocation_days_for_leave_type(leave_type, sync_mode="monthly", as_o
         target_days = min(target_days, float(leave_type.monthly_accrual or 0) * months_elapsed)
     
     return target_days
+
+
+def _annual_quota_for_employee_leave_type(employee, leave_type):
+    if getattr(leave_type, "quota_type", "STANDARD") == "ANNUAL_POOL":
+        settings_obj = AcademicLeaveSettings.get_solo()
+        return float(getattr(settings_obj, "annual_leave_quota", leave_type.days_per_year or 0) or 0)
+    return float(leave_type.days_per_year or 0)
+
+
+def _calculate_prorated_leave_for_employee(employee, leave_type, as_of_date=None):
+    as_of_date = as_of_date or timezone.now().date()
+    leave_year = leave_type.get_current_leave_year(as_of_date)
+    leave_year_start, leave_year_end = leave_type.get_leave_year_range(as_of_date)
+
+    joining_date = getattr(employee, "date_of_joining", None) or as_of_date
+    effective_joining_date = max(joining_date, leave_year_start)
+
+    remaining_months = EmployeeLeaveAllocation.remaining_prorated_months(
+        effective_joining_date,
+        leave_year_end,
+    )
+    annual_quota = _annual_quota_for_employee_leave_type(employee, leave_type)
+    allocated_quota = round((annual_quota / 12.0) * remaining_months, 2)
+
+    return {
+        "leave_year": leave_year,
+        "annual_quota": round(annual_quota, 2),
+        "remaining_months": int(remaining_months),
+        "allocated_quota": float(allocated_quota),
+        "leave_year_start": leave_year_start,
+        "leave_year_end": leave_year_end,
+    }
+
+
+def _upsert_prorated_allocation_for_employee(employee, leave_type, reason, as_of_date=None, force_recalculate=True):
+    if not POLICY_ENABLED:
+        return None, False
+
+    calc = _calculate_prorated_leave_for_employee(employee, leave_type, as_of_date=as_of_date)
+    alloc, created = EmployeeLeaveAllocation.objects.get_or_create(
+        employee=employee,
+        leave_type=leave_type,
+        year=calc["leave_year"],
+        defaults={"allocated_days": calc["allocated_quota"]},
+    )
+
+    next_allocated_days = max(float(calc["allocated_quota"] or 0), float(alloc.used_days or 0))
+    changed = created or float(alloc.allocated_days or 0) != float(next_allocated_days)
+
+    if changed or force_recalculate:
+        alloc.allocated_days = next_allocated_days
+        alloc.save(update_fields=["allocated_days", "updated_at"])
+
+        LeaveAllocationLedger.objects.create(
+            employee=employee,
+            leave_type=leave_type,
+            allocation=alloc,
+            year=calc["leave_year"],
+            annual_quota=calc["annual_quota"],
+            allocated_quota=float(alloc.allocated_days or 0),
+            used_leaves=float(alloc.used_days or 0),
+            remaining_leaves=float(alloc.remaining_days or 0),
+            action="PRORATED_ALLOCATION",
+            note=reason,
+            metadata={
+                "remaining_months": calc["remaining_months"],
+                "leave_year_start": calc["leave_year_start"].isoformat(),
+                "leave_year_end": calc["leave_year_end"].isoformat(),
+                "joining_date": (getattr(employee, "date_of_joining", None) or as_of_date or timezone.now().date()).isoformat(),
+            },
+        )
+
+    return alloc, created
+
+
+def sync_prorated_allocations_for_employee(employee, reason, as_of_date=None, force_recalculate=True):
+    if not POLICY_ENABLED or not employee or employee.is_superuser:
+        return {"created": 0, "updated": 0}
+
+    created = updated = 0
+    for leave_type in _get_applicable_leave_types_for_employee(employee):
+        alloc, was_created = _upsert_prorated_allocation_for_employee(
+            employee,
+            leave_type,
+            reason=reason,
+            as_of_date=as_of_date,
+            force_recalculate=force_recalculate,
+        )
+        if was_created:
+            created += 1
+        elif alloc:
+            updated += 1
+    return {"created": created, "updated": updated}
 
 def _ensure_leave_allocations_for_employee(employee, year=None, leave_type_config=None):
     if not POLICY_ENABLED:
@@ -339,10 +445,113 @@ def _resolve_allocation_for_leave(employee, leave_type_value, leave_date=None):
     return fallback_allocation, getattr(fallback_allocation, "leave_type", None)
 
 
+def _normalized_employee_gender(employee):
+    gender_value = ""
+    try:
+        details = getattr(employee, "additionaldetails", None)
+        gender_value = (getattr(details, "gender", "") or "").strip().upper()
+    except Exception:
+        gender_value = ""
+    if gender_value in ("MALE", "M"):
+        return "MALE"
+    if gender_value in ("FEMALE", "F"):
+        return "FEMALE"
+    return "ALL"
+
+
+def _service_days(employee, as_of_date=None):
+    as_of_date = as_of_date or timezone.now().date()
+    join_date = getattr(employee, "date_of_joining", None)
+    if not join_date:
+        return 0
+    return max(0, (as_of_date - join_date).days)
+
+
+def _check_special_leave_eligibility(employee, leave_type_config, leave_obj=None, as_of_date=None):
+    as_of_date = as_of_date or timezone.now().date()
+    if not leave_type_config:
+        return True, None
+
+    if leave_type_config.applicable_gender != "ALL":
+        if _normalized_employee_gender(employee) != leave_type_config.applicable_gender:
+            return False, f"This leave type is only applicable for {leave_type_config.get_applicable_gender_display().lower()} employees."
+
+    if int(leave_type_config.min_service_days or 0) > 0:
+        completed_service = _service_days(employee, as_of_date=as_of_date)
+        if completed_service < int(leave_type_config.min_service_days):
+            return False, (
+                f"Minimum {leave_type_config.min_service_days} days of service required. "
+                f"Current service: {completed_service} days."
+            )
+
+    if leave_type_config.max_lifetime_usage and float(leave_type_config.max_lifetime_usage) > 0:
+        lifetime_used = EmployeeLeaveAllocation.objects.filter(
+            employee=employee,
+            leave_type=leave_type_config,
+        ).aggregate(total=Sum("lifetime_used"))["total"] or 0
+        pending_requested = float(getattr(leave_obj, "leave_duration_days", 0) if leave_obj else 0)
+        if float(lifetime_used) + pending_requested > float(leave_type_config.max_lifetime_usage):
+            return False, (
+                f"Lifetime limit exceeded for this leave type. "
+                f"Allowed: {leave_type_config.max_lifetime_usage}, Used: {float(lifetime_used):.1f}."
+            )
+
+    if leave_type_config.requires_document and leave_obj and not leave_obj.attachment:
+        return False, "This leave type requires a supporting document."
+
+    return True, None
+
+
+def _available_paid_days_for_leave(employee, leave_type_config, leave_date):
+    settings_obj = AcademicLeaveSettings.get_solo()
+
+    def _is_special_config(config):
+        return bool(config and config.quota_type in ("SPECIAL_EVENT", "MATERNITY_PATERNITY"))
+
+    def _monthly_pool_remaining(emp, target_date):
+        start_month = int(getattr(settings_obj, "leave_year_start_month", 1) or 1)
+        leave_year = get_leave_year_for_date(target_date, start_month)
+        leave_year_start = date(leave_year, start_month, 1)
+        months_elapsed = (target_date.year - leave_year_start.year) * 12 + (target_date.month - leave_year_start.month) + 1
+        months_elapsed = max(1, min(12, months_elapsed))
+
+        annual_quota = float(getattr(settings_obj, "annual_leave_quota", 0) or 0)
+        accrued = round((annual_quota / 12.0) * months_elapsed, 2)
+        used = float(
+            EmployeeLeaveAllocation.objects.filter(
+                employee=emp,
+                year=leave_year,
+                leave_type__quota_type="ANNUAL_POOL",
+            ).aggregate(total=Sum("used_days"))["total"] or 0
+        )
+        return max(0.0, round(accrued - used, 2))
+
+    if not leave_type_config:
+        return _monthly_pool_remaining(employee, leave_date), None
+
+    if not _is_special_config(leave_type_config):
+        return _monthly_pool_remaining(employee, leave_date), None
+
+    if not leave_type_config.is_paid:
+        return 0.0, None
+
+    alloc, _ = _resolve_allocation_for_leave(employee, leave_type_config.code, leave_date)
+    if not alloc:
+        leave_year = get_leave_year_for_date(leave_date, getattr(leave_type_config, "starting_month", 4))
+        _ensure_leave_allocations_for_employee(employee, year=leave_year, leave_type_config=leave_type_config)
+        alloc, _ = _resolve_allocation_for_leave(employee, leave_type_config.code, leave_date)
+
+    if not alloc:
+        return 0.0, None
+
+    return float(alloc.get_available_paid_balance(as_of_date=leave_date)), alloc
+
+
 # ⚠️  DEPRECATED (v2.0+): Not exposed via any URL endpoint
 # This is a helper function used internally only.
 # Can be removed in a future cleanup if no internal dependencies exist.
-def get_employee_leave_summary(employee, year=None,leave_type_config=None):
+def get_employee_leave_summary(employee, year=None, leave_type_config=None):
+    """Returns leave summary with actual allocated values from DB"""
     current_date = timezone.now().date()
     if year is None:
         start_month = getattr(leave_type_config, 'starting_month', 4) if leave_type_config else 4
@@ -370,6 +579,7 @@ def get_employee_leave_summary(employee, year=None,leave_type_config=None):
             current_date,
             getattr(leave_type, "starting_month", 4),
         )
+        # This ensures we get the latest allocation
         _ensure_leave_allocations_for_employee(
             employee,
             year=allocation_year,
@@ -398,6 +608,7 @@ def get_employee_leave_summary(employee, year=None,leave_type_config=None):
             "used": round(float(allocation.used_days), 1),
             "remaining": round(float(allocation.remaining_days), 1),
             "is_paid": allocation.leave_type.is_paid,
+            "description": allocation.leave_type.description,
         }
         for allocation in allocations
     ]
@@ -408,6 +619,59 @@ def get_employee_leave_summary(employee, year=None,leave_type_config=None):
         "total_used": round(sum(item["used"] for item in breakdown), 1),
         "total_remaining": round(sum(item["remaining"] for item in breakdown), 1),
         "breakdown": breakdown,
+    }
+
+
+def get_employee_leave_summary_for_balance_display(employee, year=None, force_monthly=False):
+    summary = get_employee_leave_summary(employee, year)
+    settings_obj = AcademicLeaveSettings.get_solo()
+    if not force_monthly and not getattr(settings_obj, "show_only_monthly_in_balance", True):
+        return summary
+
+    codes = [str(item.get("code") or "").upper() for item in summary.get("breakdown", [])]
+    type_map = {
+        str(lt.code or "").upper(): lt
+        for lt in LeaveTypeConfig.objects.filter(code__in=codes)
+    }
+
+    filtered_breakdown = []
+    pool_items = []
+    for item in summary.get("breakdown", []):
+        code = str(item.get("code") or "").upper()
+        lt = type_map.get(code)
+        if lt and (lt.quota_type == "ANNUAL_POOL" or lt.is_accrual_based):
+            filtered_breakdown.append(item)
+            if lt.quota_type == "ANNUAL_POOL":
+                pool_items.append(item)
+
+    # Shared monthly pool (CASUAL/SICK/URGENT/HALF_DAY) must be counted once,
+    # not once per type, otherwise totals are multiplied (e.g. 1 -> 4).
+    if pool_items:
+        shared_allocated = max(float(item.get("allocated") or 0) for item in pool_items)
+        shared_used = max(float(item.get("used") or 0) for item in pool_items)
+        shared_remaining = max(float(item.get("remaining") or 0) for item in pool_items)
+        non_pool_items = [
+            item for item in filtered_breakdown
+            if str(item.get("code") or "").upper() not in {
+                str(pool_item.get("code") or "").upper() for pool_item in pool_items
+            }
+        ]
+
+        total_allocated = shared_allocated + sum(float(item.get("allocated") or 0) for item in non_pool_items)
+        total_used = shared_used + sum(float(item.get("used") or 0) for item in non_pool_items)
+        total_remaining = shared_remaining + sum(float(item.get("remaining") or 0) for item in non_pool_items)
+    else:
+        total_allocated = sum(float(item.get("allocated") or 0) for item in filtered_breakdown)
+        total_used = sum(float(item.get("used") or 0) for item in filtered_breakdown)
+        total_remaining = sum(float(item.get("remaining") or 0) for item in filtered_breakdown)
+
+    return {
+        "year": summary.get("year"),
+        "has_allocations": bool(filtered_breakdown),
+        "total_allocated": round(total_allocated, 1),
+        "total_used": round(total_used, 1),
+        "total_remaining": round(total_remaining, 1),
+        "breakdown": filtered_breakdown,
     }
 
 
@@ -478,9 +742,28 @@ def _deduct_leave_balance(leave):
             leave.leave_type,
             leave.start_date or timezone.now().date(),
         )
+
+        if not allocation or getattr(allocation.leave_type, "quota_type", "STANDARD") != "ANNUAL_POOL":
+            target_date = leave.start_date or timezone.now().date()
+            leave_year = get_leave_year_for_date(target_date, AcademicLeaveSettings.get_solo().leave_year_start_month)
+            allocation = (
+                EmployeeLeaveAllocation.objects.filter(
+                    employee=leave.employee,
+                    year=leave_year,
+                    leave_type__quota_type="ANNUAL_POOL",
+                )
+                .select_related("leave_type")
+                .order_by("leave_type__name")
+                .first()
+            )
+
         if allocation:
             allocation.used_days = float(allocation.used_days or 0) + paid_days
-            allocation.save(update_fields=["used_days", "updated_at"])
+            allocation.lifetime_used = float(allocation.lifetime_used or 0) + paid_days
+            allocation.last_used_at = timezone.now()
+            if not allocation.event_date:
+                allocation.event_date = leave.start_date
+            allocation.save(update_fields=["used_days", "lifetime_used", "last_used_at", "event_date", "updated_at"])
 
     _upsert_salary_deduction_for_leave(leave)
 
@@ -501,22 +784,47 @@ def _restore_leave_balance(leave):
         allocation.save(update_fields=["used_days", "updated_at"])
 
 
+# 1. REPLACE the existing _evaluate_leave_decision function with this updated version
 def _evaluate_leave_decision(leave):
-    threshold = 2
-    policy = _get_active_policy_for_employee(leave.employee)
-    if policy and getattr(policy, "approval_threshold", None):
-        threshold = max(1, int(policy.approval_threshold))
+    """
+    Evaluate leave decision with Manager having ultimate override authority.
+    NO AUTO-APPROVAL/REJECTION based on vote counts.
+    """
+    
+    # PRIORITY 1: Manager has ULTIMATE POWER (Explicit Override)
     if getattr(leave, "manager_rejected", False):
-        return "REJECTED", "Rejected by Manager"
+        return "REJECTED", "Rejected by Manager (Override)"
+    
     if getattr(leave, "manager_approved", False):
-        return "APPROVED", "Approved by Manager"
-    if int(getattr(leave, "rejection_count", 0) or 0) >= threshold:
-        return "REJECTED", f"Received {threshold} rejection votes"
-    if int(getattr(leave, "approval_count", 0) or 0) >= threshold:
-        return "APPROVED", f"Received {threshold} approval votes"
-    return "PENDING", "Awaiting more votes"
-
-
+        return "APPROVED", "Approved by Manager (Override)"
+    
+    # PRIORITY 2: Check if already final (for already processed leaves)
+    if leave.final_status in ["APPROVED", "REJECTED"]:
+        return leave.final_status, f"Decision already final: {leave.final_status}"
+    
+    # PRIORITY 3: Mixed votes - if TL and HR disagree, stay PENDING
+    if leave.tl_voted and leave.hr_voted:
+        if leave.tl_approved and leave.hr_rejected:
+            return "PENDING", "TL Approved but HR Rejected - Awaiting Manager Decision"
+        if leave.tl_rejected and leave.hr_approved:
+            return "PENDING", "TL Rejected but HR Approved - Awaiting Manager Decision"
+    
+    # PRIORITY 4: Both agreed? Then it's APPROVED (only if both approved)
+    if leave.tl_voted and leave.hr_voted:
+        if leave.tl_approved and leave.hr_approved:
+            # Only if BOTH approved
+            return "APPROVED", "Approved by both TL and HR"
+        if leave.tl_rejected and leave.hr_rejected:
+            return "REJECTED", "Rejected by both TL and HR"
+    
+    # PRIORITY 5: Still waiting for votes
+    waiting_for = []
+    if not leave.tl_voted:
+        waiting_for.append("TL")
+    if not leave.hr_voted:
+        waiting_for.append("HR")
+    
+    return "PENDING", f"Awaiting votes from: {', '.join(waiting_for)}"
 # ════════════════════════════════════════════════════════════════════
 #  SMALL HELPERS
 # ════════════════════════════════════════════════════════════════════
@@ -643,12 +951,12 @@ def unified_dashboard_api(request):
 
 @login_required
 def employee_dashboard_api(request):
-    today = date.today()
+    today = timezone.now().date()
     current_year = today.year
     current_month = today.month
 
     all_leaves = LeaveRequest.objects.filter(employee=request.user).order_by("-created_at")
-    leave_summary = get_employee_leave_summary(request.user, current_year)
+    leave_summary = get_employee_leave_summary_for_balance_display(request.user, current_year)
 
     available_balance = leave_summary["total_remaining"]
     total_accrued = leave_summary["total_allocated"]
@@ -747,7 +1055,7 @@ def employee_leave_balance_api(request):
     current_year = today.year
     current_month = today.month
 
-    leave_summary = get_employee_leave_summary(request.user, current_year)
+    leave_summary = get_employee_leave_summary_for_balance_display(request.user, current_year)
 
     available_balance = leave_summary["total_remaining"]
     monthly_leaves = LeaveRequest.objects.filter(
@@ -1077,8 +1385,49 @@ def apply_leave_api(request):
     POST → submits a leave application.
     """
     if request.method == "GET":
-        # ... KEEP YOUR EXISTING GET CODE COMPLETELY UNCHANGED ...
-        pass
+        leave_summary = get_employee_leave_summary_for_balance_display(request.user, timezone.now().year)
+        active_leave_types = []
+        active_policy = None
+        max_days = 5
+
+        if POLICY_ENABLED:
+            active_leave_types = [
+                {
+                    "id": lt.id,
+                    "code": lt.code,
+                    "name": lt.name,
+                    "color": lt.color,
+                    "is_paid": lt.is_paid,
+                    "days_per_year": lt.days_per_year,
+                    "max_consecutive_days": lt.max_consecutive_days,
+                    "advance_notice_days": lt.advance_notice_days,
+                    "document_required_after": lt.document_required_after,
+                    "quota_type": lt.quota_type,
+                    "applicable_gender": lt.applicable_gender,
+                    "min_service_days": lt.min_service_days,
+                    "max_lifetime_usage": lt.max_lifetime_usage,
+                    "requires_document": lt.requires_document,
+                }
+                for lt in _get_applicable_leave_types_for_employee(request.user)
+            ]
+            active_policy = _get_active_policy_for_employee(request.user)
+            if active_policy:
+                max_days = active_policy.max_days_per_request
+
+        return _ok({
+            "leave_summary": leave_summary,
+            "active_leave_types": active_leave_types,
+            "available_balance": leave_summary["total_remaining"],
+            "max_days": max_days,
+            "policy": {
+                "id": active_policy.id,
+                "name": active_policy.name,
+                "max_days_per_request": active_policy.max_days_per_request,
+                "min_advance_days": active_policy.min_advance_days,
+                "allow_half_day": active_policy.allow_half_day,
+                "allow_short_leave": active_policy.allow_short_leave,
+            } if active_policy else None,
+        })
 
     if request.method != "POST":
         return _err("Method not allowed.", status=405)
@@ -1109,14 +1458,15 @@ def apply_leave_api(request):
     # ========== NEW VALIDATIONS START HERE ==========
     
     # 1. Get the leave type configuration from database
+    leave_type_config = None
     if POLICY_ENABLED:
-        try:
-            from .models import LeaveTypeConfig
-            leave_type_config = LeaveTypeConfig.objects.get(
-                code__iexact=leave_type,
-                is_active=True
-            )
-        except LeaveTypeConfig.DoesNotExist:
+        leave_type_config = _resolve_leave_type_config_for_code(request.user, leave_type)
+        normalized_leave_type = str(leave_type or "").strip().upper()
+        legacy_regular_types = {
+            "CASUAL", "SICK", "URGENT", "HALF_DAY", "SHORT", "SHORT_LEAVE",
+            "CASUAL LEAVE", "SICK LEAVE", "URGENT LEAVE",
+        }
+        if not leave_type_config and normalized_leave_type not in legacy_regular_types:
             return _err(f"Invalid or inactive leave type: {leave_type}", status=400)
         
         # 2. RULE: Advance notice check
@@ -1219,17 +1569,10 @@ def apply_leave_api(request):
         start_date,
         getattr(leave_type_config, "starting_month", 1),
     ) if leave_type_config else start_date.year
-    allocation_obj = None
     available = 0
 
-    if POLICY_ENABLED:
-        alloc, _ = _resolve_allocation_for_leave(request.user, leave_type, start_date)
-        if alloc:
-            available = alloc.remaining_days
-            allocation_obj = alloc
-        else:
-            summary = get_employee_leave_summary(request.user, current_year, leave_type_config=leave_type_config)
-            available = summary["total_remaining"]
+    if POLICY_ENABLED and leave_type_config:
+        available, _ = _available_paid_days_for_leave(request.user, leave_type_config, start_date)
     else:
         summary = get_employee_leave_summary(request.user, current_year)
         available = summary["total_remaining"]
@@ -1248,6 +1591,17 @@ def apply_leave_api(request):
         attachment=attachment,
     )
     leave_obj.calculate_paid_unpaid(available)
+    leave_obj.eligibility_checked = True
+
+    if leave_type_config:
+        eligible, eligibility_error = _check_special_leave_eligibility(
+            request.user,
+            leave_type_config,
+            leave_obj=leave_obj,
+            as_of_date=start_date,
+        )
+        if not eligible:
+            return _err(eligibility_error)
 
     # Resolve approvers (YOUR EXISTING CODE - UNCHANGED)
     employee = request.user
@@ -1332,6 +1686,7 @@ def apply_leave_api(request):
 #  APPROVE / REJECT LEAVE
 # ════════════════════════════════════════════════════════════════════
 
+# 2. REPLACE the existing approve_leave_api function with this updated version
 @login_required
 def approve_leave_api(request, leave_id):
     if request.method != "POST":
@@ -1343,24 +1698,116 @@ def approve_leave_api(request, leave_id):
     is_admin = request.user.is_superuser or role_name == "Admin"
     old_status = leave.final_status
 
-    # Admin override
+    # Admin override (always allowed)
     if is_admin:
+        leave_type_config = _resolve_leave_type_config_for_code(leave.employee, leave.leave_type)
+        available_paid, _ = _available_paid_days_for_leave(
+            leave.employee,
+            leave_type_config,
+            leave.start_date or timezone.now().date(),
+        )
+        leave.calculate_paid_unpaid(available_paid)
+        leave.eligibility_checked = True
+        if leave.attachment:
+            leave.document_verified_at = timezone.now()
+
+        if leave_type_config:
+            eligible, eligibility_error = _check_special_leave_eligibility(
+                leave.employee,
+                leave_type_config,
+                leave_obj=leave,
+                as_of_date=leave.start_date or timezone.now().date(),
+            )
+            if not eligible:
+                return _err(eligibility_error, status=400)
+
+        # If previously approved, restore balance before changing
+        if old_status == "APPROVED":
+            _restore_leave_balance(leave)
+            
         leave.final_status = "APPROVED"
         leave.status = "APPROVED"
-        if old_status != "APPROVED":
-            leave.balance_deducted_at = timezone.now()
+        leave.balance_deducted_at = timezone.now()
         leave.save()
-        if old_status != "APPROVED":
-            _deduct_leave_balance(leave)
+        _deduct_leave_balance(leave)
+        
         Notification.objects.create(
             user=leave.employee,
             message="Your leave request has been approved by Admin.",
         )
         return _ok({"message": "Admin override: Leave approved.", "status": "APPROVED"})
 
+    # MANAGER OVERRIDE
+    if role_name == "Manager":
+        # Manager can override ANY pending leave, even if already decided
+        if old_status == "APPROVED":
+            _restore_leave_balance(leave)
+        
+        # Set manager's vote
+        leave.manager_approved = True
+        leave.manager_rejected = False
+        leave.manager_voted = True
+        leave.manager_acted_at = timezone.now()
+        
+        leave.save()
+        
+        # Evaluate decision (manager approval will trigger override)
+        decision, reason = _evaluate_leave_decision(leave)
+        
+        if decision == "APPROVED":
+            if old_status != "APPROVED":
+                leave_type_config = _resolve_leave_type_config_for_code(leave.employee, leave.leave_type)
+                available_paid, _ = _available_paid_days_for_leave(
+                    leave.employee,
+                    leave_type_config,
+                    leave.start_date or timezone.now().date(),
+                )
+                leave.calculate_paid_unpaid(available_paid)
+                leave.eligibility_checked = True
+                
+                if leave_type_config:
+                    eligible, eligibility_error = _check_special_leave_eligibility(
+                        leave.employee,
+                        leave_type_config,
+                        leave_obj=leave,
+                        as_of_date=leave.start_date or timezone.now().date(),
+                    )
+                    if not eligible:
+                        leave.final_status = "PENDING"
+                        leave.status = "PENDING"
+                        leave.save()
+                        return _err(eligibility_error, status=400)
+                
+                leave.final_status = "APPROVED"
+                leave.status = "APPROVED"
+                leave.balance_deducted_at = timezone.now()
+                leave.save()
+                _deduct_leave_balance(leave)
+                
+            leave_url = reverse("leave_detail", args=[leave.id])
+            Notification.objects.create(
+                user=leave.employee,
+                message=f"Your leave request has been APPROVED by Manager (Override). Reason: {reason}",
+                link=leave_url,
+            )
+            
+        return _ok({
+            "decision": decision,
+            "reason": reason,
+            "status": leave.final_status,
+            "message": f"Manager override: Leave {decision}",
+        })
+    
+    # For TL and HR - regular voting (only if pending)
+    if leave.final_status != "PENDING":
+        return _ok({
+            "message": f"This leave is already {leave.final_status}. Only Manager can override.",
+            "status": leave.final_status,
+        })
+    
     # Auto-add voter if eligible
     if voter not in leave.approvers.all():
-        if role_name in ("TL", "HR", "Manager") and leave.employee != voter:
+        if role_name in ("TL", "HR") and leave.employee != voter:
             leave.approvers.add(voter)
         else:
             return _forbidden("You are not an approver for this leave.")
@@ -1368,22 +1815,14 @@ def approve_leave_api(request, leave_id):
     if leave.employee == voter:
         return _forbidden("You cannot approve your own leave request.")
 
-    if leave.final_status != "PENDING" and role_name != "Manager" and not is_admin:
-        return _ok(
-            {
-                "message": f"This leave is already {leave.final_status}. Only Manager can override.",
-                "status": leave.final_status,
-            }
-        )
-
     already_voted = (
         (role_name == "TL" and leave.tl_voted)
         or (role_name == "HR" and leave.hr_voted)
-        or (role_name == "Manager" and leave.manager_voted)
     )
     if already_voted:
         return _err("You have already voted on this leave.", status=409)
 
+    # Record TL/HR vote (NO AUTO-APPROVAL, just record vote)
     if role_name == "TL":
         leave.tl_approved = True
         leave.tl_rejected = False
@@ -1394,29 +1833,90 @@ def approve_leave_api(request, leave_id):
         leave.hr_rejected = False
         leave.hr_voted = True
         leave.hr_acted_at = timezone.now()
-    elif role_name == "Manager":
-        leave.manager_approved = True
-        leave.manager_rejected = False
-        leave.manager_voted = True
-        leave.manager_acted_at = timezone.now()
     else:
         return _forbidden("You don't have voting rights.")
 
-    leave.approval_count += 1
-    leave.save()
+    leave.save()  # Save the vote first
 
-    decision, reason = _evaluate_leave_decision(leave)
+    leave_url = reverse("leave_detail", args=[leave.id])
+    applicant_name = leave.employee.get_full_name() or leave.employee.username
 
-    if decision == "APPROVED" and old_status != "APPROVED":
-        leave.final_status = "APPROVED"
-        leave.status = "APPROVED"
-        leave.balance_deducted_at = timezone.now()
-        leave.save()
-        _deduct_leave_balance(leave)
+    # Notify employee of this individual vote
+    if role_name == "TL":
         Notification.objects.create(
             user=leave.employee,
-            message=f"Your leave request has been approved. {reason}.",
+            message=f"Your leave request has been approved by your Team Lead. Awaiting HR review.",
+            link=leave_url,
         )
+    elif role_name == "HR":
+        Notification.objects.create(
+            user=leave.employee,
+            message=f"Your leave request has been approved by HR. Awaiting Team Lead review.",
+            link=leave_url,
+        )
+
+    # Now evaluate decision
+    decision, reason = _evaluate_leave_decision(leave)
+
+    # Helper to find manager
+    def _find_manager():
+        mgr = getattr(leave.employee, "reporting_manager", None)
+        if mgr and get_user_role(mgr) == "Manager":
+            return mgr
+        return User.objects.filter(role__name="Manager", is_active=True).exclude(
+            id=leave.employee.id
+        ).first()
+
+    if decision == "APPROVED":
+        if (leave.tl_voted and leave.hr_voted and leave.tl_approved and leave.hr_approved) or leave.manager_approved:
+            if old_status != "APPROVED":
+                leave_type_config = _resolve_leave_type_config_for_code(leave.employee, leave.leave_type)
+                available_paid, _ = _available_paid_days_for_leave(
+                    leave.employee,
+                    leave_type_config,
+                    leave.start_date or timezone.now().date(),
+                )
+                leave.calculate_paid_unpaid(available_paid)
+                leave.eligibility_checked = True
+
+                if leave.attachment:
+                    leave.document_verified_at = timezone.now()
+
+                if leave_type_config:
+                    eligible, eligibility_error = _check_special_leave_eligibility(
+                        leave.employee,
+                        leave_type_config,
+                        leave_obj=leave,
+                        as_of_date=leave.start_date or timezone.now().date(),
+                    )
+                    if not eligible:
+                        leave.final_status = "PENDING"
+                        leave.status = "PENDING"
+                        leave.save()
+                        return _err(eligibility_error, status=400)
+
+                leave.final_status = "APPROVED"
+                leave.status = "APPROVED"
+                leave.balance_deducted_at = timezone.now()
+                leave.save()
+                _deduct_leave_balance(leave)
+
+                # Notify employee — approved by both TL & HR
+                Notification.objects.create(
+                    user=leave.employee,
+                    message=f"Your leave request ({leave.leave_type}, {leave.start_date}) has been approved by TL & HR.",
+                    link=leave_url,
+                )
+
+                # Notify manager — they can still override
+                manager_user = _find_manager()
+                if manager_user:
+                    Notification.objects.create(
+                        user=manager_user,
+                        message=f"{applicant_name}'s leave ({leave.leave_type}, {leave.start_date}) was approved by TL & HR. You may override.",
+                        link=leave_url,
+                    )
+
     elif decision == "REJECTED":
         if old_status == "APPROVED":
             _restore_leave_balance(leave)
@@ -1425,12 +1925,25 @@ def approve_leave_api(request, leave_id):
         leave.save()
         Notification.objects.create(
             user=leave.employee,
-            message=f"Your leave request has been rejected. {reason}.",
+            message=f"Your leave request ({leave.leave_type}, {leave.start_date}) has been rejected.",
+            link=leave_url,
         )
+
     else:
+        # PENDING — check if both voted but disagree → notify manager
         leave.final_status = "PENDING"
         leave.status = "PENDING"
         leave.save()
+
+        if leave.tl_voted and leave.hr_voted:
+            # Split decision — manager must decide
+            manager_user = _find_manager()
+            if manager_user:
+                Notification.objects.create(
+                    user=manager_user,
+                    message=f"{applicant_name}'s leave ({leave.leave_type}, {leave.start_date}) has split votes — your decision is required.",
+                    link=leave_url,
+                )
 
     waiting = []
     if not leave.hr_voted:
@@ -1440,17 +1953,14 @@ def approve_leave_api(request, leave_id):
     if not leave.manager_voted:
         waiting.append("Manager")
 
-    return _ok(
-        {
-            "decision": decision,
-            "reason": reason,
-            "status": leave.final_status,
-            "waiting_for": waiting,
-            "message": f"Approval recorded. Decision: {decision}",
-        }
-    )
-
-
+    return _ok({
+        "decision": decision,
+        "reason": reason,
+        "status": leave.final_status,
+        "waiting_for": waiting,
+        "message": f"Vote recorded. Current status: {decision}",
+    })
+# 3. REPLACE the existing reject_leave_api function with this updated version
 @login_required
 def reject_leave_api(request, leave_id):
     if request.method != "POST":
@@ -1462,6 +1972,7 @@ def reject_leave_api(request, leave_id):
     is_admin = request.user.is_superuser or role_name == "Admin"
     old_status = leave.final_status
 
+    # Admin override
     if is_admin:
         if old_status == "APPROVED":
             _restore_leave_balance(leave)
@@ -1474,8 +1985,56 @@ def reject_leave_api(request, leave_id):
         )
         return _ok({"message": "Admin override: Leave rejected.", "status": "REJECTED"})
 
+    # MANAGER OVERRIDE (NEW LOGIC)
+    if role_name == "Manager":
+        # Manager can reject ANY pending leave, even if already approved
+        if old_status == "APPROVED":
+            _restore_leave_balance(leave)
+        
+        # Set manager's vote
+        leave.manager_approved = False
+        leave.manager_rejected = True
+        leave.manager_voted = True
+        leave.manager_acted_at = timezone.now()
+        
+        # Increment rejection count
+        if not getattr(leave, 'manager_already_counted_reject', False):
+            leave.rejection_count += 1
+            leave.manager_already_counted_reject = True
+        
+        leave.save()
+        
+        # Evaluate decision (manager rejection will trigger override)
+        decision, reason = _evaluate_leave_decision(leave)
+        
+        if decision == "REJECTED":
+            leave.final_status = "REJECTED"
+            leave.status = "REJECTED"
+            leave.save()
+            
+            leave_url = reverse("leave_detail", args=[leave.id])
+            Notification.objects.create(
+                user=leave.employee,
+                message=f"Your leave request has been REJECTED by Manager (Override). Reason: {reason}",
+                link=leave_url,
+            )
+            
+        return _ok({
+            "decision": decision,
+            "reason": reason,
+            "status": leave.final_status,
+            "message": f"Manager override: Leave {decision}",
+        })
+    
+    # For TL and HR - regular voting (only if pending)
+    if leave.final_status != "PENDING":
+        return _ok({
+            "message": f"This leave is already {leave.final_status}. Only Manager can override.",
+            "status": leave.final_status,
+        })
+
     if voter not in leave.approvers.all():
-        if role_name in ("TL", "HR", "Manager") and leave.employee != voter:
+        if role_name in ("TL", "HR") and leave.employee != voter:
             leave.approvers.add(voter)
         else:
             return _forbidden("You are not an approver for this leave.")
@@ -1483,18 +2042,9 @@ def reject_leave_api(request, leave_id):
     if leave.employee == voter:
         return _forbidden("You cannot reject your own leave request.")
 
-    if leave.final_status != "PENDING" and role_name != "Manager" and not is_admin:
-        return _ok(
-            {
-                "message": f"This leave is already {leave.final_status}. Only Manager can override.",
-                "status": leave.final_status,
-            }
-        )
-
     already_voted = (
         (role_name == "TL" and leave.tl_voted)
         or (role_name == "HR" and leave.hr_voted)
-        or (role_name == "Manager" and leave.manager_voted)
     )
     if already_voted:
         return _err("You have already voted on this leave.", status=409)
@@ -1509,16 +2059,38 @@ def reject_leave_api(request, leave_id):
         leave.hr_approved = False
         leave.hr_voted = True
         leave.hr_acted_at = timezone.now()
-    elif role_name == "Manager":
-        leave.manager_rejected = True
-        leave.manager_approved = False
-        leave.manager_voted = True
-        leave.manager_acted_at = timezone.now()
     else:
         return _forbidden("You don't have voting rights.")
 
+# REPLACE WITH:
     leave.rejection_count += 1
     leave.save()
+
+    leave_url = reverse("leave_detail", args=[leave.id])
+    applicant_name = leave.employee.get_full_name() or leave.employee.username
+
+    # Notify employee of this individual vote
+    if role_name == "TL":
+        Notification.objects.create(
+            user=leave.employee,
+            message=f"Your leave request ({leave.leave_type}, {leave.start_date}) was rejected by your Team Lead.",
+            link=leave_url,
+        )
+    elif role_name == "HR":
+        Notification.objects.create(
+            user=leave.employee,
+            message=f"Your leave request ({leave.leave_type}, {leave.start_date}) was rejected by HR.",
+            link=leave_url,
+        )
+
+    # Helper to find manager
+    def _find_manager():
+        mgr = getattr(leave.employee, "reporting_manager", None)
+        if mgr and get_user_role(mgr) == "Manager":
+            return mgr
+        return User.objects.filter(role__name="Manager", is_active=True).exclude(
+            id=leave.employee.id
+        ).first()
 
     decision, reason = _evaluate_leave_decision(leave)
 
@@ -1528,22 +2100,45 @@ def reject_leave_api(request, leave_id):
         leave.final_status = "REJECTED"
         leave.status = "REJECTED"
         leave.save()
-        Notification.objects.create(
-            user=leave.employee,
-            message=f"Your leave request has been rejected. {reason}.",
-        )
+        # Final rejection notification (both agreed)
+        if leave.tl_voted and leave.hr_voted:
+            Notification.objects.create(
+                user=leave.employee,
+                message=f"Your leave request ({leave.leave_type}, {leave.start_date}) has been rejected by both TL & HR.",
+                link=leave_url,
+            )
+            # Notify manager
+            manager_user = _find_manager()
+            if manager_user:
+                Notification.objects.create(
+                    user=manager_user,
+                    message=f"{applicant_name}'s leave ({leave.leave_type}, {leave.start_date}) was rejected by TL & HR. You may override.",
+                    link=leave_url,
+                )
+
     elif decision == "APPROVED" and old_status != "APPROVED":
         leave.final_status = "APPROVED"
         leave.status = "APPROVED"
         leave.balance_deducted_at = timezone.now()
         leave.save()
         _deduct_leave_balance(leave)
+
     else:
         if old_status == "APPROVED":
             _restore_leave_balance(leave)
         leave.final_status = "PENDING"
         leave.status = "PENDING"
         leave.save()
+
+        # Split decision — notify manager
+        if leave.tl_voted and leave.hr_voted:
+            manager_user = _find_manager()
+            if manager_user:
+                Notification.objects.create(
+                    user=manager_user,
+                    message=f"{applicant_name}'s leave ({leave.leave_type}, {leave.start_date}) has split votes — your decision is required.",
+                    link=leave_url,
+                )
 
     waiting = []
     if not leave.hr_voted:
@@ -1553,16 +2148,13 @@ def reject_leave_api(request, leave_id):
     if not leave.manager_voted:
         waiting.append("Manager")
 
-    return _ok(
-        {
-            "decision": decision,
-            "reason": reason,
-            "status": leave.final_status,
-            "waiting_for": waiting,
-            "message": f"Rejection recorded. Decision: {decision}",
-        }
-    )
-
+    return _ok({
+        "decision": decision,
+        "reason": reason,
+        "status": leave.final_status,
+        "waiting_for": waiting,
+        "message": f"Rejection recorded. Decision: {decision}",
+    }) 
 
 # ════════════════════════════════════════════════════════════════════
 #  LEAVE DETAIL
@@ -1748,8 +2340,12 @@ def tl_dashboard_api(request):
     # Get unread notification count
     unread_count = Notification.objects.filter(user=request.user, read_status=False).count()
 
-    # Get TL's own leave summary
-    my_leave_summary = get_employee_leave_summary(request.user, current_year)
+    # Keep TL hero/widget balance aligned with monthly-only display rules.
+    my_leave_summary = get_employee_leave_summary_for_balance_display(
+        request.user,
+        current_year,
+        force_monthly=True,
+    )
 
     return _ok({
         "user": _serialize_user(request.user),
@@ -1834,7 +2430,11 @@ def hr_dashboard_api(request):
         status="APPROVED", start_date__lte=today, end_date__gte=today
     ).count()
 
-    my_leave_summary = get_employee_leave_summary(request.user, current_year)
+    my_leave_summary = get_employee_leave_summary_for_balance_display(
+        request.user,
+        current_year,
+        force_monthly=True,
+    )
 
     active_leave_types = []
     if POLICY_ENABLED:
@@ -2087,10 +2687,21 @@ def hr_on_leave_today_api(request):
         "employee__first_name"
     )
 
-    dept_breakdown = list(
-        on_leave.values("employee__department__name")
-        .annotate(count=Count("id"))
-        .order_by("-count")
+    breakdown_map = {}
+    for leave_obj in on_leave:
+        department_name = getattr(leave_obj.employee.department, "name", None) or "No Department Assigned"
+        entry = breakdown_map.setdefault(
+            department_name,
+            {"department": department_name, "count": 0, "employees": []},
+        )
+        entry["count"] += 1
+        employee_name = leave_obj.employee.get_full_name() or leave_obj.employee.username
+        if employee_name not in entry["employees"]:
+            entry["employees"].append(employee_name)
+
+    department_breakdown = sorted(
+        breakdown_map.values(),
+        key=lambda item: (-item["count"], item["department"]),
     )
 
     return _ok(
@@ -2104,10 +2715,7 @@ def hr_on_leave_today_api(request):
                 }
                 for l in on_leave
             ],
-            "department_breakdown": [
-                {"department": d["employee__department__name"] or "Unknown", "count": d["count"]}
-                for d in dept_breakdown
-            ],
+            "department_breakdown": department_breakdown,
         }
     )
 
@@ -2214,7 +2822,6 @@ def hr_departments_api(request):
 # ════════════════════════════════════════════════════════════════════
 #  HR — MY LEAVE BALANCE
 # ════════════════════════════════════════════════════════════════════
-
 @login_required
 @role_required(["HR", "Admin"])
 def hr_my_leave_balance_api(request):
@@ -2222,50 +2829,182 @@ def hr_my_leave_balance_api(request):
     current_year = today.year
     current_month = today.month
 
-    leave_summary = get_employee_leave_summary(request.user, current_year)
-    my_leaves = LeaveRequest.objects.filter(employee=request.user).order_by("-created_at")
-
-    monthly_leaves = LeaveRequest.objects.filter(
+    # CRITICAL FIX: Force refresh allocations from database
+    if POLICY_ENABLED:
+        all_leave_types = _get_applicable_leave_types_for_employee(request.user)
+        for leave_type in all_leave_types:
+            leave_year = get_leave_year_for_date(
+                today, 
+                getattr(leave_type, 'starting_month', 4)
+            )
+            _ensure_leave_allocations_for_employee(
+                request.user, 
+                year=leave_year, 
+                leave_type_config=leave_type
+            )
+    
+    # Get settings
+    settings_obj = AcademicLeaveSettings.get_solo()
+    yearly_quota = float(getattr(settings_obj, 'default_annual_quota', 18) or 18)
+    monthly_quota_total = yearly_quota / 12  # Total monthly quota shared across all types
+    
+    # Get the actual allocation from database (should be shared)
+    leave_summary_full = get_employee_leave_summary(request.user, current_year)
+    
+    # Calculate TOTAL used across all monthly leave types
+    total_used_this_month = 0
+    total_used_year = 0
+    total_allocated_yearly = 0
+    
+    # Get leaves used in current month
+    current_month_leaves = LeaveRequest.objects.filter(
         employee=request.user,
-        final_status="APPROVED",
+        final_status='APPROVED',
         start_date__year=current_year,
-        start_date__month=current_month,
+        start_date__month=current_month
     )
-    monthly_paid = monthly_leaves.aggregate(total=Sum("paid_days"))["total"] or 0
-    monthly_unpaid = monthly_leaves.aggregate(total=Sum("unpaid_days"))["total"] or 0
-
+    
+    # Total paid days used this month (across all types)
+    total_paid_this_month = current_month_leaves.aggregate(total=Sum('paid_days'))['total'] or 0
+    
+    # Define monthly quota leave types (share the same pool)
+    MONTHLY_QUOTA_CODES = ['CASUAL', 'SICK', 'URGENT', 'HALF_DAY', 'SHORT_LEAVE']
+    SPECIAL_LEAVE_CODES = ['MARRIAGE', 'MATERNITY', 'PATERNITY', 'BEREAVEMENT', 'SPECIAL']
+    SPECIAL_LEAVE_NAMES = ['Marriage', 'Maternity', 'Paternity', 'Bereavement', 'Special']
+    
+    monthly_quota_breakdown = []
+    special_leave_breakdown = []
+    
+    # Calculate remaining monthly quota (shared pool)
+    remaining_monthly_quota = max(0, monthly_quota_total - total_paid_this_month)
+    
+    for item in leave_summary_full.get('breakdown', []):
+        name = item.get('name', '')
+        code = item.get('code', '').upper()
+        
+        is_special = (
+            code in SPECIAL_LEAVE_CODES or 
+            any(special.lower() in name.lower() for special in SPECIAL_LEAVE_NAMES)
+        )
+        
+        if is_special:
+            # Special leaves have their own separate quotas
+            special_leave_breakdown.append({
+                **item,
+                'description': item.get('description', 'No description provided.'),
+            })
+        elif code in MONTHLY_QUOTA_CODES:
+            # For monthly quota leaves, they ALL share the same pool
+            # Calculate used days for this specific type (for display only)
+            used_this_month = 0
+            try:
+                from leaves.models import LeaveTypeConfig
+                leave_type_obj = LeaveTypeConfig.objects.filter(code=code).first()
+                if leave_type_obj:
+                    used_this_month = current_month_leaves.filter(
+                        leave_type=leave_type_obj
+                    ).aggregate(total=Sum('paid_days'))['total'] or 0
+            except:
+                used_this_month = 0
+            
+            # The remaining is the SHARED pool, not per type
+            monthly_quota_breakdown.append({
+                **item,
+                'monthly_quota': monthly_quota_total,  # Shared total
+                'remaining_this_month': remaining_monthly_quota,  # Same for all types
+                'used_this_month': used_this_month,
+                'total_used_year': float(item.get('used', 0) or 0),
+                'yearly_allocated': yearly_quota,  # Shared total
+                'used_percent': min(100, round((total_paid_this_month / monthly_quota_total) * 100)) if monthly_quota_total > 0 else 0,
+                'is_shared_pool': True,  # Flag to indicate shared pool
+            })
+            
+            # Track totals (only once, not per type)
+            if not hasattr(hr_my_leave_balance_api, '_totals_calculated'):
+                total_used_year += float(item.get('used', 0) or 0)
+                total_allocated_yearly = yearly_quota
+                hr_my_leave_balance_api._totals_calculated = True
+    
+    # Reset flag
+    if hasattr(hr_my_leave_balance_api, '_totals_calculated'):
+        delattr(hr_my_leave_balance_api, '_totals_calculated')
+    
+    # Calculate totals (use shared values)
+    total_allocated = yearly_quota
+    total_used = total_used_year
+    total_remaining = remaining_monthly_quota
+    
+    # Get leave requests
+    my_leaves = LeaveRequest.objects.filter(employee=request.user).order_by('-created_at')[:10]
+    
+    pending_leaves = LeaveRequest.objects.filter(
+        employee=request.user, 
+        final_status='PENDING'
+    ).count()
+    
+    # Prepare leave data for template
+    my_leaves_with_details = []
+    for leave in my_leaves:
+        if leave.duration == 'FULL':
+            duration_days = (leave.end_date - leave.start_date).days + 1 if leave.end_date else 1
+        elif leave.duration == 'HALF':
+            duration_days = 0.5
+        elif leave.duration == 'SHORT':
+            duration_days = (leave.short_hours or 4) / 8
+        else:
+            duration_days = 1
+            
+        my_leaves_with_details.append({
+            'id': leave.id,
+            'leave_type': leave.leave_type,
+            'duration': duration_days,
+            'start_date': leave.start_date.strftime('%d %b %Y'),
+            'end_date': leave.end_date.strftime('%d %b %Y') if leave.end_date else leave.start_date.strftime('%d %b %Y'),
+            'status': leave.final_status,
+        })
+    
+    monthly_paid = total_paid_this_month
+    monthly_unpaid = current_month_leaves.aggregate(total=Sum('unpaid_days'))['total'] or 0
+    
     month_start = date(current_year, current_month, 1)
     total_deduction_this_month = (
         SalaryDeduction.objects.filter(employee=request.user, deduction_month=month_start)
-        .aggregate(total=Sum("deduction_amount"))["total"] or 0
+        .aggregate(total=Sum('deduction_amount'))['total'] or 0
     )
     total_deduction_all_time = (
         SalaryDeduction.objects.filter(employee=request.user)
-        .aggregate(total=Sum("deduction_amount"))["total"] or 0
+        .aggregate(total=Sum('deduction_amount'))['total'] or 0
     )
-
+    
     upcoming_holidays = []
     if HOLIDAYS_ENABLED:
-        upcoming_holidays = [
-            {"id": h.id, "name": h.name, "date": str(h.date), "holiday_type": h.holiday_type}
-            for h in Holiday.objects.filter(date__gte=today, is_active=True).order_by("date")[:10]
-        ]
-
-    return _ok(
-        {
-            "leave_summary": leave_summary,
-            "approved_count": my_leaves.filter(status="APPROVED").count(),
-            "rejected_count": my_leaves.filter(status="REJECTED").count(),
-            "pending_count": my_leaves.filter(status="PENDING").count(),
-            "recent_leaves": [_serialize_leave(l) for l in my_leaves[:10]],
-            "monthly_paid": round(float(monthly_paid), 1),
-            "monthly_unpaid": round(float(monthly_unpaid), 1),
-            "total_deduction_this_month": float(total_deduction_this_month),
-            "total_deduction_all_time": float(total_deduction_all_time),
-            "upcoming_holidays": upcoming_holidays,
-        }
-    )
-
+        upcoming_holidays = Holiday.objects.filter(
+            date__gte=today, is_active=True
+        ).order_by('date')[:10]
+    
+    return _ok({
+        'leave_summary': {
+            'total_remaining': round(total_remaining, 1),
+            'total_allocated': round(total_allocated, 1),
+            'total_used': round(total_used, 1),
+            'breakdown': monthly_quota_breakdown,
+        },
+        'monthly_quota_breakdown': monthly_quota_breakdown,
+        'special_leave_breakdown': special_leave_breakdown,
+        'total_allocated': round(total_allocated, 1),
+        'total_used': round(total_used, 1),
+        'total_remaining': round(total_remaining, 1),
+        'pending_leaves': pending_leaves,
+        'my_leaves': my_leaves_with_details,
+        'monthly_paid': round(float(monthly_paid), 1),
+        'monthly_unpaid': round(float(monthly_unpaid), 1),
+        'total_deduction_this_month': float(total_deduction_this_month),
+        'total_deduction_all_time': float(total_deduction_all_time),
+        'upcoming_holidays': [
+            {'id': h.id, 'name': h.name, 'date': str(h.date), 'holiday_type': h.holiday_type}
+            for h in upcoming_holidays
+        ],
+    })
 
 # ════════════════════════════════════════════════════════════════════
 #  HR — EMPLOYEE LIST
@@ -2362,8 +3101,7 @@ def manager_dashboard_api(request):
 
     team_pending = (
         LeaveRequest.objects.filter(
-            manager_voted=False,
-            final_status="PENDING",
+            manager_voted=False,           # ← only this condition
         )
         .filter(Q(employee__reporting_manager=request.user) | Q(approvers=request.user))
         .exclude(employee=request.user)
@@ -2371,6 +3109,7 @@ def manager_dashboard_api(request):
         .select_related("employee", "employee__department")
         .order_by("-created_at")
     )
+
 
     team_on_leave = (
         LeaveRequest.objects.filter(
@@ -2464,6 +3203,12 @@ def manager_dashboard_api(request):
             }
         )
 
+    team_page = _paginate(team_data, request, "tpage", 8)
+    page_obj_team = team_page.pop("_page_obj") if "_page_obj" in team_page else None
+
+    onleave_page = _paginate(team_on_leave, request, "opage", 8)
+    page_obj_onleave = onleave_page.pop("_page_obj") if "_page_obj" in onleave_page else None
+
     my_leave_summary = get_employee_leave_summary(request.user, current_year)
 
     unread = Notification.objects.filter(user=request.user, read_status=False).count()
@@ -2488,6 +3233,18 @@ def manager_dashboard_api(request):
         elif partial_type == 'myleaves' and page_obj_myleaves:
             html = render_to_string('partials/mgr_my_leaves.html', {
                 'my_leaves_page': page_obj_myleaves,
+            }, request=request)
+            return JsonResponse({'success': True, 'html': html})
+
+        elif partial_type == 'team' and page_obj_team:
+            html = render_to_string('partials/mgr_team_list.html', {
+                'team_page': page_obj_team,
+            }, request=request)
+            return JsonResponse({'success': True, 'html': html})
+
+        elif partial_type == 'onleave' and page_obj_onleave:
+            html = render_to_string('partials/mgr_onleave_today.html', {
+                'onleave_page': page_obj_onleave,
             }, request=request)
             return JsonResponse({'success': True, 'html': html})
 
@@ -2517,7 +3274,14 @@ def manager_dashboard_api(request):
 @login_required
 def notifications_api(request):
     notes = Notification.objects.filter(user=request.user).order_by("-created_at")
-    notes.filter(read_status=False).update(read_status=True)
+
+    if request.method == "POST":
+        updated = notes.filter(read_status=False).update(read_status=True)
+        return _ok({
+            "message": "Notifications marked as read.",
+            "updated": updated,
+            "unread_count": 0,
+        })
 
     page_data = _paginate(
         [
@@ -2534,6 +3298,7 @@ def notifications_api(request):
         per_page=20,
     )
     page_data.pop("_page_obj")
+    page_data["unread_count"] = notes.filter(read_status=False).count()
     return _ok(page_data)
 
 
@@ -2592,6 +3357,14 @@ def create_employee_api(request):
     dept_id = request.POST.get("department_id")
     manager_email = request.POST.get("reporting_manager_email")
     role_id = request.POST.get("role_id")
+    date_of_joining_raw = (request.POST.get("date_of_joining") or "").strip()
+
+    joining_date = None
+    if date_of_joining_raw:
+        try:
+            joining_date = datetime.strptime(date_of_joining_raw, "%Y-%m-%d").date()
+        except (TypeError, ValueError):
+            return _err("Invalid joining date. Use YYYY-MM-DD format.", status=400)
 
     manager_user = User.objects.filter(email=manager_email).first() if manager_email else None
     dept_obj = None
@@ -2619,28 +3392,16 @@ def create_employee_api(request):
         role=employee_role,
         reporting_manager=manager_user,
         department=dept_obj,
+        date_of_joining=joining_date,
     )
 
     if POLICY_ENABLED:
-        current_year = timezone.now().year
-        as_of_date = timezone.now().date()
-        leave_types = list(LeaveTypeConfig.objects.filter(is_active=True))
-        if leave_types:
-            EmployeeLeaveAllocation.objects.bulk_create(
-                [
-                    EmployeeLeaveAllocation(
-                        employee=new_emp,
-                        leave_type=lt,
-                        year=current_year,
-                        allocated_days=(
-                            min(float(lt.days_per_year or 0), float(lt.monthly_accrual or 0) * as_of_date.month)
-                            if lt.is_accrual_based
-                            else float(lt.days_per_year or 0)
-                        ),
-                    )
-                    for lt in leave_types
-                ]
-            )
+        sync_prorated_allocations_for_employee(
+            new_emp,
+            reason="Pro-rated allocation generated on employee onboarding",
+            as_of_date=joining_date or timezone.now().date(),
+            force_recalculate=True,
+        )
 
     return _ok(
         {"message": "Employee created successfully.", "employee": _serialize_user(new_emp)},
@@ -2684,6 +3445,9 @@ def update_employee_api(request, pk):
         return _err("Method not allowed.", status=405)
 
     employee = get_object_or_404(User, pk=pk, is_superuser=False)
+    previous_joining_date = employee.date_of_joining
+    previous_department_id = employee.department_id
+    previous_role_id = employee.role_id
     employee.first_name = request.POST.get("first_name", employee.first_name).strip()
     employee.last_name = request.POST.get("last_name", employee.last_name).strip()
 
@@ -2700,6 +3464,15 @@ def update_employee_api(request, pk):
     employee.designation = request.POST.get("designation", employee.designation or "").strip() or None
     employee.phone = request.POST.get("phone", employee.phone or "").strip() or None
 
+    new_joining_date_raw = (request.POST.get("date_of_joining") or "").strip()
+    if new_joining_date_raw:
+        try:
+            employee.date_of_joining = datetime.strptime(new_joining_date_raw, "%Y-%m-%d").date()
+        except (TypeError, ValueError):
+            return _err("Invalid joining date. Use YYYY-MM-DD format.", status=400)
+    elif "date_of_joining" in request.POST:
+        employee.date_of_joining = None
+
     dept_id = request.POST.get("department_id", "").strip()
     role_id = request.POST.get("role_id", "").strip()
     reporting_manager_id = request.POST.get("reporting_manager_id", "").strip()
@@ -2715,6 +3488,20 @@ def update_employee_api(request, pk):
         employee.set_password(password)
 
     employee.save()
+
+    policy_changed = (
+        previous_joining_date != employee.date_of_joining
+        or previous_department_id != employee.department_id
+        or previous_role_id != employee.role_id
+    )
+    if POLICY_ENABLED and policy_changed:
+        sync_prorated_allocations_for_employee(
+            employee,
+            reason="Pro-rated allocation generated after employee profile update",
+            as_of_date=employee.date_of_joining or timezone.now().date(),
+            force_recalculate=True,
+        )
+
     return _ok({"message": "Employee updated successfully.", "employee": _serialize_user(employee)})
 
 
@@ -2774,6 +3561,12 @@ def admin_leave_policy_api(request):
                 "carry_forward": lt.carry_forward,
                 "carry_forward_limit": lt.carry_forward_limit,
                 "applicable_to": lt.applicable_to,
+                "quota_type": lt.quota_type,
+                "max_lifetime_usage": float(lt.max_lifetime_usage or 0),
+                "usage_resets_yearly": lt.usage_resets_yearly,
+                "applicable_gender": lt.applicable_gender,
+                "min_service_days": int(lt.min_service_days or 0),
+                "requires_document": lt.requires_document,
                 "employees_covered": allocs.count(),
                 "total_used": float(sum(a.used_days for a in allocs)),
             }
@@ -2881,6 +3674,12 @@ def leave_policy_unified_api(request):
                     "carry_forward": lt.carry_forward,
                     "carry_forward_limit": lt.carry_forward_limit,
                     "applicable_to": lt.applicable_to,
+                    "quota_type": lt.quota_type,
+                    "max_lifetime_usage": float(lt.max_lifetime_usage or 0),
+                    "usage_resets_yearly": lt.usage_resets_yearly,
+                    "applicable_gender": lt.applicable_gender,
+                    "min_service_days": int(lt.min_service_days or 0),
+                    "requires_document": lt.requires_document,
                     "employees_covered": allocs.count(),
                     "total_used": float(sum(a.used_days for a in allocs)),
                 })
@@ -3000,12 +3799,25 @@ def leave_policy_unified_api(request):
 @login_required
 @role_required(["Admin"])
 def admin_leave_type_save_api(request):
+    from users.rbac import user_has_permission
+    
     if request.method != "POST":
         return _err("Method not allowed.", status=405)
     if not POLICY_ENABLED:
         return _err("Run migrations first.", status=503)
 
     lt_id = request.POST.get("lt_id")
+    
+    # Permission check
+    if lt_id:
+        # Editing existing - requires can_edit
+        if not (request.user.is_superuser or user_has_permission(request.user, "leave_type_edit")):
+            return _err("Access denied. You don't have permission to edit leave types.", status=403)
+    else:
+        # Creating new - requires can_create
+        if not (request.user.is_superuser or user_has_permission(request.user, "leave_type_create")):
+            return _err("Access denied. You don't have permission to create leave types.", status=403)
+
     code = request.POST.get("code", "").upper().strip()
     name = request.POST.get("name", "").strip()
     apply_to_all = request.POST.get("apply_to_all") == "on"
@@ -3027,6 +3839,12 @@ def admin_leave_type_save_api(request):
         lt.carry_forward_limit = float(request.POST.get("carry_forward_limit", 0))
         lt.color = request.POST.get("color", lt.color)
         lt.applicable_to = request.POST.get("applicable_to", lt.applicable_to)
+        lt.quota_type = request.POST.get("quota_type", lt.quota_type or "STANDARD")
+        lt.max_lifetime_usage = float(request.POST.get("max_lifetime_usage", lt.max_lifetime_usage or 0) or 0)
+        lt.usage_resets_yearly = request.POST.get("usage_resets_yearly") == "on"
+        lt.applicable_gender = request.POST.get("applicable_gender", lt.applicable_gender or "ALL")
+        lt.min_service_days = int(request.POST.get("min_service_days", lt.min_service_days or 0) or 0)
+        lt.requires_document = request.POST.get("requires_document") == "on"
         lt.is_active = request.POST.get("is_active") == "on"
         lt.save()
         action = "updated"
@@ -3059,6 +3877,12 @@ def admin_leave_type_save_api(request):
             carry_forward_limit=float(request.POST.get("carry_forward_limit", 0)),
             color=request.POST.get("color", "#00c6d4"),
             applicable_to=request.POST.get("applicable_to", "ALL"),
+            quota_type=request.POST.get("quota_type", "STANDARD"),
+            max_lifetime_usage=float(request.POST.get("max_lifetime_usage", 0) or 0),
+            usage_resets_yearly=request.POST.get("usage_resets_yearly") == "on",
+            applicable_gender=request.POST.get("applicable_gender", "ALL"),
+            min_service_days=int(request.POST.get("min_service_days", 0) or 0),
+            requires_document=request.POST.get("requires_document") == "on",
             is_active=request.POST.get("is_active") == "on",
             created_by=request.user,
         )
@@ -3266,8 +4090,13 @@ def admin_apply_to_all_employees_api(request):
 
 @login_required
 def holiday_list_api(request):
+    from users.rbac import user_has_permission
+    
     if not HOLIDAYS_ENABLED:
         return _err("Holiday module not available.", status=503)
+    
+    if not (request.user.is_superuser or user_has_permission(request.user, "holiday_view")):
+        return _err("Access denied. You don't have permission to view holidays.", status=403)
 
     year = int(request.GET.get("year", datetime.now().year))
     month = request.GET.get("month", "")
@@ -3340,12 +4169,16 @@ def holiday_list_api(request):
 
 @csrf_exempt
 @login_required
-@role_required(["HR", "Admin"])
 def holiday_create_api(request):
+    from users.rbac import user_has_permission
+    
     if request.method != "POST":
         return _err("Method not allowed.", status=405)
     if not HOLIDAYS_ENABLED:
         return _err("Holiday module not available.", status=503)
+    
+    if not (request.user.is_superuser or user_has_permission(request.user, "holiday_create")):
+        return _err("Access denied. You don't have permission to create holidays.", status=403)
 
     name = request.POST.get("name")
     date_str = request.POST.get("date")
@@ -3390,8 +4223,12 @@ def holiday_create_api(request):
 
 @login_required
 def holiday_detail_api(request, holiday_id):
+    from users.rbac import user_has_permission
+
     if not HOLIDAYS_ENABLED:
         return _err("Holiday module not available.", status=503)
+    if not (request.user.is_superuser or user_has_permission(request.user, "holiday_view")):
+        return _err("Access denied. You don't have permission to view holidays.", status=403)
     h = get_object_or_404(Holiday, id=holiday_id)
     return _ok(
         {
@@ -3416,12 +4253,16 @@ def holiday_detail_api(request, holiday_id):
 # ════════════════════════════════════════════════════════════════════
 
 @login_required
-@role_required(["HR", "Admin"])
 def holiday_edit_api(request, holiday_id):
+    from users.rbac import user_has_permission
+    
     if request.method != "POST":
         return _err("Method not allowed.", status=405)
     if not HOLIDAYS_ENABLED:
         return _err("Holiday module not available.", status=503)
+    
+    if not (request.user.is_superuser or user_has_permission(request.user, "holiday_update")):
+        return _err("Access denied. You don't have permission to edit holidays.", status=403)
 
     holiday = get_object_or_404(Holiday, id=holiday_id)
     date_str = request.POST.get("date")
@@ -3456,12 +4297,16 @@ def holiday_edit_api(request, holiday_id):
 # ════════════════════════════════════════════════════════════════════
 
 @login_required
-@role_required(["HR", "Admin"])
 def holiday_delete_api(request, holiday_id):
+    from users.rbac import user_has_permission
+    
     if request.method != "POST":
         return _err("Method not allowed.", status=405)
     if not HOLIDAYS_ENABLED:
         return _err("Holiday module not available.", status=503)
+    
+    if not (request.user.is_superuser or user_has_permission(request.user, "holiday_delete")):
+        return _err("Access denied. You don't have permission to delete holidays.", status=403)
 
     holiday = get_object_or_404(Holiday, id=holiday_id)
     name = holiday.name
@@ -3474,10 +4319,13 @@ def holiday_delete_api(request, holiday_id):
 # ════════════════════════════════════════════════════════════════════
 
 @login_required
-@role_required(["HR", "Admin"])
 def holiday_toggle_status_api(request, holiday_id):
+    from users.rbac import user_has_permission
+
     if not HOLIDAYS_ENABLED:
         return _err("Holiday module not available.", status=503)
+    if not (request.user.is_superuser or user_has_permission(request.user, "holiday_update")):
+        return _err("Access denied. You don't have permission to update holidays.", status=403)
 
     holiday = get_object_or_404(Holiday, id=holiday_id)
     holiday.is_active = not holiday.is_active
@@ -3491,12 +4339,16 @@ def holiday_toggle_status_api(request, holiday_id):
 # ════════════════════════════════════════════════════════════════════
 
 @login_required
-@role_required(["HR", "Admin"])
 def holiday_bulk_create_api(request):
+    from users.rbac import user_has_permission
+    
     if request.method != "POST":
         return _err("Method not allowed.", status=405)
     if not HOLIDAYS_ENABLED:
         return _err("Holiday module not available.", status=503)
+    
+    if not (request.user.is_superuser or user_has_permission(request.user, "holiday_create")):
+        return _err("Access denied. You don't have permission to create holidays.", status=403)
 
     year = int(request.POST.get("year", datetime.now().year))
     holidays_text = request.POST.get("holidays_text", "")
@@ -3620,11 +4472,12 @@ def _allocate_all_types_to_employee(employee, year=None):
         return 0
     created_count = 0
     for lt in LeaveTypeConfig.objects.filter(is_active=True):
-        target_year = year if year is not None else lt.get_current_leave_year()
-        target_days = _target_allocation_days_for_leave_type(lt, sync_mode="monthly")
-        _, created = EmployeeLeaveAllocation.objects.get_or_create(
-            employee=employee, leave_type=lt, year=target_year,
-            defaults={'allocated_days': target_days}
+        _, created = _upsert_prorated_allocation_for_employee(
+            employee,
+            lt,
+            reason="Pro-rated allocation generated on employee onboarding",
+            as_of_date=getattr(employee, "date_of_joining", None) or timezone.now().date(),
+            force_recalculate=False,
         )
         if created:
             created_count += 1
@@ -3637,23 +4490,17 @@ def _apply_leave_type_to_all_employees(leave_type_config, year=None, update_exis
     employees = User.objects.filter(is_active=True).exclude(is_superuser=True)
     created = updated = 0
 
-    target_days = _target_allocation_days_for_leave_type(leave_type_config, sync_mode=sync_mode)
-
     for emp in employees:
-        alloc, was_created = EmployeeLeaveAllocation.objects.get_or_create(
-            employee=emp, leave_type=leave_type_config, year=year,
-            defaults={'allocated_days': target_days}
+        alloc, was_created = _upsert_prorated_allocation_for_employee(
+            emp,
+            leave_type_config,
+            reason="Pro-rated allocation generated on leave policy assignment",
+            as_of_date=getattr(emp, "date_of_joining", None) or timezone.now().date(),
+            force_recalculate=update_existing,
         )
         if was_created:
             created += 1
-
-        should_update = update_existing
-        if sync_mode == "monthly" and leave_type_config.is_accrual_based:
-            should_update = should_update or float(alloc.allocated_days or 0) < target_days
-
-        if should_update:
-            alloc.allocated_days = target_days
-            alloc.save(update_fields=['allocated_days', 'updated_at'])
+        if alloc and not was_created:
             updated += 1
     return created, updated
 
@@ -3838,6 +4685,9 @@ def hr_dashboard(request):
 @login_required
 @role_required(["Manager"])
 def manager_dashboard(request):
+    if _wants_json_response(request):
+        return manager_dashboard_api(request)
+
     today = date.today()
     current_year = timezone.now().year
 
@@ -3848,7 +4698,6 @@ def manager_dashboard(request):
     team_pending = (
         LeaveRequest.objects.filter(
             manager_voted=False,
-            final_status="PENDING",
         )
         .filter(Q(employee__reporting_manager=request.user) | Q(approvers=request.user))
         .exclude(employee=request.user)
@@ -3896,7 +4745,7 @@ def manager_dashboard(request):
                 sick_balance = item.get("remaining", 0)
         team_data.append(
             {
-                "member": member,
+                "member": _serialize_user(member),
                 "total_leaves": member_leaves.count(),
                 "approved": member_leaves.filter(status="APPROVED").count(),
                 "pending": member_leaves.filter(status="PENDING").count(),
@@ -3906,6 +4755,9 @@ def manager_dashboard(request):
                 "sick_balance": sick_balance,
             }
         )
+
+    team_page = Paginator(team_data, 8).get_page(request.GET.get("tpage", 1))
+    onleave_page = Paginator(team_on_leave, 8).get_page(request.GET.get("opage", 1))
 
     active_leave_types = []
     if POLICY_ENABLED:
@@ -3920,6 +4772,8 @@ def manager_dashboard(request):
         "team_count": team_members.count(),
         "team_data": team_data,
         "team_on_leave": team_on_leave,
+        "team_page": team_page,
+        "onleave_page": onleave_page,
         "pending_page": pending_page,
         "team_history_page": team_history_page,
         "my_leaves_page": my_leaves_page,
@@ -4015,6 +4869,9 @@ def hr_pending_leaves(request):
 @role_required(["HR", "Admin"])
 def hr_leave_analytics(request):
     """Render leave analytics page with data from the API"""
+    if _wants_json_response(request):
+        return hr_leave_analytics_api(request)
+
     try:
         api_response = hr_leave_analytics_api(request)
         data = json.loads(api_response.content.decode("utf-8"))
@@ -4130,10 +4987,21 @@ def hr_on_leave_today(request):
         "employee__first_name"
     )
 
-    dept_breakdown = list(
-        on_leave.values("employee__department__name")
-        .annotate(count=Count("id"))
-        .order_by("-count")
+    breakdown_map = {}
+    for leave_obj in on_leave:
+        department_name = getattr(leave_obj.employee.department, "name", None) or "No Department Assigned"
+        entry = breakdown_map.setdefault(
+            department_name,
+            {"department": department_name, "count": 0, "employees": []},
+        )
+        entry["count"] += 1
+        employee_name = leave_obj.employee.get_full_name() or leave_obj.employee.username
+        if employee_name not in entry["employees"]:
+            entry["employees"].append(employee_name)
+
+    dept_breakdown = sorted(
+        breakdown_map.values(),
+        key=lambda item: (-item["count"], item["department"]),
     )
 
     return _render_template_page(request, "hr_on_leave_today.html", {
@@ -4146,6 +5014,9 @@ def hr_on_leave_today(request):
 
 @login_required
 def hr_new_joiners(request):
+    if _wants_json_response(request):
+        return hr_new_joiners_api(request)
+
     today = date.today()
     current_year = timezone.now().year
     current_month = timezone.now().month
@@ -4178,31 +5049,50 @@ def hr_departments(request):
 
 @login_required
 def hr_my_leave_balance(request):
+    """HR leave balance page - Monthly accrual system"""
+    
+    # If AJAX/JSON request, return API response
     if _wants_json_response(request):
         return hr_my_leave_balance_api(request)
-
-    current_year = date.today().year
-    leave_summary = get_employee_leave_summary(request.user, current_year)
-    my_leaves_qs = LeaveRequest.objects.filter(employee=request.user).order_by("-created_at")
-    my_leaves = my_leaves_qs[:10]
-
-    leave_breakdown = leave_summary.get("breakdown", [])
-    for item in leave_breakdown:
-        allocated = float(item.get("allocated", 0) or 0)
-        used = float(item.get("used", 0) or 0)
-        item["used_percent"] = round((used / allocated) * 100, 1) if allocated > 0 else 0
-
-    context = {
-        "leave_summary": leave_summary,
-        "total_remaining": leave_summary.get("total_remaining", 0),
-        "total_allocated": leave_summary.get("total_allocated", 0),
-        "total_used_new": leave_summary.get("total_used", 0),
-        "pending_leaves": my_leaves_qs.filter(status="PENDING").count(),
-        "my_leaves": my_leaves,
-        "leave_breakdown": leave_breakdown,
-    }
-    return _render_template_page(request, "hr_my_leave_balance.html", context)
-
+    
+    # For HTML page - call the API internally to get data
+    try:
+        api_response = hr_my_leave_balance_api(request)
+        import json
+        data = json.loads(api_response.content.decode('utf-8'))
+        
+        context = {
+            'monthly_quota_breakdown': data.get('monthly_quota_breakdown', []),
+            'special_leave_breakdown': data.get('special_leave_breakdown', []),
+            'total_allocated': data.get('total_allocated', 0),
+            'total_used': data.get('total_used', 0),
+            'total_remaining': data.get('total_remaining', 0),
+            'pending_leaves': data.get('pending_leaves', 0),
+            'my_leaves': data.get('my_leaves', []),
+            'monthly_paid': data.get('monthly_paid', 0),
+            'monthly_unpaid': data.get('monthly_unpaid', 0),
+            'total_deduction_this_month': data.get('total_deduction_this_month', 0),
+            'total_deduction_all_time': data.get('total_deduction_all_time', 0),
+            'upcoming_holidays': data.get('upcoming_holidays', []),
+        }
+    except Exception as e:
+        # Fallback to empty context if API fails
+        context = {
+            'monthly_quota_breakdown': [],
+            'special_leave_breakdown': [],
+            'total_allocated': 0,
+            'total_used': 0,
+            'total_remaining': 0,
+            'pending_leaves': 0,
+            'my_leaves': [],
+            'monthly_paid': 0,
+            'monthly_unpaid': 0,
+            'total_deduction_this_month': 0,
+            'total_deduction_all_time': 0,
+            'upcoming_holidays': [],
+        }
+    
+    return render(request, 'hr_my_leave_balance.html', context)
 
 @login_required
 def hr_employee_list(request):
@@ -4334,7 +5224,7 @@ def apply_leave(request):
         return apply_leave_api(request)
     
     current_year = date.today().year
-    leave_summary = get_employee_leave_summary(request.user, current_year)
+    leave_summary = get_employee_leave_summary_for_balance_display(request.user, current_year)
     
     active_leave_types = []
     active_policy = None
@@ -4410,6 +5300,14 @@ def notifications(request):
 
 @login_required
 def holiday_list(request):
+    from users.rbac import user_has_permission
+
+    if not (request.user.is_superuser or user_has_permission(request.user, "holiday_view")):
+        if _wants_json_response(request):
+            return _err("Access denied. You don't have permission to view holidays.", status=403)
+        messages.error(request, "Access denied.")
+        return redirect("admin_dashboard")
+
     if _wants_json_response(request):
         return holiday_list_api(request)
 
@@ -4505,10 +5403,17 @@ def holiday_list(request):
     })
 
 @login_required
-@role_required(["HR", "Admin"])
 def holiday_create(request):
+    from users.rbac import user_has_permission
+
     if request.method == "POST":
         return holiday_create_api(request)
+    if not (request.user.is_superuser or user_has_permission(request.user, "holiday_create")):
+        if _wants_json_response(request):
+            return _err("Access denied. You don't have permission to create holidays.", status=403)
+        messages.error(request, "Access denied.")
+        return redirect("holiday_list")
+
     if _wants_json_response(request):
         return _ok({"holiday": None, "holiday_types": list(Holiday.HOLIDAY_TYPES), "today": str(date.today())})
     if not HOLIDAYS_ENABLED:
@@ -4525,6 +5430,14 @@ def holiday_create(request):
 
 @login_required
 def holiday_bulk_create(request):
+    from users.rbac import user_has_permission
+
+    if not (request.user.is_superuser or user_has_permission(request.user, "holiday_create")):
+        if _wants_json_response(request):
+            return _err("Access denied. You don't have permission to create holidays.", status=403)
+        messages.error(request, "Access denied.")
+        return redirect("holiday_list")
+
     if request.method == "POST":
         return holiday_bulk_create_api(request)
     if _wants_json_response(request):
@@ -4533,10 +5446,17 @@ def holiday_bulk_create(request):
 
 
 @login_required
-@role_required(["HR", "Admin"])
 def holiday_edit(request, holiday_id):
+    from users.rbac import user_has_permission
+
     if request.method == "POST":
         return holiday_edit_api(request, holiday_id)
+    if not (request.user.is_superuser or user_has_permission(request.user, "holiday_update")):
+        if _wants_json_response(request):
+            return _err("Access denied. You don't have permission to edit holidays.", status=403)
+        messages.error(request, "Access denied.")
+        return redirect("holiday_list")
+
     if not HOLIDAYS_ENABLED:
         return _render_template_page(request, "holiday_form.html", {
             "holiday_types": [],
@@ -4861,6 +5781,7 @@ def admin_leave_type_save(request):
         lt.is_paid                 = request.POST.get("is_paid")             == "on"
         lt.is_accrual_based        = request.POST.get("is_accrual_based")    == "on"
         lt.monthly_accrual         = float(request.POST.get("monthly_accrual", lt.monthly_accrual))
+        lt.starting_month          = int(request.POST.get("starting_month", getattr(lt, "starting_month", 4) or 4))
         lt.max_consecutive_days    = int(request.POST.get("max_consecutive_days", 0))
         lt.advance_notice_days     = int(request.POST.get("advance_notice_days", 0))
         lt.document_required_after = int(request.POST.get("document_required_after", 0))
@@ -4868,6 +5789,12 @@ def admin_leave_type_save(request):
         lt.carry_forward_limit     = float(request.POST.get("carry_forward_limit", 0))
         lt.color                   = request.POST.get("color", lt.color)
         lt.applicable_to           = request.POST.get("applicable_to", lt.applicable_to)
+        lt.quota_type              = request.POST.get("quota_type", lt.quota_type or "STANDARD")
+        lt.max_lifetime_usage      = float(request.POST.get("max_lifetime_usage", lt.max_lifetime_usage or 0) or 0)
+        lt.usage_resets_yearly     = request.POST.get("usage_resets_yearly") == "on"
+        lt.applicable_gender       = request.POST.get("applicable_gender", lt.applicable_gender or "ALL")
+        lt.min_service_days        = int(request.POST.get("min_service_days", lt.min_service_days or 0) or 0)
+        lt.requires_document       = request.POST.get("requires_document") == "on"
         lt.is_active               = request.POST.get("is_active") == "on"
         lt.save()
 
@@ -4895,6 +5822,7 @@ def admin_leave_type_save(request):
             is_paid                = request.POST.get("is_paid")             == "on",
             is_accrual_based       = request.POST.get("is_accrual_based")    == "on",
             monthly_accrual        = float(request.POST.get("monthly_accrual", 1.0)),
+            starting_month         = int(request.POST.get("starting_month", 4)),
             max_consecutive_days   = int(request.POST.get("max_consecutive_days", 0)),
             advance_notice_days    = int(request.POST.get("advance_notice_days", 0)),
             document_required_after= int(request.POST.get("document_required_after", 0)),
@@ -4902,6 +5830,12 @@ def admin_leave_type_save(request):
             carry_forward_limit    = float(request.POST.get("carry_forward_limit", 0)),
             color                  = request.POST.get("color", "#00c6d4"),
             applicable_to          = request.POST.get("applicable_to", "ALL"),
+            quota_type             = request.POST.get("quota_type", "STANDARD"),
+            max_lifetime_usage     = float(request.POST.get("max_lifetime_usage", 0) or 0),
+            usage_resets_yearly    = request.POST.get("usage_resets_yearly") == "on",
+            applicable_gender      = request.POST.get("applicable_gender", "ALL"),
+            min_service_days       = int(request.POST.get("min_service_days", 0) or 0),
+            requires_document      = request.POST.get("requires_document") == "on",
             is_active              = True,
             created_by             = request.user,
         )
@@ -4918,7 +5852,34 @@ def admin_leave_type_save(request):
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
     if is_ajax:
         return JsonResponse({"success": True, "message": f"Leave type '{name}' saved successfully."})
-    return redirect("admin_leave_policy")
+    return redirect("admin_leave_type_edit", lt_id=lt.id)
+
+
+@login_required
+@role_required(["Admin"])
+def admin_leave_type_create_page(request):
+    context = {
+        "page_mode": "create",
+        "page_title_text": "Create Leave Type",
+        "leave_type": None,
+        "current_year": timezone.now().year,
+        "month_choices": AcademicLeaveSettings.MONTH_CHOICES,
+    }
+    return _render_template_page(request, "admin_leave_type_form.html", context)
+
+
+@login_required
+@role_required(["Admin"])
+def admin_leave_type_edit_page(request, lt_id):
+    lt = get_object_or_404(LeaveTypeConfig, id=lt_id)
+    context = {
+        "page_mode": "edit",
+        "page_title_text": f"Edit {lt.name}",
+        "leave_type": lt,
+        "current_year": timezone.now().year,
+        "month_choices": AcademicLeaveSettings.MONTH_CHOICES,
+    }
+    return _render_template_page(request, "admin_leave_type_form.html", context)
 
 
 @login_required
@@ -5398,7 +6359,29 @@ def employee_leave_balance(request):
     current_year = today.year
     current_month = today.month
 
-    leave_summary = get_employee_leave_summary(request.user, current_year)
+    leave_summary = get_employee_leave_summary_for_balance_display(request.user, current_year)
+    leave_summary_full = get_employee_leave_summary(request.user, current_year)
+
+    special_codes = set()
+    leave_type_meta = {}
+    if POLICY_ENABLED:
+        for lt in LeaveTypeConfig.objects.filter(quota_type__in=["SPECIAL_EVENT", "MATERNITY_PATERNITY"]):
+            code = str(lt.code or "").upper()
+            special_codes.add(code)
+            leave_type_meta[code] = {
+                "description": lt.description or "No description provided.",
+                "is_active": lt.is_active,
+            }
+
+    special_leave_breakdown = []
+    for item in leave_summary_full.get("breakdown", []):
+        code = str(item.get("code") or "").upper()
+        if code in special_codes:
+            special_leave_breakdown.append({
+                **item,
+                "description": leave_type_meta.get(code, {}).get("description", "No description provided."),
+                "is_active": leave_type_meta.get(code, {}).get("is_active", True),
+            })
 
     available_balance = leave_summary['total_remaining']
     total_accrued = leave_summary['total_allocated']
@@ -5452,6 +6435,7 @@ def employee_leave_balance(request):
         # Balance variables
         "leave_summary": leave_summary,
         "leave_breakdown": leave_summary['breakdown'],
+        "special_leave_breakdown": special_leave_breakdown,
         "active_leave_types": active_leave_types,
         "total_remaining": leave_summary['total_remaining'],
         "total_allocated": leave_summary['total_allocated'],
@@ -5558,17 +6542,19 @@ def leave_detail_page(request, leave_id):
         })
     
     # Check if current user can approve/reject
+    is_manager = role_name == 'Manager'
     can_approve = False
     user_has_voted = False
-    
-    if leave.final_status == 'PENDING':
-        if role_name == 'HR' and not leave.hr_voted and leave.employee != request.user:
+
+    if leave.employee != request.user:
+        if role_name == 'HR' and not leave.hr_voted and leave.final_status == 'PENDING':
             can_approve = True
             user_has_voted = leave.hr_voted
-        elif role_name == 'TL' and not leave.tl_voted and leave.employee != request.user:
+        elif role_name == 'TL' and not leave.tl_voted and leave.final_status == 'PENDING':
             can_approve = True
             user_has_voted = leave.tl_voted
-        elif role_name == 'Manager' and not leave.manager_voted and leave.employee != request.user:
+        elif role_name == 'Manager' and not leave.manager_voted:
+            # Manager can act regardless of final_status (override authority)
             can_approve = True
             user_has_voted = leave.manager_voted
         elif request.user.is_superuser:
@@ -5582,6 +6568,7 @@ def leave_detail_page(request, leave_id):
         'approvers': approvers,
         'can_approve': can_approve,
         'user_has_voted': user_has_voted,
+        'is_manager': is_manager,
         'role_name': role_name,
         'total_days': total_days,
     }
@@ -5713,3 +6700,371 @@ def leave_detail_page(request, leave_id):
         }, status=403)
     
     return render(request, 'leave_detail.html', context)
+
+
+
+DEFAULT_LEAVE_TYPE_BLUEPRINTS = {
+    "CASUAL": {
+        "name": "Casual Leave",
+        "color": "#00c6d4",
+        "is_paid": True,
+        "is_accrual_based": True,
+        "monthly_accrual": 1.0,
+        "quota_type": "ANNUAL_POOL",
+    },
+    "SICK": {
+        "name": "Sick Leave",
+        "color": "#05c98a",
+        "is_paid": True,
+        "is_accrual_based": True,
+        "monthly_accrual": 1.0,
+        "quota_type": "ANNUAL_POOL",
+    },
+    "URGENT": {
+        "name": "Urgent Leave",
+        "color": "#f97316",
+        "is_paid": True,
+        "is_accrual_based": True,
+        "monthly_accrual": 1.0,
+        "quota_type": "ANNUAL_POOL",
+    },
+    "HALF_DAY": {
+        "name": "Half Day Leave",
+        "color": "#6c63ff",
+        "is_paid": True,
+        "is_accrual_based": True,
+        "monthly_accrual": 1.0,
+        "quota_type": "ANNUAL_POOL",
+    },
+    "SHORT_LEAVE": {
+        "name": "Short Leave",
+        "color": "#f59e0b",
+        "is_paid": True,
+        "is_accrual_based": True,
+        "monthly_accrual": 1.0,
+        "quota_type": "ANNUAL_POOL",
+    },
+    "MARRIAGE": {
+        "name": "Marriage Leave",
+        "color": "#ef4444",
+        "is_paid": True,
+        "is_accrual_based": False,
+        "monthly_accrual": 0,
+        "quota_type": "SPECIAL_EVENT",
+        "max_lifetime_usage": 3,
+        "usage_resets_yearly": False,
+        "applicable_gender": "ALL",
+        "min_service_days": 0,
+        "requires_document": True,
+    },
+    "BEREAVEMENT": {
+        "name": "Bereavement Leave",
+        "color": "#64748b",
+        "is_paid": True,
+        "is_accrual_based": False,
+        "monthly_accrual": 0,
+        "quota_type": "SPECIAL_EVENT",
+        "max_lifetime_usage": 0,
+        "usage_resets_yearly": False,
+        "applicable_gender": "ALL",
+        "min_service_days": 0,
+        "requires_document": True,
+    },
+    "MATERNITY": {
+        "name": "Maternity Leave",
+        "color": "#ec4899",
+        "is_paid": True,
+        "is_accrual_based": False,
+        "monthly_accrual": 0,
+        "quota_type": "MATERNITY_PATERNITY",
+        "max_lifetime_usage": 90,
+        "usage_resets_yearly": False,
+        "applicable_gender": "FEMALE",
+        "min_service_days": 180,
+        "requires_document": True,
+    },
+    "PATERNITY": {
+        "name": "Paternity Leave",
+        "color": "#0ea5e9",
+        "is_paid": True,
+        "is_accrual_based": False,
+        "monthly_accrual": 0,
+        "quota_type": "MATERNITY_PATERNITY",
+        "max_lifetime_usage": 7,
+        "usage_resets_yearly": False,
+        "applicable_gender": "MALE",
+        "min_service_days": 180,
+        "requires_document": True,
+    },
+}
+
+
+def _calculate_monthly_leave_from_yearly(yearly_quota):
+    try:
+        return round(float(yearly_quota or 0) / 12, 2)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _upsert_default_leave_type(code, quota, leave_year_start_month, user, monthly_accrual=None):
+    if not POLICY_ENABLED:
+        return None
+
+    normalized_code = str(code or "").strip().upper()
+    if normalized_code not in DEFAULT_LEAVE_TYPE_BLUEPRINTS:
+        return None
+
+    blueprint = DEFAULT_LEAVE_TYPE_BLUEPRINTS[normalized_code]
+    leave_type, _ = LeaveTypeConfig.objects.get_or_create(
+        code=normalized_code,
+        defaults={
+            "name": blueprint["name"],
+            "description": f"Default {blueprint['name']} configured from admin settings.",
+            "days_per_year": float(quota),
+            "is_paid": blueprint["is_paid"],
+            "is_accrual_based": blueprint["is_accrual_based"],
+            "monthly_accrual": float(monthly_accrual if monthly_accrual is not None else blueprint["monthly_accrual"]),
+            "starting_month": leave_year_start_month,
+            "color": blueprint["color"],
+            "applicable_to": "ALL",
+            "is_active": True,
+            "created_by": user,
+        },
+    )
+
+    leave_type.name = blueprint["name"]
+    leave_type.days_per_year = float(quota)
+    leave_type.starting_month = leave_year_start_month
+    leave_type.is_active = True
+    leave_type.is_paid = blueprint["is_paid"]
+    leave_type.is_accrual_based = blueprint["is_accrual_based"]
+    leave_type.monthly_accrual = float(monthly_accrual if monthly_accrual is not None else blueprint["monthly_accrual"])
+    leave_type.quota_type = blueprint.get("quota_type", "STANDARD")
+    leave_type.max_lifetime_usage = float(blueprint.get("max_lifetime_usage", leave_type.max_lifetime_usage or 0) or 0)
+    leave_type.usage_resets_yearly = bool(blueprint.get("usage_resets_yearly", leave_type.usage_resets_yearly))
+    leave_type.applicable_gender = blueprint.get("applicable_gender", leave_type.applicable_gender or "ALL")
+    leave_type.min_service_days = int(blueprint.get("min_service_days", leave_type.min_service_days or 0) or 0)
+    leave_type.requires_document = bool(blueprint.get("requires_document", leave_type.requires_document))
+    if not leave_type.created_by:
+        leave_type.created_by = user
+    leave_type.save()
+    return leave_type
+
+@login_required
+@role_required(["Admin"])
+def admin_academic_settings(request):
+    # Permission check
+    from users.rbac import user_has_permission
+    if not (request.user.is_superuser or user_has_permission(request.user, "settings_view")):
+        return JsonResponse({"success": False, "error": "Access denied."}, status=403) if request.headers.get('X-Requested-With') == 'XMLHttpRequest' else redirect('admin_dashboard')
+    
+    settings_obj = AcademicLeaveSettings.get_solo()
+
+    leave_type_defaults = {}
+    if POLICY_ENABLED:
+        monthly_pool_codes = ["CASUAL", "SICK", "URGENT", "HALF_DAY"]
+        leave_type_defaults = {
+            lt.code.upper(): lt
+            for lt in LeaveTypeConfig.objects.filter(code__in=monthly_pool_codes)
+        }
+
+    upcoming_holidays = []
+    holiday_type_counts = []
+    if HOLIDAYS_ENABLED:
+        today = timezone.now().date()
+        upcoming_holidays = Holiday.objects.filter(is_active=True, date__gte=today).order_by("date")[:10]
+        holiday_type_counts = list(
+            Holiday.objects.filter(is_active=True)
+            .values("holiday_type")
+            .annotate(total=Count("id"))
+            .order_by("-total", "holiday_type")
+        )
+
+    annual_default = leave_type_defaults.get("CASUAL") or leave_type_defaults.get("SICK")
+    annual_quota = float(
+        getattr(settings_obj, "annual_leave_quota", None)
+        or getattr(annual_default, "days_per_year", settings_obj.default_annual_quota)
+        or settings_obj.default_annual_quota
+    )
+    monthly_quota = float(
+        getattr(annual_default, "monthly_accrual", _calculate_monthly_leave_from_yearly(annual_quota))
+        or _calculate_monthly_leave_from_yearly(annual_quota)
+    )
+
+    # For AJAX requests, return JSON
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return JsonResponse({
+            "success": True,
+            "data": {
+                "settings": {
+                    "leave_year_start_month": settings_obj.leave_year_start_month,
+                    "leave_year_start_month_label": settings_obj.get_leave_year_start_month_display(),
+                    "annual_quota": annual_quota,
+                    "monthly_quota": monthly_quota,
+                    "show_only_monthly_in_balance": settings_obj.show_only_monthly_in_balance,
+                    "working_hours_per_day": float(settings_obj.working_hours_per_day or 0),
+                    "grace_period_minutes": settings_obj.grace_period_minutes,
+                    "auto_deduction_enabled": settings_obj.auto_deduction_enabled,
+                    "auto_deduction_after_minutes": settings_obj.auto_deduction_after_minutes,
+                },
+                "stats": {
+                    "active_policy_count": LeavePolicy.objects.filter(is_active=True).count() if POLICY_ENABLED else 0,
+                    "active_holiday_count": Holiday.objects.filter(is_active=True).count() if HOLIDAYS_ENABLED else 0,
+                },
+                "upcoming_holidays": [
+                    {
+                        "id": h.id,
+                        "name": h.name,
+                        "type": h.holiday_type,
+                        "date": h.date.isoformat(),
+                        "display_date": h.display_date  # Remove the () - it's a property, not a method
+                    }
+                    for h in upcoming_holidays
+                ],
+                "holiday_type_counts": list(holiday_type_counts),
+                "month_choices": [
+                    {"value": month_num, "label": month_label}
+                    for month_num, month_label in AcademicLeaveSettings.MONTH_CHOICES
+                ]
+            }
+        })
+
+    context = {
+        "settings_obj": settings_obj,
+        "month_choices": AcademicLeaveSettings.MONTH_CHOICES,
+        "leave_type_defaults": leave_type_defaults,
+        "annual_quota": annual_quota,
+        "monthly_quota": monthly_quota,
+        "upcoming_holidays": upcoming_holidays,
+        "holiday_type_counts": holiday_type_counts,
+        "active_policy_count": LeavePolicy.objects.filter(is_active=True).count() if POLICY_ENABLED else 0,
+        "active_holiday_count": Holiday.objects.filter(is_active=True).count() if HOLIDAYS_ENABLED else 0,
+    }
+
+    return _render_template_page(request, "admin_academic_settings.html", context)
+
+
+@login_required
+@role_required(["Admin"])
+def admin_academic_settings_save(request):
+    # Permission check
+    from users.rbac import user_has_permission
+    if not (request.user.is_superuser or user_has_permission(request.user, "settings_update")):
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({"success": False, "error": "Access denied."}, status=403)
+        return redirect("admin_academic_settings")
+    
+    if request.method != "POST":
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({"success": False, "error": "Method not allowed."}, status=405)
+        return redirect("admin_academic_settings")
+
+    settings_obj = AcademicLeaveSettings.get_solo()
+
+    def _to_float(value, fallback):
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return float(fallback)
+
+    def _to_int(value, fallback):
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return int(fallback)
+
+    leave_year_start_month = _to_int(request.POST.get("leave_year_start_month"), settings_obj.leave_year_start_month)
+    leave_year_start_month = min(12, max(1, leave_year_start_month))
+    annual_quota = max(0.0, _to_float(request.POST.get("default_annual_quota"), settings_obj.default_annual_quota))
+    monthly_quota = _calculate_monthly_leave_from_yearly(annual_quota)
+
+    settings_obj.leave_year_start_month = leave_year_start_month
+    settings_obj.default_casual_quota = 0.0
+    settings_obj.default_sick_quota = 0.0
+    settings_obj.default_annual_quota = annual_quota
+    settings_obj.annual_leave_quota = annual_quota
+    settings_obj.show_only_monthly_in_balance = request.POST.get("show_only_monthly_in_balance") == "on"
+
+    settings_obj.working_hours_per_day = max(1.0, _to_float(request.POST.get("working_hours_per_day"), settings_obj.working_hours_per_day))
+    settings_obj.grace_period_minutes = max(0, _to_int(request.POST.get("grace_period_minutes"), settings_obj.grace_period_minutes))
+    settings_obj.auto_deduction_enabled = request.POST.get("auto_deduction_enabled") == "on"
+    settings_obj.auto_deduction_after_minutes = max(
+        0,
+        _to_int(request.POST.get("auto_deduction_after_minutes"), settings_obj.auto_deduction_after_minutes),
+    )
+    settings_obj.updated_by = request.user
+    settings_obj.save()
+
+    synced_leave_types = []
+    sync_message = ""
+    
+    if POLICY_ENABLED:
+        LeaveTypeConfig.objects.filter(is_active=True).update(starting_month=leave_year_start_month)
+        synced_codes = ["CASUAL", "SICK", "URGENT", "HALF_DAY"]
+        special_codes = ["MARRIAGE", "BEREAVEMENT", "MATERNITY", "PATERNITY"]
+        LeaveTypeConfig.objects.exclude(code__in=synced_codes + special_codes).update(is_active=False)
+        for code in synced_codes:
+            quota_value = settings_obj.default_annual_quota
+            lt = _upsert_default_leave_type(
+                code,
+                quota_value,
+                leave_year_start_month,
+                request.user,
+                monthly_accrual=monthly_quota,
+            )
+            if lt:
+                synced_leave_types.append(lt)
+
+        special_created = []
+        for code in special_codes:
+            lt = _upsert_default_leave_type(
+                code,
+                DEFAULT_LEAVE_TYPE_BLUEPRINTS[code].get("max_lifetime_usage", 0),
+                leave_year_start_month,
+                request.user,
+                monthly_accrual=0,
+            )
+            if lt:
+                lt.is_active = True
+                lt.save(update_fields=["is_active", "updated_at"])
+                special_created.append(lt)
+
+    if request.POST.get("sync_allocations") == "on" and POLICY_ENABLED:
+        total_created = 0
+        total_updated = 0
+        for leave_type in synced_leave_types:
+            created, updated = _apply_leave_type_to_all_employees(
+                leave_type,
+                update_existing=True,
+                sync_mode="monthly",
+            )
+            total_created += created
+            total_updated += updated
+        sync_message = f"Leave settings synced with monthly accrual {monthly_quota:.2f}: {total_created} created, {total_updated} updated."
+
+    # Return JSON for AJAX requests
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        response_data = {
+            "success": True,
+            "message": "Academic/Leave settings updated successfully.",
+            "data": {
+                "settings": {
+                    "leave_year_start_month": settings_obj.leave_year_start_month,
+                    "leave_year_start_month_label": settings_obj.get_leave_year_start_month_display(),
+                    "annual_quota": float(settings_obj.default_annual_quota or 0),
+                    "monthly_quota": monthly_quota,
+                    "working_hours_per_day": float(settings_obj.working_hours_per_day or 0),
+                    "grace_period_minutes": settings_obj.grace_period_minutes,
+                    "auto_deduction_enabled": settings_obj.auto_deduction_enabled,
+                    "auto_deduction_after_minutes": settings_obj.auto_deduction_after_minutes,
+                }
+            }
+        }
+        if sync_message:
+            response_data["sync_message"] = sync_message
+        return JsonResponse(response_data)
+
+    messages.success(request, "Academic/Leave settings updated successfully.")
+    if sync_message:
+        messages.info(request, sync_message)
+    return redirect("admin_academic_settings")

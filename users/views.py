@@ -1,4 +1,5 @@
 import json
+from datetime import datetime
 
 from django.db import models as django_models
 from django.shortcuts import render, redirect, get_object_or_404
@@ -744,11 +745,15 @@ def profile_api(request):
                     target_additional.alternate_phone = request.POST.get('alternate_phone').strip()
                 if request.POST.get('phone'):
                     target_additional.phone = request.POST.get('phone').strip()
-                if request.POST.get('date_of_birth'):
-                    try:
-                        target_additional.date_of_birth = datetime.strptime(request.POST.get('date_of_birth'), '%Y-%m-%d').date()
-                    except:
-                        pass
+                if 'date_of_birth' in request.POST:
+                    date_of_birth_raw = (request.POST.get('date_of_birth') or '').strip()
+                    if date_of_birth_raw:
+                        try:
+                            target_additional.date_of_birth = datetime.strptime(date_of_birth_raw, '%Y-%m-%d').date()
+                        except ValueError:
+                            return JsonResponse({"success": False, "error": "Invalid date of birth format."}, status=400)
+                    else:
+                        target_additional.date_of_birth = None
                 if request.POST.get('gender'):
                     target_additional.gender = request.POST.get('gender')
                 if request.POST.get('marital_status'):
@@ -793,11 +798,15 @@ def profile_api(request):
                 if request.POST.get('phone'):
                     target_user.phone = request.POST.get('phone').strip()
                     target_additional.phone = request.POST.get('phone').strip()
-                if request.POST.get('date_of_joining'):
-                    try:
-                        target_user.date_of_joining = datetime.strptime(request.POST.get('date_of_joining'), '%Y-%m-%d').date()
-                    except:
-                        pass
+                if 'date_of_joining' in request.POST:
+                    date_of_joining_raw = (request.POST.get('date_of_joining') or '').strip()
+                    if date_of_joining_raw:
+                        try:
+                            target_user.date_of_joining = datetime.strptime(date_of_joining_raw, '%Y-%m-%d').date()
+                        except ValueError:
+                            return JsonResponse({"success": False, "error": "Invalid date of joining format."}, status=400)
+                    else:
+                        target_user.date_of_joining = None
                 
                 # Update department
                 dept_id = request.POST.get('department')
@@ -1014,29 +1023,23 @@ def home_view(request):
 # ══════════════════════════════════════════════════════════════
 
 def _is_admin(request):
-    role = getattr(request.user, 'role', None)
     return (
         request.user.is_superuser
         or user_has_permission(request.user, "dashboard_admin")
         or user_has_permission(request.user, "settings_update")
         or user_has_permission(request.user, "role_assign_permissions")
-        or role_has_permission(role, "system_manage")
-        or (role and role.name == 'Admin')
     )
 
 
 def _is_hr_or_admin(request):
-    role = getattr(request.user, 'role', None)
     return (
         request.user.is_superuser
+        or user_has_permission(request.user, "dashboard_admin")
         or user_has_permission(request.user, "dashboard_hr")
         or user_has_permission(request.user, "user_view")
         or user_has_permission(request.user, "leave_view_all")
         or user_has_permission(request.user, "leave_approve")
         or user_has_permission(request.user, "team_manage")
-        or role_has_permission(role, "leave_manage")
-        or role_has_permission(role, "user_manage")
-        or (role and role.name in ['Admin', 'HR'])
     )
 
 
@@ -1388,7 +1391,10 @@ def department_detail(request, pk):
 MODULES = [
     ('dashboard',     'Dashboard',         'fa-gauge-high'),
     ('leaves',        'Leave Management',  'fa-calendar-days'),
+    ('leave_type',    'Leave Type',        'fa-receipt'),
     ('leave_policy',  'Leave Policy/Balance', 'fa-sliders'),
+    ('academic_settings', 'Academic Settings', 'fa-cog'),
+    ('holiday',       'Holidays',          'fa-calendar-check'),
     ('employees',     'Employees',         'fa-users'),
     ('departments',   'Departments',       'fa-building'),
     ('salary',        'Salary Details',    'fa-indian-rupee-sign'),
@@ -1407,13 +1413,29 @@ ROLE_DEFAULTS = {
 }
 
 MODULE_ROLE_RESTRICTIONS = {
+    ('HR',       'leave_type'): dict(can_view=True,  can_create=True,  can_edit=True,  can_delete=False),
+    ('HR',       'leave_policy'): dict(can_view=True,  can_create=False, can_edit=False, can_delete=False),
+    ('HR',       'academic_settings'): dict(can_view=True,  can_create=False, can_edit=False, can_delete=False),
+    ('HR',       'holiday'): dict(can_view=True,  can_create=True,  can_edit=True,  can_delete=True),
     ('HR',       'departments'):  dict(can_view=False, can_create=False, can_edit=False, can_delete=False),
+    ('TL',       'leave_type'): dict(can_view=False, can_create=False, can_edit=False, can_delete=False),
+    ('TL',       'leave_policy'): dict(can_view=False, can_create=False, can_edit=False, can_delete=False),
+    ('TL',       'academic_settings'): dict(can_view=False, can_create=False, can_edit=False, can_delete=False),
+    ('TL',       'holiday'): dict(can_view=True,  can_create=False, can_edit=False, can_delete=False),
     ('TL',       'departments'):  dict(can_view=False, can_create=False, can_edit=False, can_delete=False),
     ('TL',       'salary'):       dict(can_view=False, can_create=False, can_edit=False, can_delete=False),
+    ('Employee', 'leave_type'): dict(can_view=False, can_create=False, can_edit=False, can_delete=False),
+    ('Employee', 'leave_policy'): dict(can_view=False, can_create=False, can_edit=False, can_delete=False),
+    ('Employee', 'academic_settings'): dict(can_view=False, can_create=False, can_edit=False, can_delete=False),
+    ('Employee', 'holiday'): dict(can_view=True,  can_create=False, can_edit=False, can_delete=False),
     ('Employee', 'departments'):  dict(can_view=False, can_create=False, can_edit=False, can_delete=False),
     ('Employee', 'salary'):       dict(can_view=False, can_create=False, can_edit=False, can_delete=False),
     ('Employee', 'bank'):         dict(can_view=True,  can_create=False, can_edit=True,  can_delete=False),
     ('Employee', 'employees'):    dict(can_view=False, can_create=False, can_edit=False, can_delete=False),
+    ('Manager',  'leave_type'): dict(can_view=False, can_create=False, can_edit=False, can_delete=False),
+    ('Manager',  'leave_policy'): dict(can_view=False, can_create=False, can_edit=False, can_delete=False),
+    ('Manager',  'academic_settings'): dict(can_view=False, can_create=False, can_edit=False, can_delete=False),
+    ('Manager',  'holiday'): dict(can_view=True,  can_create=False, can_edit=False, can_delete=False),
     ('Manager',  'departments'):  dict(can_view=True,  can_create=False, can_edit=True,  can_delete=False),
 }
 
@@ -1633,6 +1655,7 @@ def role_permission_save(request):
 
         if explicit_codes:
             ensure_permission_catalog()
+            RolePermissionAssignment.objects.filter(role=role).delete()
             active_permissions = RBACPermission.objects.filter(is_active=True)
             for permission in active_permissions:
                 RolePermissionAssignment.objects.update_or_create(
@@ -1886,14 +1909,111 @@ def assign_role(request):
 
     return JsonResponse({"success": False, "error": "Method not allowed."}, status=405)
 
-
 @login_required
 def assign_role_page(request):
-    if not (request.user.is_superuser or user_has_permission(request.user, "user_assign_role") or user_has_permission(request.user, "user_view") or _is_hr_or_admin(request)):
+    if not (
+        request.user.is_superuser
+        or user_has_permission(request.user, "user_assign_role")
+        or user_has_permission(request.user, "user_view")
+        or _is_hr_or_admin(request)
+    ):
+        if request.headers.get('Accept') == 'application/json' or request.GET.get('format') == 'json':
+            return JsonResponse({'success': False, 'error': 'Access denied'}, status=403)
+
         messages.error(request, "Access denied. Admins or HR only.")
         return redirect('admin_dashboard')
 
-    return render(request, 'assign_role.html', _get_assign_role_context(request))
+    context = _get_assign_role_context(request)
+    
+    # Get pagination parameters
+    page = int(request.GET.get('page', 1))
+    per_page = 10
+    start = (page - 1) * per_page
+    end = start + per_page
+    
+    users = context['users']
+    total_users = len(users)
+    total_pages = (total_users + per_page - 1) // per_page
+    
+    # Slice users for current page
+    paginated_users = users[start:end]
+
+    # ✅ FIX: Check for AJAX/JSON request FIRST
+    is_ajax = (
+        request.headers.get('X-Requested-With') == 'XMLHttpRequest' 
+        or request.GET.get('format') == 'json'
+        or request.headers.get('Accept') == 'application/json'
+    )
+    
+    # ✅ Return JSON for AJAX requests
+    if is_ajax:
+        users_data = [
+            {
+                'id': u.id,
+                'full_name': u.get_full_name() or u.username,
+                'email': u.email,
+                'is_senior': getattr(u, 'is_senior', False),
+                'department': {
+                    'id': u.department.id,
+                    'name': u.department.name
+                } if u.department else None,
+                'role': {
+                    'id': u.role.id,
+                    'name': u.role.name
+                } if u.role else None,
+                'reporting_manager': {
+                    'id': u.reporting_manager.id,
+                    'name': u.reporting_manager.get_full_name() or u.reporting_manager.username
+                } if getattr(u, 'reporting_manager', None) else None,
+            }
+            for u in paginated_users
+        ]
+        
+        # Build roles data for select dropdowns
+        roles_data = [
+            {'id': role.id, 'name': role.name}
+            for role in context['roles']
+        ]
+        
+        departments_data = [
+            {'id': dept.id, 'name': dept.name}
+            for dept in context['departments']
+        ]
+        
+        tl_users_data = [
+            {
+                'id': tl.id,
+                'name': tl.get_full_name() or tl.username,
+                'email': tl.email
+            }
+            for tl in context['tl_users']
+        ]
+        
+        return JsonResponse({
+            'success': True,
+            'users': users_data,
+            'roles': roles_data,
+            'departments': departments_data,
+            'tl_users': tl_users_data,
+            'stats': {
+                'total_users': total_users,
+                'page': page,
+                'per_page': per_page,
+            }
+        })
+
+    # Add pagination info to context for initial render (HTML only)
+    context.update({
+        'paginated_users': paginated_users,
+        'current_page': page,
+        'total_pages': total_pages,
+        'total_users': total_users,
+        'start_index': start + 1,
+        'end_index': min(end, total_users),
+        'per_page': per_page,
+    })
+
+    return render(request, 'assign_role.html', context)
 
 @login_required
 def assign_role_bulk(request):

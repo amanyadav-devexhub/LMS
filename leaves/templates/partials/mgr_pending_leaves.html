@@ -29,7 +29,6 @@
             <td>{{ leave.employee.department.name|default:"-" }}</td>
             <td>
                 <span class="badge badge-info">{{ leave.leave_type_display|default:leave.leave_type|capfirst }}</span>
-                {% if not leave.is_paid %}<span class="badge badge-warning">Unpaid</span>{% endif %}
             </td>
             <td>{{ leave.duration }}</td>
             <td>

@@ -646,25 +646,25 @@
 
 <!-- ════════════ TABS ════════════ -->
 <div class="p-tabs" id="profileTabs">
-  <button class="ptab active" onclick="switchTab('basic',this)">
+  <button type="button" class="ptab active" data-tab="basic" onclick="switchTab('basic',this)">
     <span class="ptab-ic"><i class="fa-solid fa-id-card"></i></span> Basic Details
   </button>
   {% if can_salary_view %}
-  <button class="ptab" onclick="switchTab('salary',this)">
+  <button type="button" class="ptab" data-tab="salary" onclick="switchTab('salary',this)">
     <span class="ptab-ic"><i class="fa-solid fa-indian-rupee-sign"></i></span> Salary
   </button>
   {% endif %}
   {% if can_bank_view %}
-  <button class="ptab" onclick="switchTab('bank',this)">
+  <button type="button" class="ptab" data-tab="bank" onclick="switchTab('bank',this)">
     <span class="ptab-ic"><i class="fa-solid fa-building-columns"></i></span> Bank Details
   </button>
   {% endif %}
   {% if can_verification_view %}
-  <button class="ptab" onclick="switchTab('verification',this)">
+  <button type="button" class="ptab" data-tab="verification" onclick="switchTab('verification',this)">
     <span class="ptab-ic"><i class="fa-solid fa-shield-halved"></i></span> Verification
   </button>
   {% endif %}
-  <button class="ptab" onclick="switchTab('additional',this)">
+  <button type="button" class="ptab" data-tab="additional" onclick="switchTab('additional',this)">
     <span class="ptab-ic"><i class="fa-solid fa-circle-info"></i></span> Additional
   </button>
 </div>
@@ -1010,17 +1010,69 @@
 {% block extra_scripts %}
 <script>
   const TABS = ['basic','salary','bank','verification','additional'];
+  const TAB_STORAGE_KEY = 'profile_active_tab';
+
+  function getAvailableTabs() {
+    return Array.from(document.querySelectorAll('.ptab[data-tab]')).map((btn) => btn.dataset.tab);
+  }
+
+  function normalizeTab(tab) {
+    if (!tab) {
+      return null;
+    }
+    return getAvailableTabs().includes(tab) ? tab : null;
+  }
+
+  function setActiveTab(tab) {
+    const activeTab = normalizeTab(tab) || 'basic';
+
+    document.querySelectorAll('.ptab[data-tab]').forEach((t) => {
+      t.classList.toggle('active', t.dataset.tab === activeTab);
+    });
+
+    TABS.forEach((p) => {
+      const el = document.getElementById('panel-' + p);
+      if (el) {
+        el.classList.remove('active');
+      }
+    });
+
+    const target = document.getElementById('panel-' + activeTab);
+    if (target) {
+      target.classList.add('active');
+    }
+
+    sessionStorage.setItem(TAB_STORAGE_KEY, activeTab);
+    const url = new URL(window.location.href);
+    url.searchParams.set('tab', activeTab);
+    window.history.replaceState({}, '', url.toString());
+  }
+
+  function sectionToTab(section) {
+    const sectionTabMap = {
+      basic_employee: 'basic',
+      basic_hr: 'basic',
+      salary: 'salary',
+      bank: 'bank',
+      verification: 'verification',
+      additional: 'additional',
+    };
+    return sectionTabMap[section] || null;
+  }
+
+  function getInitialTab() {
+    const params = new URLSearchParams(window.location.search);
+    const queryTab = normalizeTab(params.get('tab'));
+    if (queryTab) {
+      return queryTab;
+    }
+    const storedTab = normalizeTab(sessionStorage.getItem(TAB_STORAGE_KEY));
+    return storedTab || 'basic';
+  }
 
   // ------------------ Tab Switching ------------------
   function switchTab(tab, btn) {
-    document.querySelectorAll('.ptab').forEach(t => t.classList.remove('active'));
-    btn.classList.add('active');
-    TABS.forEach(p => {
-      const el = document.getElementById('panel-' + p);
-      if (el) el.classList.remove('active');
-    });
-    const target = document.getElementById('panel-' + tab);
-    if (target) target.classList.add('active');
+    setActiveTab(tab);
   }
 
   // ------------------ Employee Edit Toggle ------------------
@@ -1120,12 +1172,20 @@
       });
     }
 
+    setActiveTab(getInitialTab());
+
     // ------------------ Form Submission ------------------
     $('.edit-form').on('submit', function(e) {
       e.preventDefault();
       const $form = $(this);
       const url = $form.attr('action');
       const formData = new FormData(this);
+      const section = ($form.find('input[name="section"]').val() || '').trim();
+      const editedTab = sectionToTab(section);
+
+      if (editedTab) {
+        sessionStorage.setItem(TAB_STORAGE_KEY, editedTab);
+      }
 
       const $btn = $form.find('button[type="submit"]');
       const originalBtnHtml = $btn.html();
@@ -1140,11 +1200,19 @@
         success: function(response) {
           showToast(response.message || 'Profile updated successfully!', false);
           if ($form.attr('id') === 'edit-basic-emp') toggleEmpEdit();
-          else {
-            const section = $form.find('input[name="section"]').val();
-            if (section) toggleHrEdit(section);
+          else if (section) {
+            const toggleSection = section === 'basic_hr' ? 'basic' : section;
+            toggleHrEdit(toggleSection);
           }
-          setTimeout(() => window.location.reload(), 1500);
+
+          const tabAfterSave = editedTab || getInitialTab();
+          setTimeout(() => {
+            const reloadUrl = new URL(window.location.href);
+            if (tabAfterSave) {
+              reloadUrl.searchParams.set('tab', tabAfterSave);
+            }
+            window.location.href = reloadUrl.toString();
+          }, 900);
         },
         error: function(xhr) {
           const msg = xhr.responseJSON ? xhr.responseJSON.error || xhr.responseJSON.detail || xhr.responseJSON.message : 'Error updating profile';
@@ -1154,19 +1222,6 @@
           $btn.prop('disabled', false).html(originalBtnHtml);
         }
       });
-    });
-
-    // ------------------ Fetch profile on page load (example) ------------------
-    $.ajax({
-      url: '/profile/',
-      type: 'GET',
-      success: function(data) {
-        console.log('Profile loaded:', data);
-        // Optionally update UI here dynamically
-      },
-      error: function(xhr) {
-        console.error('Failed to load profile:', xhr.responseJSON || xhr.statusText);
-      }
     });
   });
 

@@ -271,6 +271,144 @@
             display: flex; align-items: center; justify-content: center;
             border: 2px solid var(--bg);
         }
+        .notif-wrap { position: relative; }
+        .notif-menu {
+            position: absolute;
+            top: calc(100% + 10px);
+            right: 0;
+            width: min(380px, calc(100vw - 28px));
+            background: rgba(255,255,255,0.98);
+            border: 1px solid var(--border-mid);
+            border-radius: var(--radius);
+            box-shadow: 0 24px 60px rgba(0,198,212,0.16), 0 12px 28px rgba(13,17,23,0.1);
+            z-index: 320;
+            opacity: 0;
+            transform: translateY(-8px) scale(0.98);
+            pointer-events: none;
+            transition: all 0.2s cubic-bezier(.4,0,.2,1);
+            overflow: hidden;
+        }
+        .notif-menu.open { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
+        .notif-menu-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--border);
+            background: linear-gradient(180deg, rgba(0,198,212,0.08), rgba(0,198,212,0.02));
+        }
+        .notif-menu-title { font-size: 14px; font-weight: 800; color: var(--text); }
+        .notif-menu-subtitle { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+        .notif-read-btn {
+            border: 1px solid var(--border-mid);
+            background: var(--surface);
+            color: var(--aqua-deep);
+            border-radius: 999px;
+            padding: 7px 12px;
+            font: inherit;
+            font-size: 11px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.18s ease;
+        }
+        .notif-read-btn:hover:not(:disabled) { background: var(--aqua-glass); }
+        .notif-read-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+        .notif-menu-list {
+            max-height: 420px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            padding: 8px;
+            gap: 8px;
+        }
+        .notif-menu-item {
+            display: block;
+            padding: 14px;
+            border-radius: 14px;
+            border: 1px solid var(--border);
+            background: var(--surface);
+            color: inherit;
+            transition: all 0.18s ease;
+        }
+        .notif-menu-item:hover {
+            transform: translateY(-1px);
+            border-color: var(--border-mid);
+            background: var(--surface2);
+        }
+        .notif-menu-item.unread {
+            background: rgba(0,198,212,0.06);
+            border-color: rgba(0,198,212,0.2);
+        }
+        .notif-item-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        }
+        .notif-item-icon {
+            width: 38px;
+            height: 38px;
+            border-radius: 12px;
+            background: rgba(0,198,212,0.12);
+            border: 1px solid rgba(0,198,212,0.18);
+            color: var(--aqua-deep);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            font-size: 14px;
+        }
+        .notif-item-body { flex: 1; min-width: 0; }
+        .notif-item-message { font-size: 13px; font-weight: 700; color: var(--text); line-height: 1.5; }
+        .notif-item-meta {
+            margin-top: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+        .notif-item-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-weight: 700;
+            color: var(--aqua-deep);
+        }
+        .notif-item-status::before {
+            content: '';
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--aqua);
+        }
+        .notif-menu-empty {
+            padding: 34px 20px;
+            text-align: center;
+            color: var(--text-muted);
+        }
+        .notif-menu-empty i {
+            font-size: 28px;
+            color: var(--aqua);
+            opacity: 0.5;
+            margin-bottom: 10px;
+        }
+        .notif-menu-foot {
+            border-top: 1px solid var(--border);
+            padding: 12px 16px;
+            background: rgba(0,198,212,0.03);
+        }
+        .notif-open-all {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--aqua-deep);
+        }
+        .notif-open-all:hover { color: var(--aqua-darker); }
 
         .topbar-avatar {
             width: 38px; height: 38px; border-radius: 50%;
@@ -433,6 +571,7 @@
                 width: calc(100vw - 28px);
             }
             .topbar { padding: 0 14px; }
+            .notif-menu { right: -42px; }
         }
     </style>
     {% block extra_head %}{% endblock %}
@@ -452,10 +591,10 @@
 
     <!-- All nav items — this div scrolls -->
     <div class="sidebar-scroll">
-        {% if request.user.role %}
+        {% if sidebar_role %}
 
         {# ── ADMIN ── #}
-        {% if request.user.is_superuser or request.user.role.name == 'Admin' %}
+        {% if sidebar_role == 'Admin' %}
 
             <div class="nav-label">Main</div>
             <a href="{% url 'dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'dashboard' or request.resolver_match.url_name == 'admin_dashboard' %}active{% endif %}">
@@ -506,6 +645,14 @@
                 <span class="nav-text">Leave Types & Policy</span>
             </a>
             {% endif %}
+
+            {% if rbac_flags.settings_view %}
+            <a href="{% url 'admin_academic_settings' %}"
+            class="nav-item {% if request.resolver_match.url_name == 'admin_academic_settings' %}active{% endif %}">
+                <span class="nav-icon"><i class="fa-solid fa-gear"></i></span>
+                <span class="nav-text">Academic Settings</span>
+            </a>
+            {% endif %}
             
             {% if rbac_flags.holiday_view %}
             <a href="{% url 'holiday_list' %}"
@@ -537,7 +684,7 @@
             </a>
 
         {# ── HR ── #}
-        {% elif request.user.role.name == 'HR' %}
+        {% elif sidebar_role == 'HR' %}
 
             <div class="nav-label">Main</div>
             {% if rbac_flags.dashboard_hr %}
@@ -587,6 +734,18 @@
                 <span class="nav-text">Departments</span>
             </a>
             {% endif %}
+            {% if rbac_flags.settings_view %}
+            <a href="{% url 'admin_academic_settings' %}" class="nav-item {% if request.resolver_match.url_name == 'admin_academic_settings' %}active{% endif %}">
+                <span class="nav-icon"><i class="fa-solid fa-gear"></i></span>
+                <span class="nav-text">Academic Settings</span>
+            </a>
+            {% endif %}
+            {% if rbac_flags.holiday_view %}
+            <a href="{% url 'holiday_list' %}" class="nav-item {% if request.resolver_match.url_name == 'holiday_list' %}active{% endif %}">
+                <span class="nav-icon"><i class="fa-solid fa-calendar-days"></i></span>
+                <span class="nav-text">Holidays</span>
+            </a>
+            {% endif %}
 
             <div class="nav-label">My Account</div>
             {% if rbac_flags.leave_balance_view or rbac_flags.leave_view_own %}
@@ -605,7 +764,7 @@
             <a href="{% url 'notifications' %}" class="nav-item {% if request.resolver_match.url_name == 'notifications' %}active{% endif %}">
                 <span class="nav-icon"><i class="fa-solid fa-bell"></i></span>
                 <span class="nav-text">Notifications</span>
-                {% if unread_count|default:0 > 0 %}<span class="nav-badge">{{ unread_count }}</span>{% endif %}
+                <span class="nav-badge js-unread-badge" data-badge-kind="nav" {% if unread_count|default:0 <= 0 %}style="display:none;"{% endif %}>{{ unread_count|default:0 }}</span>
             </a>
             {% endif %}
             <a href="{% url 'profile_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'profile_dashboard' %}active{% endif %}">
@@ -614,7 +773,7 @@
             </a>
 
         {# ── TL ── #}
-{% elif request.user.role.name == 'TL' %}
+{% elif sidebar_role == 'TL' %}
 
     <div class="nav-label">Main</div>
     {% if rbac_flags.dashboard_manager %}
@@ -705,7 +864,7 @@
         </a>
             
         {# ── MANAGER ── #}
-        {% elif request.user.role.name == 'Manager' %}
+        {% elif sidebar_role == 'Manager' %}
             <div class="nav-label">Main</div>
             {% if rbac_flags.dashboard_manager %}
             <a href="{% url 'dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'dashboard' or request.resolver_match.url_name == 'manager_dashboard' %}active{% endif %}">
@@ -736,7 +895,7 @@
             <a href="{% url 'notifications' %}" class="nav-item {% if request.resolver_match.url_name == 'notifications' %}active{% endif %}">
                 <span class="nav-icon"><i class="fa-solid fa-bell"></i></span>
                 <span class="nav-text">Notifications</span>
-                {% if unread_count|default:0 > 0 %}<span class="nav-badge">{{ unread_count }}</span>{% endif %}
+                <span class="nav-badge js-unread-badge" data-badge-kind="nav" {% if unread_count|default:0 <= 0 %}style="display:none;"{% endif %}>{{ unread_count|default:0 }}</span>
             </a>
             {% endif %}
             <a href="{% url 'profile_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'profile_dashboard' %}active{% endif %}">
@@ -746,7 +905,7 @@
 
        
         {# ── EMPLOYEE ── #}
-        {% else %}
+        {% elif sidebar_role == 'Employee' %}
             <div class="nav-label">Main</div>
             {% if rbac_flags.dashboard_employee %}
             <a href="{% url 'dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'dashboard' or request.resolver_match.url_name == 'employee_dashboard' and not request.GET.tab or request.resolver_match.url_name == 'employee_dashboard' and request.GET.tab == 'overview' %}active{% endif %}">
@@ -777,7 +936,7 @@
             <a href="{% url 'notifications' %}" class="nav-item {% if request.resolver_match.url_name == 'notifications' %}active{% endif %}">
                 <span class="nav-icon"><i class="fa-solid fa-bell"></i></span>
                 <span class="nav-text">Notifications</span>
-                {% if unread_count|default:0 > 0 %}<span class="nav-badge">{{ unread_count }}</span>{% endif %}
+                <span class="nav-badge js-unread-badge" data-badge-kind="nav" {% if unread_count|default:0 <= 0 %}style="display:none;"{% endif %}>{{ unread_count|default:0 }}</span>
             </a>
             {% endif %}
             <a href="{% url 'profile_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'profile_dashboard' %}active{% endif %}">
@@ -821,10 +980,33 @@
         <h1 class="topbar-title">{% block page_title %}Dashboard{% endblock %}</h1>
         <div class="topbar-actions">
             {% if rbac_flags.notification_view %}
-            <a href="{% url 'notifications' %}" class="icon-btn">
-                <i class="fa-solid fa-bell"></i>
-                <span class="notif-dot js-unread-badge" data-badge-kind="dot" {% if unread_count|default:0 <= 0 %}style="display:none;"{% endif %}>{{ unread_count|default:0 }}</span>
-            </a>
+            <div class="notif-wrap" id="notifWrap">
+                <button type="button" class="icon-btn" id="notifBellBtn" aria-label="Open notifications" aria-expanded="false">
+                    <i class="fa-solid fa-bell"></i>
+                    <span class="notif-dot js-unread-badge" data-badge-kind="dot" {% if unread_count|default:0 <= 0 %}style="display:none;"{% endif %}>{{ unread_count|default:0 }}</span>
+                </button>
+                <div class="notif-menu" id="notifMenu">
+                    <div class="notif-menu-head">
+                        <div>
+                            <div class="notif-menu-title">Notifications</div>
+                            <div class="notif-menu-subtitle" id="notifMenuSubtitle">{{ unread_count|default:0 }} unread</div>
+                        </div>
+                        <button type="button" class="notif-read-btn" id="notifMarkReadBtn" {% if unread_count|default:0 <= 0 %}disabled{% endif %}>Mark as read</button>
+                    </div>
+                    <div class="notif-menu-list" id="notifMenuList">
+                        <div class="notif-menu-empty">
+                            <i class="fa-solid fa-bell-slash"></i>
+                            <div>Loading notifications...</div>
+                        </div>
+                    </div>
+                    <div class="notif-menu-foot">
+                        <a href="{% url 'notifications' %}" class="notif-open-all">
+                            <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                            Show all notifications
+                        </a>
+                    </div>
+                </div>
+            </div>
             {% endif %}
             <div class="pd-wrap" id="pdWrap">
                 <div class="av-wrapper" onclick="togglePd()">
@@ -903,8 +1085,27 @@ function toggleSidebar(){document.getElementById('sidebar').classList.toggle('op
 function closeSidebar(){document.getElementById('sidebar').classList.remove('open');document.getElementById('sidebarOverlay').classList.remove('show');}
 function togglePd(){document.getElementById('pdMenu').classList.toggle('open');}
 
-document.addEventListener('click',function(e){const w=document.getElementById('pdWrap');const m=document.getElementById('pdMenu');if(w&&m&&!w.contains(e.target))m.classList.remove('open');});
-document.addEventListener('keydown',function(e){if(e.key==='Escape'){document.getElementById('pdMenu')?.classList.remove('open');closeSidebar();}});
+document.addEventListener('click',function(e){
+    const w=document.getElementById('pdWrap');
+    const m=document.getElementById('pdMenu');
+    if(w&&m&&!w.contains(e.target))m.classList.remove('open');
+
+    const nw=document.getElementById('notifWrap');
+    const nm=document.getElementById('notifMenu');
+    const nb=document.getElementById('notifBellBtn');
+    if(nw&&nm&&!nw.contains(e.target)){
+        nm.classList.remove('open');
+        if(nb) nb.setAttribute('aria-expanded', 'false');
+    }
+});
+document.addEventListener('keydown',function(e){
+    if(e.key==='Escape'){
+        document.getElementById('pdMenu')?.classList.remove('open');
+        document.getElementById('notifMenu')?.classList.remove('open');
+        document.getElementById('notifBellBtn')?.setAttribute('aria-expanded', 'false');
+        closeSidebar();
+    }
+});
 
 // Global AJAX Setup (jQuery)
 $.ajaxSetup({
@@ -1019,6 +1220,295 @@ $(document).on('submit', '.ajax-form', function(e) {
         showToast(msg, 'error');
         $btn.prop('disabled', false).html(originalBtnHtml);
     });
+});
+
+const notificationPopupState = {
+    loaded: false,
+    loading: false,
+    items: [],
+    unreadCount: Number("{{ unread_count|default:0 }}") || 0
+};
+
+function updateGlobalNotificationBadges(count) {
+    document.querySelectorAll('.js-unread-badge').forEach((badge) => {
+        badge.textContent = count;
+        badge.style.display = count > 0 ? '' : 'none';
+    });
+
+    const subtitle = document.getElementById('notifMenuSubtitle');
+    if (subtitle) {
+        subtitle.textContent = count > 0 ? `${count} unread` : 'All caught up';
+    }
+
+    const markBtn = document.getElementById('notifMarkReadBtn');
+    if (markBtn) {
+        markBtn.disabled = count <= 0;
+    }
+
+    notificationPopupState.unreadCount = count;
+}
+
+function notificationIconMarkup(message = '') {
+    const upper = String(message).toUpperCase();
+    if (upper.includes('APPROVED')) return '<i class="fa-solid fa-circle-check"></i>';
+    if (upper.includes('REJECTED')) return '<i class="fa-solid fa-circle-xmark"></i>';
+    if (upper.includes('LEAVE')) return '<i class="fa-solid fa-calendar-check"></i>';
+    return '<i class="fa-solid fa-bell"></i>';
+}
+
+function notificationTimeAgo(dateString) {
+    const date = new Date(dateString);
+    const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
+    if (Number.isNaN(seconds) || seconds < 0) return 'Just now';
+    if (seconds < 60) return 'Just now';
+    if (seconds < 3600) return `${Math.floor(seconds / 60)} min ago`;
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)} hrs ago`;
+    return `${Math.floor(seconds / 86400)} days ago`;
+}
+
+function escapeHtml(value = '') {
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function renderNotificationPopup(items) {
+    const list = document.getElementById('notifMenuList');
+    if (!list) return;
+
+    if (!items.length) {
+        list.innerHTML = `
+            <div class="notif-menu-empty">
+                <i class="fa-solid fa-bell-slash"></i>
+                <div>No notifications yet</div>
+            </div>
+        `;
+        return;
+    }
+
+    list.innerHTML = items.slice(0, 6).map((item) => {
+        const href = item.link || "{% url 'notifications' %}";
+        const unreadMarkup = item.read_status ? '' : '<span class="notif-item-status">Unread</span>';
+        return `
+            <a class="notif-menu-item ${item.read_status ? '' : 'unread'}" href="${escapeHtml(href)}">
+                <div class="notif-item-row">
+                    <div class="notif-item-icon">${notificationIconMarkup(item.message)}</div>
+                    <div class="notif-item-body">
+                        <div class="notif-item-message">${escapeHtml(item.message)}</div>
+                        <div class="notif-item-meta">
+                            <span>${notificationTimeAgo(item.created_at)}</span>
+                            ${unreadMarkup}
+                        </div>
+                    </div>
+                </div>
+            </a>
+        `;
+    }).join('');
+}
+
+// Sidebar AJAX preflight for HR navigation links so network always shows JSON XHR before page navigation.
+function normalizeSidebarPath(path) {
+    const url = new URL(path, window.location.origin);
+    return url.pathname.replace(/\/+$/, '') || '/';
+}
+
+function bindSidebarJsonPreflight() {
+    const PREFLIGHT_REDIRECT_DELAY_MS = 1200;
+    const navMap = [
+        {% if sidebar_role == 'HR' %}
+        { page: "{% url 'hr_leave_analytics' %}", api: "{% url 'api_hr_analytics' %}" },
+        { page: "{% url 'hr_employee_list' %}", api: "{% url 'api_hr_employees' %}" },
+        { page: "{% url 'hr_new_joiners' %}", api: "{% url 'api_hr_new_joiners' %}" },
+        { page: "{% url 'hr_my_leave_balance' %}", api: "{% url 'api_hr_my_balance' %}" },
+        { page: "{% url 'holiday_list' %}", api: "{% url 'api_holiday_list' %}" },
+        { page: "{% url 'admin_academic_settings' %}", api: "{% url 'admin_academic_settings' %}?format=json" },
+        {% endif %}
+        {% if sidebar_role == 'Manager' %}
+        { page: "{% url 'dashboard' %}", api: "{% url 'api_manager_dashboard' %}" },
+        { page: "{% url 'manager_dashboard' %}", api: "{% url 'api_manager_dashboard' %}" },
+        { page: "{% url 'manager_pending_leaves' %}", api: "{% url 'manager_pending_leaves' %}?format=json" },
+        {% endif %}
+        { page: "{% url 'profile_dashboard' %}", api: "{% url 'profile_dashboard' %}?format=json" },
+    ];
+
+    function findApiForHref(href) {
+        const targetPath = normalizeSidebarPath(href);
+        return navMap.find((item) => normalizeSidebarPath(item.page) === targetPath);
+    }
+
+    document.querySelectorAll('a[href]').forEach((anchor) => {
+        if (anchor.dataset.jsonPreflightBound === '1') return;
+
+        const href = anchor.getAttribute('href');
+        if (!href || href.startsWith('#') || href.startsWith('javascript:')) return;
+
+        const endpoint = findApiForHref(href);
+        if (!endpoint) return;
+
+        anchor.dataset.jsonPreflightBound = '1';
+        anchor.addEventListener('click', async function (event) {
+            if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.button === 1) {
+                return;
+            }
+
+            event.preventDefault();
+            const destination = this.href;
+            try {
+                const response = await fetch(endpoint.api, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    credentials: 'same-origin',
+                });
+
+                const data = await response.json().catch(() => ({}));
+                if (!response.ok || (data && data.success === false)) {
+                    const msg = (data && (data.error || data.message)) || 'Unable to load this module right now.';
+                    if (typeof showToast === 'function') {
+                        showToast(msg, 'error');
+                    }
+                    return;
+                }
+
+                window.setTimeout(() => {
+                    window.location.href = destination;
+                }, PREFLIGHT_REDIRECT_DELAY_MS);
+            } catch (error) {
+                if (typeof showToast === 'function') {
+                    showToast('Unable to load this module right now.', 'error');
+                }
+            }
+        });
+    });
+}
+
+async function loadNotificationPopup(forceReload = false) {
+    if (notificationPopupState.loading) return;
+    if (notificationPopupState.loaded && !forceReload) return;
+
+    const list = document.getElementById('notifMenuList');
+    notificationPopupState.loading = true;
+
+    if (list && (!notificationPopupState.loaded || forceReload)) {
+        list.innerHTML = `
+            <div class="notif-menu-empty">
+                <i class="fa-solid fa-spinner fa-spin"></i>
+                <div>Loading notifications...</div>
+            </div>
+        `;
+    }
+
+    try {
+        const response = await fetch("{% url 'api_notifications' %}", {
+            method: "GET",
+            headers: {
+                "Content-Type": "application/json",
+                "X-Requested-With": "XMLHttpRequest"
+            },
+            credentials: "same-origin"
+        });
+
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+            throw new Error(data.error || 'Failed to load notifications');
+        }
+
+        const items = data.results || data.data || [];
+        notificationPopupState.items = items;
+        notificationPopupState.loaded = true;
+        renderNotificationPopup(items);
+        const unreadCount = Number(data.unread_count);
+        if (Number.isFinite(unreadCount)) {
+            updateGlobalNotificationBadges(unreadCount);
+        }
+    } catch (error) {
+        if (list) {
+            list.innerHTML = `
+                <div class="notif-menu-empty">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    <div>Unable to load notifications</div>
+                </div>
+            `;
+        }
+    } finally {
+        notificationPopupState.loading = false;
+    }
+}
+
+async function markAllNotificationsRead() {
+    const button = document.getElementById('notifMarkReadBtn');
+    if (!button || button.disabled) return;
+
+    const originalText = button.textContent;
+    button.disabled = true;
+    button.textContent = 'Updating...';
+
+    try {
+        const response = await fetch("{% url 'api_notifications' %}", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": "{{ csrf_token }}",
+                "X-Requested-With": "XMLHttpRequest"
+            },
+            credentials: "same-origin"
+        });
+
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+            throw new Error(data.error || 'Failed to mark notifications as read');
+        }
+
+        notificationPopupState.items = notificationPopupState.items.map((item) => ({ ...item, read_status: true }));
+        renderNotificationPopup(notificationPopupState.items);
+        updateGlobalNotificationBadges(0);
+        showToast(data.message || 'Notifications marked as read', 'success');
+    } catch (error) {
+        showToast(error.message || 'Failed to mark notifications as read', 'error');
+        button.disabled = false;
+    } finally {
+        button.textContent = originalText;
+        updateGlobalNotificationBadges(notificationPopupState.unreadCount);
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const bellBtn = document.getElementById('notifBellBtn');
+    const notifMenu = document.getElementById('notifMenu');
+    const markReadBtn = document.getElementById('notifMarkReadBtn');
+
+    updateGlobalNotificationBadges(notificationPopupState.unreadCount);
+
+    if (bellBtn && notifMenu) {
+        bellBtn.addEventListener('click', async function() {
+            const isOpen = notifMenu.classList.contains('open');
+            notifMenu.classList.toggle('open', !isOpen);
+            bellBtn.setAttribute('aria-expanded', String(!isOpen));
+
+            if (!isOpen) {
+                await loadNotificationPopup(true);
+            }
+        });
+    }
+
+    if (markReadBtn) {
+        markReadBtn.addEventListener('click', markAllNotificationsRead);
+    }
+
+    if (bellBtn) {
+        window.setInterval(() => {
+            if (!document.hidden) {
+                loadNotificationPopup(true);
+            }
+        }, 30000);
+    }
+
+    bindSidebarJsonPreflight();
 });
 </script>
 {% block extra_scripts %}{% endblock %}

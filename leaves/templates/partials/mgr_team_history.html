@@ -20,7 +20,6 @@
                 <td>{{ leave.start_date|date:"d M Y" }}{% if leave.end_date and leave.end_date != leave.start_date %} → {{ leave.end_date|date:"d M Y" }}{% endif %}</td>
                 <td>
                     <span class="badge badge-info">{{ leave.leave_type_display|default:leave.leave_type|capfirst }}</span>
-                    {% if not leave.is_paid %}<span class="badge badge-warning">Unpaid</span>{% endif %}
                 </td>
                 <td>
                     {% if leave.status == 'APPROVED' %}<span class="chip ch-gn">Approved</span>

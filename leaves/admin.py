@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Holiday, LeaveRequest, Notification, SalaryDeduction
+from .models import AcademicLeaveSettings, Holiday, LeaveRequest, Notification, SalaryDeduction
 
 try:
     from .models import EmployeeLeaveAllocation, LeavePolicy, LeaveTypeConfig
@@ -240,3 +240,18 @@ class NotificationAdmin(admin.ModelAdmin):
     search_fields = ("user__email", "message")
     list_editable = ("read_status",)
     ordering = ("-created_at",)
+
+
+@admin.register(AcademicLeaveSettings)
+class AcademicLeaveSettingsAdmin(admin.ModelAdmin):
+    list_display = (
+        "leave_year_start_month",
+        "default_casual_quota",
+        "default_sick_quota",
+        "default_annual_quota",
+        "working_hours_per_day",
+        "grace_period_minutes",
+        "auto_deduction_enabled",
+        "updated_at",
+    )
+    readonly_fields = ("created_at", "updated_at")

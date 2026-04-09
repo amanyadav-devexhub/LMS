@@ -185,6 +185,8 @@ urlpatterns = [
 
     # ── Admin — Leave policy ───────────────────────────────────────────
     path('leave-policy/',                       views.admin_leave_policy,    name='admin_leave_policy'),
+    path('leave-policy/type/new/',             views.admin_leave_type_create_page, name='admin_leave_type_create'),
+    path('leave-policy/type/<int:lt_id>/edit/', views.admin_leave_type_edit_page, name='admin_leave_type_edit'),
     path('admin/leave-type/save/',                    views.admin_leave_type_save,         name='admin_leave_type_save'),
     path('admin/leave-type/<int:lt_id>/toggle/',      views.admin_leave_type_toggle,       name='admin_leave_type_toggle'),
     path('admin/leave-type/<int:lt_id>/delete/',      views.admin_leave_type_delete,       name='admin_leave_type_delete'),
@@ -192,6 +194,8 @@ urlpatterns = [
     path('admin/policy/<int:policy_id>/toggle/',      views.admin_policy_toggle,           name='admin_policy_toggle'),
     path('admin/policy/<int:policy_id>/delete/',      views.admin_policy_delete,           name='admin_policy_delete'),
     path('admin/apply-to-all/',                       views.admin_apply_to_all_employees,  name='admin_apply_to_all_employees'),
+    path('admin/academic-settings/',                  views.admin_academic_settings,       name='admin_academic_settings'),
+    path('admin/academic-settings/save/',             views.admin_academic_settings_save,  name='admin_academic_settings_save'),
 
     # ════════════════════════════════════════════════════════════════
     #  JSON API VIEWS  (all responses are pure JSON — no HTML)

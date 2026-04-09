@@ -352,6 +352,15 @@
     opacity: 0.6;
     cursor: not-allowed;
 }
+.override-badge {
+    background: rgba(245,166,35,0.1);
+    color: #f5a623;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 10px;
+    font-weight: 600;
+    margin-left: 8px;
+}
 
 /* Modal Styles */
 .modal-overlay {
@@ -589,7 +598,7 @@
         <!-- Attachment Section -->
         <div class="attachment-section">
             <div class="attachment-header">
-                <i class="fa-regular fa-paperclip"></i>
+                <i class="fa fa-paperclip"></i>
                 <h3>Attachments</h3>
             </div>
             
@@ -640,7 +649,7 @@
                 {% endwith %}
             {% else %}
                 <div class="no-attachment">
-                    <i class="fa-regular fa-paperclip"></i>
+                    <i class="fa fa-paperclip"></i>
                     <p>No attachment uploaded for this leave request.</p>
                 </div>
             {% endif %}
@@ -709,19 +718,31 @@
             {% endif %}
         </div>
         
-        {% if can_approve %}
+        <!-- FIXED: Show approve/reject buttons for Manager even if leave is already approved/rejected -->
+        {% if can_approve or is_manager %}
         <div class="action-buttons" id="actionButtons">
             <a href="javascript:history.back()" class="btn btn-secondary">
                 <i class="fa-solid fa-times"></i> Cancel
             </a>
-            {% if not user_has_voted %}
+            {% if is_manager %}
+                <!-- Manager always sees buttons for override -->
+                <button type="button" class="btn btn-success" onclick="showApprovalModal('approve')">
+                    <i class="fa-solid fa-check"></i> Approve Leave 
+                    {% if leave.final_status != 'PENDING' %}<span class="override-badge">Override</span>{% endif %}
+                </button>
+                <button type="button" class="btn btn-danger" onclick="showApprovalModal('reject')">
+                    <i class="fa-solid fa-xmark"></i> Reject Leave
+                    {% if leave.final_status != 'PENDING' %}<span class="override-badge">Override</span>{% endif %}
+                </button>
+            {% elif not user_has_voted and leave.final_status == 'PENDING' %}
+                <!-- Regular users see buttons only for pending leaves -->
                 <button type="button" class="btn btn-success" onclick="showApprovalModal('approve')">
                     <i class="fa-solid fa-check"></i> Approve Leave
                 </button>
                 <button type="button" class="btn btn-danger" onclick="showApprovalModal('reject')">
                     <i class="fa-solid fa-xmark"></i> Reject Leave
                 </button>
-            {% else %}
+            {% elif user_has_voted %}
                 <div class="btn btn-secondary" style="cursor: default; background: rgba(0,198,212,0.1);">
                     <i class="fa-solid fa-check-double"></i> You have already voted
                 </div>
@@ -890,7 +911,7 @@ $(document).ready(function() {
                 'X-Requested-With': 'XMLHttpRequest'
             },
             success: function(response) {
-                console.log('AJAX Response:', response); // Debug log
+                console.log('AJAX Response:', response);
                 
                 if (response.success) {
                     // Close modal
@@ -927,17 +948,24 @@ $(document).ready(function() {
                         updateApproverStatus(response.approvers);
                     }
                     
-                    // Remove action buttons if user has voted
-                    if (!response.can_approve) {
-                        $('#actionButtons').remove();
-                    }
+                    // Keep action buttons for manager (they can override again)
+                    {% if not is_manager %}
+                        if (!response.can_approve) {
+                            $('#actionButtons').remove();
+                        }
+                    {% endif %}
+                    
+                    // Reload page after 2 seconds to show updated data
+                    setTimeout(function() {
+                        location.reload();
+                    }, 2000);
                     
                 } else {
-                    showToast(response.message, 'error');
+                    showToast(response.message || 'An error occurred', 'error');
                 }
             },
             error: function(xhr) {
-                console.error('AJAX Error:', xhr); // Debug log
+                console.error('AJAX Error:', xhr);
                 let errorMessage = 'An error occurred. Please try again.';
                 
                 if (xhr.responseJSON && xhr.responseJSON.message) {
@@ -945,7 +973,7 @@ $(document).ready(function() {
                 } else if (xhr.status === 403) {
                     errorMessage = 'You are not authorized to perform this action.';
                 } else if (xhr.status === 400) {
-                    errorMessage = 'Invalid request. Please try again.';
+                    errorMessage = xhr.responseJSON?.error || 'Invalid request. Please try again.';
                 }
                 
                 showToast(errorMessage, 'error');

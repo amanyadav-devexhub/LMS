@@ -60,7 +60,14 @@
             <h3 style="margin-bottom: 20px;">By Department</h3>
             {% for dept in dept_breakdown %}
             <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border);">
-                <span style="font-weight: 600;">{{ dept.employee__department__name|default:"No Department" }}</span>
+                <div>
+                    <span style="font-weight: 600;">{{ dept.department }}</span>
+                    {% if dept.employees %}
+                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">
+                        {{ dept.employees|join:", " }}
+                    </div>
+                    {% endif %}
+                </div>
                 <span class="badge badge-info">{{ dept.count }}</span>
             </div>
             {% empty %}
@@ -114,7 +121,10 @@ function buildDeptBreakdown(departments) {
     if (!departments.length) return '<p style="text-align:center;color:var(--text-muted)">No breakdown available</p>';
     return departments.map(d => `
         <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border);">
-            <span style="font-weight:600;">${esc(d.department)}</span>
+            <div>
+                <span style="font-weight:600;">${esc(d.department)}</span>
+                ${Array.isArray(d.employees) && d.employees.length ? `<div style="font-size:11px;color:var(--text-muted);margin-top:4px;">${esc(d.employees.join(', '))}</div>` : ''}
+            </div>
             <span class="badge badge-info">${d.count}</span>
         </div>
     `).join('');

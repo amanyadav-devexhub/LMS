@@ -1,0 +1,633 @@
+{% extends "base.html" %}
+{% block title %}Academic & Leave Settings — LeaveSetu{% endblock %}
+{% block page_title %}Academic & Leave Settings{% endblock %}
+
+{% block extra_head %}
+<style>
+/* Your existing CSS styles remain the same */
+.settings-wrap {
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.settings-banner {
+  background: linear-gradient(135deg, var(--ink), var(--ink-soft));
+  border-radius: 20px;
+  padding: 22px 26px;
+  margin-bottom: 22px;
+  color: #fff;
+}
+
+.settings-banner h2 {
+  margin: 0;
+  font-size: 22px;
+  letter-spacing: -0.6px;
+}
+
+.settings-banner p {
+  margin: 8px 0 0;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 13px;
+}
+
+.settings-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+
+@media (max-width: 980px) {
+  .settings-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.settings-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 18px;
+  box-shadow: var(--shadow-xs);
+}
+
+.settings-card.full {
+  grid-column: 1 / -1;
+}
+
+.settings-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text);
+  margin-bottom: 13px;
+}
+
+.settings-title i {
+  color: var(--aqua-deep);
+}
+
+.settings-help {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 14px;
+}
+
+.form-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.form-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+@media (max-width: 760px) {
+  .form-grid-3,
+  .form-grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+.field label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.field input,
+.field select {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  background: var(--surface2);
+  color: var(--text);
+  font-size: 13px;
+}
+
+.field input[readonly] {
+  background: #edf9fb;
+  color: var(--aqua-deep);
+  font-weight: 700;
+}
+
+.check-row {
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.check-row label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-mid);
+  font-weight: 600;
+}
+
+.summary-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+@media (max-width: 760px) {
+  .summary-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.summary-card {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px;
+}
+
+.summary-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.summary-value {
+  margin-top: 5px;
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.holiday-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.holiday-table th,
+.holiday-table td {
+  border-bottom: 1px solid var(--border);
+  padding: 10px;
+  text-align: left;
+  font-size: 12px;
+}
+
+.holiday-table th {
+  color: var(--aqua-deep);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.holiday-table tr:last-child td {
+  border-bottom: none;
+}
+
+.action-row {
+  margin-top: 16px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* Toast notifications */
+.toast-notification {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 9999;
+  animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 9998;
+  display: none;
+  justify-content: center;
+  align-items: center;
+}
+
+.loading-spinner {
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.spinner-border {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #3498db;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="settings-wrap">
+  <div class="settings-banner">
+    <h2>Academic & Leave Settings</h2>
+    <p>Configure leave-year month, annual leave quota, monthly accrual, attendance rules, and holiday calendar access from one place.</p>
+  </div>
+
+  <div class="summary-row" id="stats-container">
+    <!-- Stats will be loaded via AJAX -->
+    <div class="summary-card">
+      <div class="summary-label">Leave Policies</div>
+      <div class="summary-value">-</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-label">Active Holidays</div>
+      <div class="summary-value">-</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-label">Leave Year Start</div>
+      <div class="summary-value">-</div>
+    </div>
+  </div>
+
+  <form id="settings-form" style="margin-top:16px;">
+    {% csrf_token %}
+
+    <div class="settings-grid">
+      <div class="settings-card">
+        <div class="settings-title"><i class="fa-solid fa-calendar-days"></i> Leave Year Start Month</div>
+        <div class="settings-help">All active leave types will use this month as leave-year boundary.</div>
+        <div class="field">
+          <label for="leave_year_start_month">Leave Year Start Month</label>
+          <select id="leave_year_start_month" name="leave_year_start_month" required>
+            {% for month_num, month_label in month_choices %}
+            <option value="{{ month_num }}" {% if settings_obj.leave_year_start_month == month_num %}selected{% endif %}>{{ month_label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <div class="settings-card">
+        <div class="settings-title"><i class="fa-solid fa-clock"></i> Attendance Settings</div>
+        <div class="settings-help">Define baseline working hours and late-arrival deduction behavior.</div>
+        <div class="form-grid-2">
+          <div class="field">
+            <label for="working_hours_per_day">Working Hours / Day</label>
+            <input id="working_hours_per_day" name="working_hours_per_day" type="number" min="1" step="0.25" value="{{ settings_obj.working_hours_per_day }}" required>
+          </div>
+          <div class="field">
+            <label for="grace_period_minutes">Grace Period (Minutes)</label>
+            <input id="grace_period_minutes" name="grace_period_minutes" type="number" min="0" step="1" value="{{ settings_obj.grace_period_minutes }}" required>
+          </div>
+        </div>
+        <div class="form-grid-2" style="margin-top:12px;">
+          <div class="field">
+            <label for="auto_deduction_after_minutes">Auto Deduction After (Minutes)</label>
+            <input id="auto_deduction_after_minutes" name="auto_deduction_after_minutes" type="number" min="0" step="1" value="{{ settings_obj.auto_deduction_after_minutes }}" required>
+          </div>
+          <div class="field" style="display:flex;align-items:end;">
+            <label style="margin:0;display:inline-flex;align-items:center;gap:8px;">
+              <input type="checkbox" name="auto_deduction_enabled" {% if settings_obj.auto_deduction_enabled %}checked{% endif %}>
+              Enable Auto-Deduction
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-card full">
+        <div class="settings-title"><i class="fa-solid fa-sliders"></i> Default Leave Policy Quotas</div>
+        <div class="form-grid-2">
+          <div class="field">
+            <label for="default_annual_quota">Annual Leave (Days/Year)</label>
+            <input id="default_annual_quota" name="default_annual_quota" type="number" min="0" step="0.5" value="{{ annual_quota }}" required>
+          </div>
+          <div class="field">
+            <label for="default_monthly_quota">Monthly Leave (Days/Month)</label>
+            <input id="default_monthly_quota" name="default_monthly_quota" type="number" min="0" step="0.01" value="{{ monthly_quota }}" readonly>
+          </div>
+        </div>
+        <div class="check-row">
+          <label>
+            <input type="checkbox" name="sync_allocations">
+            Sync these quotas to all employee allocations now
+          </label>
+          <label>
+            <input type="checkbox" id="show_only_monthly_in_balance" name="show_only_monthly_in_balance" {% if settings_obj.show_only_monthly_in_balance %}checked{% endif %}>
+            Show only monthly leave types in employee Leave Balance widgets
+          </label>
+        </div>
+      </div>
+
+      <div class="settings-card full">
+        <div class="settings-title"><i class="fa-solid fa-calendar-week"></i> Holiday Calendar</div>
+        <div class="settings-help">Manage global holidays and holiday types through the holiday module.</div>
+
+        <div class="action-row">
+          <a href="{% url 'holiday_list' %}" class="btn btn-primary"><i class="fa-solid fa-calendar-days"></i> Open Holiday Calendar</a>
+          <a href="{% url 'holiday_create' %}" class="btn btn-ghost"><i class="fa-solid fa-plus"></i> Add Holiday</a>
+          <a href="{% url 'holiday_bulk_create' %}" class="btn btn-ghost"><i class="fa-solid fa-upload"></i> Bulk Import Holidays</a>
+        </div>
+
+        <div id="holiday-stats-container" class="check-row" style="margin-top:14px;">
+          <!-- Holiday stats will be loaded via AJAX -->
+        </div>
+
+        <div style="margin-top:14px;overflow-x:auto;">
+          <table class="holiday-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Date</th>
+              </tr>
+            </thead>
+            <tbody id="upcoming-holidays">
+              <tr>
+                <td colspan="3" style="color:var(--text-muted);">Loading holidays...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="action-row" style="margin-top:18px;justify-content:flex-end;">
+      <button type="submit" class="btn btn-primary" id="save-btn">
+        <i class="fa-solid fa-floppy-disk"></i> Save Settings
+      </button>
+    </div>
+  </form>
+</div>
+
+<!-- Loading Overlay -->
+<div class="loading-overlay" id="loading-overlay">
+  <div class="loading-spinner">
+    <div class="spinner-border"></div>
+    <p style="margin-top: 10px; text-align: center;">Saving settings...</p>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+$(document).ready(function() {
+    // Load initial data via AJAX
+    loadSettingsData();
+    
+    // Auto-update monthly quota when annual quota changes
+    $('#default_annual_quota').on('input', function() {
+        var annualValue = parseFloat($(this).val()) || 0;
+        var monthlyValue = annualValue / 12;
+        $('#default_monthly_quota').val(monthlyValue.toFixed(2));
+    });
+    
+    // Handle form submission with AJAX
+    $('#settings-form').on('submit', function(e) {
+        e.preventDefault();
+        saveSettings();
+    });
+});
+
+function loadSettingsData() {
+    // $('#loading-overlay').fadeIn(200);
+    
+    $.ajax({
+        url: window.location.href,
+        type: 'GET',
+        dataType: 'json',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        success: function(response) {
+            if (response.success) {
+                updateUIWithData(response.data);
+                // showToast('Settings loaded successfully', 'success');
+            } else {
+                showToast('Failed to load settings', 'error');
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('Error loading settings:', error);
+            showToast('Error loading settings. Please refresh the page.', 'error');
+        },
+        complete: function() {
+            // $('#loading-overlay').fadeOut(200);
+        }
+    });
+}
+
+function updateUIWithData(data) {
+    // Update stats
+    if (data.stats) {
+        $('#stats-container').html(`
+            <div class="summary-card">
+                <div class="summary-label">Leave Policies</div>
+                <div class="summary-value">${data.stats.active_policy_count}</div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-label">Active Holidays</div>
+                <div class="summary-value">${data.stats.active_holiday_count}</div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-label">Leave Year Start</div>
+                <div class="summary-value">${data.settings.leave_year_start_month_label}</div>
+            </div>
+        `);
+    }
+    
+    // Update form fields
+    if (data.settings) {
+        $('#leave_year_start_month').val(data.settings.leave_year_start_month);
+        $('#default_annual_quota').val(data.settings.annual_quota);
+        $('#default_monthly_quota').val(data.settings.monthly_quota);
+        $('#working_hours_per_day').val(data.settings.working_hours_per_day);
+        $('#grace_period_minutes').val(data.settings.grace_period_minutes);
+        $('#auto_deduction_after_minutes').val(data.settings.auto_deduction_after_minutes);
+        $('#auto_deduction_enabled').prop('checked', data.settings.auto_deduction_enabled);
+        $('#show_only_monthly_in_balance').prop('checked', data.settings.show_only_monthly_in_balance);
+    }
+    
+    // Update holiday stats
+    if (data.holiday_type_counts && data.holiday_type_counts.length > 0) {
+        var holidayStatsHtml = '';
+        data.holiday_type_counts.forEach(function(item) {
+            holidayStatsHtml += `<span class="badge-soft" style="font-size:11px;">${item.holiday_type}: ${item.total}</span>`;
+        });
+        $('#holiday-stats-container').html(holidayStatsHtml);
+    } else {
+        $('#holiday-stats-container').html('<span style="font-size:11px;color:var(--text-muted);">No holidays configured</span>');
+    }
+    
+    // Update upcoming holidays table
+    if (data.upcoming_holidays && data.upcoming_holidays.length > 0) {
+        var holidaysHtml = '';
+        data.upcoming_holidays.forEach(function(holiday) {
+            holidaysHtml += `
+                <tr>
+                    <td>${escapeHtml(holiday.name)}</td>
+                    <td>${escapeHtml(holiday.type)}</td>
+                    <td>${escapeHtml(holiday.display_date)}</td>
+                </tr>
+            `;
+        });
+        $('#upcoming-holidays').html(holidaysHtml);
+    } else {
+        $('#upcoming-holidays').html('<tr><td colspan="3" style="color:var(--text-muted);">No upcoming active holidays configured.</td></tr>');
+    }
+}
+
+function saveSettings() {
+    // Validate form
+    if (!$('#settings-form')[0].checkValidity()) {
+        $('#settings-form')[0].reportValidity();
+        return;
+    }
+    
+    $('#save-btn').prop('disabled', true);
+    $('#loading-overlay').fadeIn(200);
+    
+    // Collect form data
+    var formData = {
+        'leave_year_start_month': $('#leave_year_start_month').val(),
+        'default_annual_quota': $('#default_annual_quota').val(),
+        'working_hours_per_day': $('#working_hours_per_day').val(),
+        'grace_period_minutes': $('#grace_period_minutes').val(),
+        'auto_deduction_after_minutes': $('#auto_deduction_after_minutes').val(),
+        'auto_deduction_enabled': $('#auto_deduction_enabled').is(':checked') ? 'on' : 'off',
+        'show_only_monthly_in_balance': $('#show_only_monthly_in_balance').is(':checked') ? 'on' : 'off',
+        'sync_allocations': $('input[name="sync_allocations"]').is(':checked') ? 'on' : 'off',
+        'csrfmiddlewaretoken': $('input[name="csrfmiddlewaretoken"]').val()
+    };
+    
+    $.ajax({
+        url: "{% url 'admin_academic_settings_save' %}",
+        type: 'POST',
+        data: formData,
+        dataType: 'json',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        success: function(response) {
+            if (response.success) {
+                showToast(response.message, 'success');
+                
+                // Update UI with new data
+                if (response.data && response.data.settings) {
+                    $('#default_monthly_quota').val(response.data.settings.monthly_quota);
+                    
+                    // Update stats if provided
+                    if (response.data.stats) {
+                        $('#stats-container').html(`
+                            <div class="summary-card">
+                                <div class="summary-label">Leave Policies</div>
+                                <div class="summary-value">${response.data.stats.active_policy_count}</div>
+                            </div>
+                            <div class="summary-card">
+                                <div class="summary-label">Active Holidays</div>
+                                <div class="summary-value">${response.data.stats.active_holiday_count}</div>
+                            </div>
+                            <div class="summary-card">
+                                <div class="summary-label">Leave Year Start</div>
+                                <div class="summary-value">${response.data.settings.leave_year_start_month_label}</div>
+                            </div>
+                        `);
+                    }
+                }
+                
+                // Show sync message if exists
+                if (response.sync_message) {
+                    showToast(response.sync_message, 'info', 5000);
+                }
+                
+                // Reload holiday data
+                loadSettingsData();
+            } else {
+                showToast(response.error || 'Failed to save settings', 'error');
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('Error saving settings:', error);
+            let errorMessage = 'An error occurred while saving settings.';
+            
+            if (xhr.responseJSON && xhr.responseJSON.error) {
+                errorMessage = xhr.responseJSON.error;
+            } else if (xhr.status === 403) {
+                errorMessage = 'You do not have permission to perform this action.';
+            } else if (xhr.status === 405) {
+                errorMessage = 'Invalid request method.';
+            }
+            
+            showToast(errorMessage, 'error');
+        },
+        complete: function() {
+            $('#save-btn').prop('disabled', false);
+            $('#loading-overlay').fadeOut(200);
+        }
+    });
+}
+
+function showToast(message, type = 'success', duration = 3000) {
+    // Remove existing toasts
+    $('.toast-notification').remove();
+    
+    var bgColor = type === 'success' ? '#10b981' : (type === 'error' ? '#ef4444' : '#3b82f6');
+    var icon = type === 'success' ? 'fa-check-circle' : (type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle');
+    
+    var toast = $(`
+        <div class="toast-notification" style="background: ${bgColor}; color: white; padding: 12px 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); min-width: 250px;">
+            <i class="fas ${icon}" style="margin-right: 10px;"></i>
+            <span>${escapeHtml(message)}</span>
+        </div>
+    `);
+    
+    $('body').append(toast);
+    
+    setTimeout(function() {
+        toast.fadeOut(300, function() {
+            $(this).remove();
+        });
+    }, duration);
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    var map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+    };
+    return String(text).replace(/[&<>"']/g, function(m) { return map[m]; });
+}
+</script>
+{% endblock %}
