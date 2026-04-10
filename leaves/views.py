@@ -79,7 +79,7 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import csrf_exempt
 
 # ── App models ───────────────────────────────────────────────────────
-from .models import AcademicLeaveSettings, LeaveRequest, Notification, SalaryDeduction
+from .models import LeaveSettings, LeaveRequest, Notification, SalaryDeduction
 from users.models import User, Department, Role, RolePermissionAssignment, SalaryDetails
 from users.rbac import user_has_permission
 
@@ -208,7 +208,7 @@ def _target_allocation_days_for_leave_type(leave_type, sync_mode="monthly", as_o
     target_days = float(leave_type.days_per_year or 0)
 
     if getattr(leave_type, "quota_type", "STANDARD") == "ANNUAL_POOL":
-        settings_obj = AcademicLeaveSettings.get_solo()
+        settings_obj = LeaveSettings.get_solo()
         annual_quota = float(getattr(settings_obj, "annual_leave_quota", 12) or 12)
         target_days = annual_quota
         if sync_mode == "monthly":
@@ -237,7 +237,7 @@ def _target_allocation_days_for_leave_type(leave_type, sync_mode="monthly", as_o
 
 def _annual_quota_for_employee_leave_type(employee, leave_type):
     if getattr(leave_type, "quota_type", "STANDARD") == "ANNUAL_POOL":
-        settings_obj = AcademicLeaveSettings.get_solo()
+        settings_obj = LeaveSettings.get_solo()
         return float(getattr(settings_obj, "annual_leave_quota", leave_type.days_per_year or 0) or 0)
     return float(leave_type.days_per_year or 0)
 
@@ -504,7 +504,7 @@ def _check_special_leave_eligibility(employee, leave_type_config, leave_obj=None
 
 
 def _available_paid_days_for_leave(employee, leave_type_config, leave_date):
-    settings_obj = AcademicLeaveSettings.get_solo()
+    settings_obj = LeaveSettings.get_solo()
 
     def _is_special_config(config):
         return bool(config and config.quota_type in ("SPECIAL_EVENT", "MATERNITY_PATERNITY"))
@@ -625,7 +625,7 @@ def get_employee_leave_summary(employee, year=None, leave_type_config=None):
 
 def get_employee_leave_summary_for_balance_display(employee, year=None, force_monthly=False):
     summary = get_employee_leave_summary(employee, year)
-    settings_obj = AcademicLeaveSettings.get_solo()
+    settings_obj = LeaveSettings.get_solo()
     if not force_monthly and not getattr(settings_obj, "show_only_monthly_in_balance", True):
         return summary
 
@@ -746,7 +746,7 @@ def _deduct_leave_balance(leave):
 
         if not allocation or getattr(allocation.leave_type, "quota_type", "STANDARD") != "ANNUAL_POOL":
             target_date = leave.start_date or timezone.now().date()
-            leave_year = get_leave_year_for_date(target_date, AcademicLeaveSettings.get_solo().leave_year_start_month)
+            leave_year = get_leave_year_for_date(target_date, LeaveSettings.get_solo().leave_year_start_month)
             allocation = (
                 EmployeeLeaveAllocation.objects.filter(
                     employee=leave.employee,
@@ -844,19 +844,38 @@ def _forbidden(message: str = "You don't have permission to access this resource
     return _err(message, status=403)
 
 
+from django.http.request import RawPostDataException
+
 def _request_value(request, key: str, default: str = "") -> str:
-    """Read a value from form-data first, then JSON payload."""
+    """Read a value from form-data first, then JSON payload using cached body."""
+    # 1. Check POST data first (form submissions / multipart)
     value = request.POST.get(key)
     if value is not None:
         return str(value)
 
-    try:
-        payload = json.loads(request.body.decode("utf-8") or "{}")
-    except (TypeError, ValueError, UnicodeDecodeError):
-        payload = {}
+    # 2. Check GET parameters
+    value = request.GET.get(key)
+    if value is not None:
+        return str(value)
 
-    data_value = payload.get(key, default)
-    return str(data_value) if data_value is not None else default
+    # 3. Try JSON body — body stream may already be consumed by request.POST
+    try:
+        if hasattr(request, '_body') and request._body:
+            body = request._body
+        else:
+            body = request.body          # raises RawPostDataException if POST already read it
+
+        payload = json.loads(body.decode("utf-8") or "{}")
+        data_value = payload.get(key, default)
+        return str(data_value) if data_value is not None else default
+
+    except RawPostDataException:
+        # request.POST already consumed the stream — all form values
+        # were already handled in step 1, so just return the default.
+        return default
+
+    except (TypeError, ValueError, UnicodeDecodeError, AttributeError):
+        return default
 
 
 def _serialize_leave(leave: LeaveRequest) -> dict:
@@ -2900,7 +2919,7 @@ def hr_my_leave_balance_api(request):
             )
     
     # Get settings
-    settings_obj = AcademicLeaveSettings.get_solo()
+    settings_obj = LeaveSettings.get_solo()
     yearly_quota = float(getattr(settings_obj, 'default_annual_quota', 18) or 18)
     monthly_quota_total = yearly_quota / 12  # Total monthly quota shared across all types
     
@@ -6008,7 +6027,7 @@ def admin_leave_type_create_page(request):
         "page_title_text": "Create Leave Type",
         "leave_type": None,
         "current_year": timezone.now().year,
-        "month_choices": AcademicLeaveSettings.MONTH_CHOICES,
+        "month_choices": LeaveSettings.MONTH_CHOICES,
     }
     return _render_template_page(request, "admin_leave_type_form.html", context)
 
@@ -6022,7 +6041,7 @@ def admin_leave_type_edit_page(request, lt_id):
         "page_title_text": f"Edit {lt.name}",
         "leave_type": lt,
         "current_year": timezone.now().year,
-        "month_choices": AcademicLeaveSettings.MONTH_CHOICES,
+        "month_choices": LeaveSettings.MONTH_CHOICES,
     }
     return _render_template_page(request, "admin_leave_type_form.html", context)
 
@@ -7006,7 +7025,7 @@ def admin_settings(request):
     if not (request.user.is_superuser or user_has_permission(request.user, "settings_view")):
         return JsonResponse({"success": False, "error": "Access denied."}, status=403) if request.headers.get('X-Requested-With') == 'XMLHttpRequest' else redirect('admin_dashboard')
     
-    settings_obj = AcademicLeaveSettings.get_solo()
+    settings_obj = LeaveSettings.get_solo()
 
     leave_type_defaults = {}
     if POLICY_ENABLED:
@@ -7072,14 +7091,14 @@ def admin_settings(request):
                 "holiday_type_counts": list(holiday_type_counts),
                 "month_choices": [
                     {"value": month_num, "label": month_label}
-                    for month_num, month_label in AcademicLeaveSettings.MONTH_CHOICES
+                    for month_num, month_label in LeaveSettings.MONTH_CHOICES
                 ]
             }
         })
 
     context = {
         "settings_obj": settings_obj,
-        "month_choices": AcademicLeaveSettings.MONTH_CHOICES,
+        "month_choices": LeaveSettings.MONTH_CHOICES,
         "leave_type_defaults": leave_type_defaults,
         "annual_quota": annual_quota,
         "monthly_quota": monthly_quota,
@@ -7107,7 +7126,7 @@ def admin_settings_save(request):
             return JsonResponse({"success": False, "error": "Method not allowed."}, status=405)
         return redirect("admin_settings")
 
-    settings_obj = AcademicLeaveSettings.get_solo()
+    settings_obj = LeaveSettings.get_solo()
 
     def _to_float(value, fallback):
         try:
@@ -7194,7 +7213,7 @@ def admin_settings_save(request):
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         response_data = {
             "success": True,
-            "message": "Academic/Leave settings updated successfully.",
+            "message": "/Leave settings updated successfully.",
             "data": {
                 "settings": {
                     "leave_year_start_month": settings_obj.leave_year_start_month,
@@ -7212,7 +7231,7 @@ def admin_settings_save(request):
             response_data["sync_message"] = sync_message
         return JsonResponse(response_data)
 
-    messages.success(request, "Academic/Leave settings updated successfully.")
+    messages.success(request, "/Leave settings updated successfully.")
     if sync_message:
         messages.info(request, sync_message)
-    return redirect("admin_settings")
+    return redirect("admin_settings.html               ")

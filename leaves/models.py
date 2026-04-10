@@ -725,7 +725,7 @@ class EmployeeLeaveAllocation(models.Model):
 
     def get_monthly_accrual_rate(self):
         if self.leave_type.quota_type == 'ANNUAL_POOL':
-            settings_obj = AcademicLeaveSettings.get_solo()
+            settings_obj = LeaveSettings.get_solo()
             annual_quota = float(getattr(settings_obj, 'annual_leave_quota', 12) or 12)
             return round(annual_quota / 12.0, 4)
         if self.leave_type.is_accrual_based:
@@ -736,7 +736,7 @@ class EmployeeLeaveAllocation(models.Model):
         as_of_date = as_of_date or timezone.now().date()
 
         if self.leave_type.quota_type == 'ANNUAL_POOL':
-            settings_obj = AcademicLeaveSettings.get_solo()
+            settings_obj = LeaveSettings.get_solo()
             annual_quota = float(getattr(settings_obj, 'annual_leave_quota', 12) or 12)
             months_elapsed = self.leave_type.get_months_elapsed_in_leave_year(as_of_date)
             return round(min(annual_quota, (annual_quota / 12.0) * months_elapsed), 2)
@@ -806,7 +806,7 @@ class EmployeeLeaveAllocation(models.Model):
         )
 
 
-class AcademicLeaveSettings(models.Model):
+class LeaveSettings(models.Model):
     MONTH_CHOICES = [
         (1, "January"),
         (2, "February"),
@@ -849,8 +849,8 @@ class AcademicLeaveSettings(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = "Academic & Leave Settings"
-        verbose_name_plural = "Academic & Leave Settings"
+        verbose_name = "Leave Settings"
+        verbose_name_plural = "Leave Settings"
 
     @classmethod
     def get_solo(cls):

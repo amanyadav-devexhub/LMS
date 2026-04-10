@@ -756,7 +756,7 @@ function renderHero() {
         <a href="{% url 'apply_leave' %}" class="apply-btn-hero">
             <i class="fa-regular fa-calendar-plus"></i>
             Apply for Leave
-            <i class="fa-regular fa-arrow-right"></i>
+            <i class="fa-solid fa-arrow-right"></i>
         </a>
     `;
 }
@@ -840,7 +840,7 @@ function renderQuickActions() {
     const applyLeaveLink = canApplyLeave
         ? `<a href="{% url 'apply_leave' %}" class="action-link">
                 <span>Apply for Leave</span>
-                <i class="fa-regular fa-arrow-right"></i>
+                <i class="fa-solid fa-arrow-right"></i>
            </a>`
         : `<div class="action-link" style="opacity:.5;pointer-events:none;cursor:not-allowed;" title="Permission required: leave_apply">
                 <span>Apply for Leave</span>
@@ -867,7 +867,7 @@ function renderQuickActions() {
             </div>
             <a href="{% url 'profile_dashboard' %}" class="action-link">
                 <span>View Full Profile</span>
-                <i class="fa-regular fa-arrow-right"></i>
+                <i class="fa-solid fa-arrow-right"></i>
             </a>
         </div>
         
