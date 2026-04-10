@@ -27,7 +27,7 @@ class Migration(migrations.Migration):
                 ('auto_deduction_after_minutes', models.PositiveIntegerField(default=30)),
                 ('created_at', models.DateTimeField(auto_now_add=True)),
                 ('updated_at', models.DateTimeField(auto_now=True)),
-                ('updated_by', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='updated_academic_settings', to=settings.AUTH_USER_MODEL)),
+                ('updated_by', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='updated_settings', to=settings.AUTH_USER_MODEL)),
             ],
             options={
                 'verbose_name': 'Academic & Leave Settings',

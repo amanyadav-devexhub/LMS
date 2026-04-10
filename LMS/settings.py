@@ -26,7 +26,7 @@ SECRET_KEY = 'django-insecure-cpfyti3o_sopno-fpwbwv_(6ra@q!1667886pf(h0=xf162v+h
 # ARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['testserver', 'localhost', '127.0.0.1']
+ALLOWED_HOSTS = ['testserver', 'localhost', '127.0.0.1', '*']
 
 # Application definition
 
@@ -110,6 +110,10 @@ AUTH_PASSWORD_VALIDATORS = [
     {
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
+]
+
+CSRF_TRUSTED_ORIGINS = [
+    "https://overmournfully-overnervous-narcisa.ngrok-free.dev",
 ]
 
 

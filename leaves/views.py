@@ -75,6 +75,7 @@ from django.contrib import messages
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.timesince import timesince
+from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import csrf_exempt
 
 # ── App models ───────────────────────────────────────────────────────
@@ -843,6 +844,21 @@ def _forbidden(message: str = "You don't have permission to access this resource
     return _err(message, status=403)
 
 
+def _request_value(request, key: str, default: str = "") -> str:
+    """Read a value from form-data first, then JSON payload."""
+    value = request.POST.get(key)
+    if value is not None:
+        return str(value)
+
+    try:
+        payload = json.loads(request.body.decode("utf-8") or "{}")
+    except (TypeError, ValueError, UnicodeDecodeError):
+        payload = {}
+
+    data_value = payload.get(key, default)
+    return str(data_value) if data_value is not None else default
+
+
 def _serialize_leave(leave: LeaveRequest) -> dict:
     """Serialize a LeaveRequest to a dict suitable for JSON."""
     total_days = calculate_leave_days(leave)
@@ -874,6 +890,9 @@ def _serialize_leave(leave: LeaveRequest) -> dict:
         "attachment_url": leave.attachment.url if leave.attachment else None,
         "short_hours": leave.short_hours,
         "short_session": leave.short_session,
+        "hr_remark": (leave.hr_remark or ""),
+        "tl_remark": (leave.tl_remark or ""),
+        "manager_remark": (leave.manager_remark or ""),
         "created_at": leave.created_at.isoformat(),
         "updated_at": leave.updated_at.isoformat() if leave.updated_at else None,
     }
@@ -1711,6 +1730,10 @@ def approve_leave_api(request, leave_id):
     role_name = get_user_role(voter)
     is_admin = request.user.is_superuser or role_name == "Admin"
     old_status = leave.final_status
+    generic_remark = _request_value(request, "remarks", "").strip()
+    hr_remark = _request_value(request, "hr_remark", "").strip() or generic_remark
+    tl_remark = _request_value(request, "tl_remark", "").strip() or generic_remark
+    manager_remark = _request_value(request, "manager_remark", "").strip() or generic_remark
 
     # Admin override (always allowed)
     if is_admin:
@@ -1762,6 +1785,8 @@ def approve_leave_api(request, leave_id):
         leave.manager_rejected = False
         leave.manager_voted = True
         leave.manager_acted_at = timezone.now()
+        if manager_remark:
+            leave.manager_remark = manager_remark
         
         leave.save()
         
@@ -1842,11 +1867,15 @@ def approve_leave_api(request, leave_id):
         leave.tl_rejected = False
         leave.tl_voted = True
         leave.tl_acted_at = timezone.now()
+        if tl_remark:
+            leave.tl_remark = tl_remark
     elif role_name == "HR":
         leave.hr_approved = True
         leave.hr_rejected = False
         leave.hr_voted = True
         leave.hr_acted_at = timezone.now()
+        if hr_remark:
+            leave.hr_remark = hr_remark
     else:
         return _forbidden("You don't have voting rights.")
 
@@ -1985,6 +2014,10 @@ def reject_leave_api(request, leave_id):
     role_name = get_user_role(voter)
     is_admin = request.user.is_superuser or role_name == "Admin"
     old_status = leave.final_status
+    generic_remark = _request_value(request, "remarks", "").strip()
+    hr_remark = _request_value(request, "hr_remark", "").strip() or generic_remark
+    tl_remark = _request_value(request, "tl_remark", "").strip() or generic_remark
+    manager_remark = _request_value(request, "manager_remark", "").strip() or generic_remark
 
     # Admin override
     if is_admin:
@@ -2010,6 +2043,8 @@ def reject_leave_api(request, leave_id):
         leave.manager_rejected = True
         leave.manager_voted = True
         leave.manager_acted_at = timezone.now()
+        if manager_remark:
+            leave.manager_remark = manager_remark
         
         # Increment rejection count
         if not getattr(leave, 'manager_already_counted_reject', False):
@@ -2068,11 +2103,15 @@ def reject_leave_api(request, leave_id):
         leave.tl_approved = False
         leave.tl_voted = True
         leave.tl_acted_at = timezone.now()
+        if tl_remark:
+            leave.tl_remark = tl_remark
     elif role_name == "HR":
         leave.hr_rejected = True
         leave.hr_approved = False
         leave.hr_voted = True
         leave.hr_acted_at = timezone.now()
+        if hr_remark:
+            leave.hr_remark = hr_remark
     else:
         return _forbidden("You don't have voting rights.")
 
@@ -2191,11 +2230,11 @@ def leave_detail_api(request, leave_id):
     for approver in leave.approvers.all():
         r = get_user_role(approver)
         vote_map = {
-            "TL": (leave.tl_approved, leave.tl_rejected, leave.tl_acted_at),
-            "HR": (leave.hr_approved, leave.hr_rejected, leave.hr_acted_at),
-            "Manager": (leave.manager_approved, leave.manager_rejected, leave.manager_acted_at),
+            "TL": (leave.tl_approved, leave.tl_rejected, leave.tl_acted_at, leave.tl_remark),
+            "HR": (leave.hr_approved, leave.hr_rejected, leave.hr_acted_at, leave.hr_remark),
+            "Manager": (leave.manager_approved, leave.manager_rejected, leave.manager_acted_at, leave.manager_remark),
         }
-        approved, rejected, acted_at = vote_map.get(r, (False, False, None))
+        approved, rejected, acted_at, remark = vote_map.get(r, (False, False, None, ""))
         vote = "approved" if approved else ("rejected" if rejected else "pending")
         approvers_info.append({
             "name": approver.get_full_name() or approver.username,
@@ -2203,6 +2242,7 @@ def leave_detail_api(request, leave_id):
             "role": r,
             "vote": vote,
             "acted_at": acted_at.isoformat() if acted_at else None,
+            "remarks": remark or "",
             "initials": (
                 (approver.first_name[:1] + approver.last_name[:1]).upper()
                 if approver.first_name and approver.last_name
@@ -4605,7 +4645,13 @@ def _render_template_page(request, template_name, extra_context=None):
         context["notification_count"] = unread
     if extra_context:
         context.update(extra_context)
-    return render(request, template_name, context)
+    response = render(request, template_name, context)
+    if request.user.is_authenticated:
+        # Prevent protected HTML pages from being reused from browser cache after logout.
+        response["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        response["Pragma"] = "no-cache"
+        response["Expires"] = "0"
+    return response
 
 
 def _wants_json_response(request):
@@ -4617,6 +4663,7 @@ def _wants_json_response(request):
 
 
 @login_required
+@never_cache
 def unified_dashboard(request):
     role = get_user_role(request.user)
     if role == "Admin":
@@ -4631,6 +4678,7 @@ def unified_dashboard(request):
 
 
 @login_required
+@never_cache
 def employee_dashboard(request):
     print(request)
     return _render_template_page(request, "employee_dashboard.html")
@@ -4641,6 +4689,7 @@ def employee_dashboard(request):
 #     return _render_template_page(request, "tl_dashboard.html")
 
 @login_required
+@never_cache
 @role_required(["TL"])
 def tl_dashboard(request, tab=None):
     """Unified TL Dashboard view"""
@@ -4771,11 +4820,13 @@ def tl_dashboard(request, tab=None):
     })
 
 @login_required
+@never_cache
 def hr_dashboard(request):
     return _render_template_page(request, "hr_dashboard.html")
 
 
 @login_required
+@never_cache
 @role_required(["Manager"])
 def manager_dashboard(request):
     if _wants_json_response(request):
@@ -4942,6 +4993,7 @@ def manager_leave_balance(request):
 
 
 @login_required
+@never_cache
 def admin_dashboard_page(request):
     wants_json = (
         request.GET.get("format") == "json"
@@ -6600,6 +6652,7 @@ def leave_detail_page(request, leave_id):
             'role': 'Team Leader',
             'vote': 'approved' if leave.tl_approved else ('rejected' if leave.tl_rejected else 'pending'),
             'acted_at': leave.tl_acted_at.strftime('%d %b %Y, %I:%M %p') if leave.tl_acted_at else None,
+            'remarks': leave.tl_remark or '',
         })
     
     # HR
@@ -6616,6 +6669,7 @@ def leave_detail_page(request, leave_id):
             'role': 'HR',
             'vote': 'approved' if leave.hr_approved else ('rejected' if leave.hr_rejected else 'pending'),
             'acted_at': leave.hr_acted_at.strftime('%d %b %Y, %I:%M %p') if leave.hr_acted_at else None,
+            'remarks': leave.hr_remark or '',
         })
     
     # Manager
@@ -6632,6 +6686,7 @@ def leave_detail_page(request, leave_id):
             'role': 'Manager',
             'vote': 'approved' if leave.manager_approved else ('rejected' if leave.manager_rejected else 'pending'),
             'acted_at': leave.manager_acted_at.strftime('%d %b %Y, %I:%M %p') if leave.manager_acted_at else None,
+            'remarks': leave.manager_remark or '',
         })
     
     # Check if current user can approve/reject
@@ -6683,7 +6738,7 @@ def leave_detail_page(request, leave_id):
                         leave.tl_rejected = True
                     leave.tl_voted = True
                     leave.tl_acted_at = timezone.now()
-                    leave.tl_remarks = remarks
+                    leave.tl_remark = remarks
                     
                 elif role_name == 'Manager':
                     if action == 'approve':
@@ -6694,7 +6749,7 @@ def leave_detail_page(request, leave_id):
                         leave.manager_rejected = True
                     leave.manager_voted = True
                     leave.manager_acted_at = timezone.now()
-                    leave.manager_remarks = remarks
+                    leave.manager_remark = remarks
                     
                 elif role_name == 'HR':
                     if action == 'approve':
@@ -6705,7 +6760,7 @@ def leave_detail_page(request, leave_id):
                         leave.hr_rejected = True
                     leave.hr_voted = True
                     leave.hr_acted_at = timezone.now()
-                    leave.hr_remarks = remarks
+                    leave.hr_remark = remarks
                 
                 # Keep vote counters in sync with the action performed.
                 if action == 'approve':
@@ -6748,7 +6803,7 @@ def leave_detail_page(request, leave_id):
                         'role': 'Team Leader',
                         'vote': 'approved' if leave.tl_approved else ('rejected' if leave.tl_rejected else 'pending'),
                         'acted_at': leave.tl_acted_at.strftime('%d %b %Y, %I:%M %p') if leave.tl_acted_at else None,
-                        'remarks': getattr(leave, 'tl_remarks', ''),
+                        'remarks': leave.tl_remark or '',
                     })
                 
                 # Refresh HR data
@@ -6759,7 +6814,7 @@ def leave_detail_page(request, leave_id):
                         'role': 'HR',
                         'vote': 'approved' if leave.hr_approved else ('rejected' if leave.hr_rejected else 'pending'),
                         'acted_at': leave.hr_acted_at.strftime('%d %b %Y, %I:%M %p') if leave.hr_acted_at else None,
-                        'remarks': getattr(leave, 'hr_remarks', ''),
+                        'remarks': leave.hr_remark or '',
                     })
                 
                 # Refresh Manager data
@@ -6770,7 +6825,7 @@ def leave_detail_page(request, leave_id):
                         'role': 'Manager',
                         'vote': 'approved' if leave.manager_approved else ('rejected' if leave.manager_rejected else 'pending'),
                         'acted_at': leave.manager_acted_at.strftime('%d %b %Y, %I:%M %p') if leave.manager_acted_at else None,
-                        'remarks': getattr(leave, 'manager_remarks', ''),
+                        'remarks': leave.manager_remark or '',
                     })
                 
                 return JsonResponse({
@@ -6945,7 +7000,7 @@ def _upsert_default_leave_type(code, quota, leave_year_start_month, user, monthl
 
 @login_required
 @role_required(["Admin"])
-def admin_academic_settings(request):
+def admin_settings(request):
     # Permission check
     from users.rbac import user_has_permission
     if not (request.user.is_superuser or user_has_permission(request.user, "settings_view")):
@@ -7034,23 +7089,23 @@ def admin_academic_settings(request):
         "active_holiday_count": Holiday.objects.filter(is_active=True).count() if HOLIDAYS_ENABLED else 0,
     }
 
-    return _render_template_page(request, "admin_academic_settings.html", context)
+    return _render_template_page(request, "admin_settings.html", context)
 
 
 @login_required
 @role_required(["Admin"])
-def admin_academic_settings_save(request):
+def admin_settings_save(request):
     # Permission check
     from users.rbac import user_has_permission
     if not (request.user.is_superuser or user_has_permission(request.user, "settings_update")):
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             return JsonResponse({"success": False, "error": "Access denied."}, status=403)
-        return redirect("admin_academic_settings")
+        return redirect("admin_settings")
     
     if request.method != "POST":
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             return JsonResponse({"success": False, "error": "Method not allowed."}, status=405)
-        return redirect("admin_academic_settings")
+        return redirect("admin_settings")
 
     settings_obj = AcademicLeaveSettings.get_solo()
 
@@ -7160,4 +7215,4 @@ def admin_academic_settings_save(request):
     messages.success(request, "Academic/Leave settings updated successfully.")
     if sync_message:
         messages.info(request, sync_message)
-    return redirect("admin_academic_settings")
+    return redirect("admin_settings")

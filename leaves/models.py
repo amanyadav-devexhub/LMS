@@ -209,6 +209,24 @@ class LeaveRequest(models.Model):
         help_text="When an attached document was verified by approver/admin"
     )
 
+    hr_remark = models.TextField(
+        blank=True,
+        default="",
+        help_text="Optional remark provided by HR during approval/rejection."
+    )
+
+    tl_remark = models.TextField(
+        blank=True,
+        default="",
+        help_text="Optional remark provided by Team Lead during approval/rejection."
+    )
+
+    manager_remark = models.TextField(
+        blank=True,
+        default="",
+        help_text="Optional remark provided by Manager during approval/rejection."
+    )
+
     @property
     def leave_duration_days(self):
         if self.duration == "FULL":
@@ -825,7 +843,7 @@ class AcademicLeaveSettings(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name="updated_academic_settings",
+        related_name="updated_settings",
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
