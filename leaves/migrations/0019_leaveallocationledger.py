@@ -8,7 +8,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('leaves', '0018_academicleavesettings_annual_leave_quota_and_more'),
+       ('leaves', '0016_remove_legacy_leave_balance'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 

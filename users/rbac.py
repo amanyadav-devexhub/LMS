@@ -94,7 +94,7 @@ LEGACY_MATRIX_ACTIONS = {
         "can_edit": ["leave_policy_update", "leave_balance_update"],
         "can_delete": ["leave_policy_delete"],
     },
-    "academic_settings": {
+    "settings": {
         "can_view": ["settings_view"],
         "can_create": [],
         "can_edit": ["settings_update"],
