@@ -647,8 +647,8 @@
             {% endif %}
 
             {% if rbac_flags.settings_view %}
-            <a href="{% url 'admin_academic_settings' %}"
-            class="nav-item {% if request.resolver_match.url_name == 'admin_academic_settings' %}active{% endif %}">
+            <a href="{% url 'admin_settings' %}"
+            class="nav-item {% if request.resolver_match.url_name == 'admin_settings' %}active{% endif %}">
                 <span class="nav-icon"><i class="fa-solid fa-gear"></i></span>
                 <span class="nav-text">Settings</span>
             </a>
@@ -735,7 +735,7 @@
             </a>
             {% endif %}
             {% if rbac_flags.settings_view %}
-            <a href="{% url 'admin_academic_settings' %}" class="nav-item {% if request.resolver_match.url_name == 'admin_academic_settings' %}active{% endif %}">
+            <a href="{% url 'admin_settings' %}" class="nav-item {% if request.resolver_match.url_name == 'admin_settings' %}active{% endif %}">
                 <span class="nav-icon"><i class="fa-solid fa-gear"></i></span>
                 <span class="nav-text">Settings</span>
             </a>
@@ -1330,7 +1330,7 @@ function bindSidebarJsonPreflight() {
         { page: "{% url 'hr_new_joiners' %}", api: "{% url 'api_hr_new_joiners' %}" },
         { page: "{% url 'hr_my_leave_balance' %}", api: "{% url 'api_hr_my_balance' %}" },
         { page: "{% url 'holiday_list' %}", api: "{% url 'api_holiday_list' %}" },
-        { page: "{% url 'admin_academic_settings' %}", api: "{% url 'admin_academic_settings' %}?format=json" },
+        { page: "{% url 'admin_settings' %}", api: "{% url 'admin_settings' %}?format=json" },
         {% endif %}
         {% if sidebar_role == 'Manager' %}
         { page: "{% url 'dashboard' %}", api: "{% url 'api_manager_dashboard' %}" },

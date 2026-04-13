@@ -144,10 +144,21 @@ def login_view(request):
 
 
 def user_logout(request):
-    # logout(request)           # Removed: requires SessionMiddleware
+    refresh_token = request.COOKIES.get('refresh_token')
+
+    if refresh_token:
+        try:
+            token = RefreshToken(refresh_token)
+            token.blacklist()   # 🔥 invalidate token
+        except Exception:
+            pass
+
     response = redirect("login")
+
+    # Delete cookies
     response.delete_cookie('access_token')
     response.delete_cookie('refresh_token')
+
     return response
 
 
@@ -1411,7 +1422,7 @@ MODULES = [
     ('leaves',        'Leave Management',  'fa-calendar-days'),
     ('leave_type',    'Leave Type',        'fa-receipt'),
     ('leave_policy',  'Leave Policy/Balance', 'fa-sliders'),
-    ('academic_settings', 'Academic Settings', 'fa-cog'),
+    ('settings', 'Settings', 'fa-cog'),
     ('holiday',       'Holidays',          'fa-calendar-check'),
     ('employees',     'Employees',         'fa-users'),
     ('departments',   'Departments',       'fa-building'),
@@ -1433,18 +1444,18 @@ ROLE_DEFAULTS = {
 MODULE_ROLE_RESTRICTIONS = {
     ('HR',       'leave_type'): dict(can_view=True,  can_create=True,  can_edit=True,  can_delete=False),
     ('HR',       'leave_policy'): dict(can_view=True,  can_create=False, can_edit=False, can_delete=False),
-    ('HR',       'academic_settings'): dict(can_view=True,  can_create=False, can_edit=False, can_delete=False),
+    ('HR',       'settings'): dict(can_view=True,  can_create=False, can_edit=False, can_delete=False),
     ('HR',       'holiday'): dict(can_view=True,  can_create=True,  can_edit=True,  can_delete=True),
     ('HR',       'departments'):  dict(can_view=False, can_create=False, can_edit=False, can_delete=False),
     ('TL',       'leave_type'): dict(can_view=False, can_create=False, can_edit=False, can_delete=False),
     ('TL',       'leave_policy'): dict(can_view=False, can_create=False, can_edit=False, can_delete=False),
-    ('TL',       'academic_settings'): dict(can_view=False, can_create=False, can_edit=False, can_delete=False),
+    ('TL',       'settings'): dict(can_view=False, can_create=False, can_edit=False, can_delete=False),
     ('TL',       'holiday'): dict(can_view=True,  can_create=False, can_edit=False, can_delete=False),
     ('TL',       'departments'):  dict(can_view=False, can_create=False, can_edit=False, can_delete=False),
     ('TL',       'salary'):       dict(can_view=False, can_create=False, can_edit=False, can_delete=False),
     ('Employee', 'leave_type'): dict(can_view=False, can_create=False, can_edit=False, can_delete=False),
     ('Employee', 'leave_policy'): dict(can_view=False, can_create=False, can_edit=False, can_delete=False),
-    ('Employee', 'academic_settings'): dict(can_view=False, can_create=False, can_edit=False, can_delete=False),
+    ('Employee', 'settings'): dict(can_view=False, can_create=False, can_edit=False, can_delete=False),
     ('Employee', 'holiday'): dict(can_view=True,  can_create=False, can_edit=False, can_delete=False),
     ('Employee', 'departments'):  dict(can_view=False, can_create=False, can_edit=False, can_delete=False),
     ('Employee', 'salary'):       dict(can_view=False, can_create=False, can_edit=False, can_delete=False),
@@ -1452,7 +1463,7 @@ MODULE_ROLE_RESTRICTIONS = {
     ('Employee', 'employees'):    dict(can_view=False, can_create=False, can_edit=False, can_delete=False),
     ('Manager',  'leave_type'): dict(can_view=False, can_create=False, can_edit=False, can_delete=False),
     ('Manager',  'leave_policy'): dict(can_view=False, can_create=False, can_edit=False, can_delete=False),
-    ('Manager',  'academic_settings'): dict(can_view=False, can_create=False, can_edit=False, can_delete=False),
+    ('Manager',  'settings'): dict(can_view=False, can_create=False, can_edit=False, can_delete=False),
     ('Manager',  'holiday'): dict(can_view=True,  can_create=False, can_edit=False, can_delete=False),
     ('Manager',  'departments'):  dict(can_view=True,  can_create=False, can_edit=True,  can_delete=False),
 }

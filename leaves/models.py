@@ -825,7 +825,7 @@ class AcademicLeaveSettings(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name="updated_academic_settings",
+        related_name="updated_settings",
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

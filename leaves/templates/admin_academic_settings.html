@@ -529,7 +529,7 @@ function saveSettings() {
     };
     
     $.ajax({
-        url: "{% url 'admin_academic_settings_save' %}",
+        url: "{% url 'admin_settings_save' %}",
         type: 'POST',
         data: formData,
         dataType: 'json',

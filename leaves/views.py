@@ -6945,7 +6945,7 @@ def _upsert_default_leave_type(code, quota, leave_year_start_month, user, monthl
 
 @login_required
 @role_required(["Admin"])
-def admin_academic_settings(request):
+def admin_settings(request):
     # Permission check
     from users.rbac import user_has_permission
     if not (request.user.is_superuser or user_has_permission(request.user, "settings_view")):
@@ -7034,23 +7034,23 @@ def admin_academic_settings(request):
         "active_holiday_count": Holiday.objects.filter(is_active=True).count() if HOLIDAYS_ENABLED else 0,
     }
 
-    return _render_template_page(request, "admin_academic_settings.html", context)
+    return _render_template_page(request, "admin_settings.html", context)
 
 
 @login_required
 @role_required(["Admin"])
-def admin_academic_settings_save(request):
+def admin_settings_save(request):
     # Permission check
     from users.rbac import user_has_permission
     if not (request.user.is_superuser or user_has_permission(request.user, "settings_update")):
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             return JsonResponse({"success": False, "error": "Access denied."}, status=403)
-        return redirect("admin_academic_settings")
+        return redirect("admin_settings")
     
     if request.method != "POST":
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             return JsonResponse({"success": False, "error": "Method not allowed."}, status=405)
-        return redirect("admin_academic_settings")
+        return redirect("admin_settings")
 
     settings_obj = AcademicLeaveSettings.get_solo()
 
@@ -7160,4 +7160,4 @@ def admin_academic_settings_save(request):
     messages.success(request, "Academic/Leave settings updated successfully.")
     if sync_message:
         messages.info(request, sync_message)
-    return redirect("admin_academic_settings")
+    return redirect("admin_settings")
