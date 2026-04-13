@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('leaves', '0020_academicleavesettings_show_only_monthly_in_balance'),
+        ('leaves', '0019_leaveallocationledger'),
     ]
 
     operations = [

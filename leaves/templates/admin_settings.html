@@ -1,6 +1,6 @@
 {% extends "base.html" %}
-{% block title %}Academic & Leave Settings — LeaveSetu{% endblock %}
-{% block page_title %}Academic & Leave Settings{% endblock %}
+{% block title %}Leave Settings — LeaveSetu{% endblock %}
+{% block page_title %}Leave Settings{% endblock %}
 
 {% block extra_head %}
 <style>
@@ -258,7 +258,7 @@
 {% block content %}
 <div class="settings-wrap">
   <div class="settings-banner">
-    <h2>Academic & Leave Settings</h2>
+    <h2>Leave Settings</h2>
     <p>Configure leave-year month, annual leave quota, monthly accrual, attendance rules, and holiday calendar access from one place.</p>
   </div>
 
@@ -529,7 +529,7 @@ function saveSettings() {
     };
     
     $.ajax({
-        url: "{% url 'admin_academic_settings_save' %}",
+        url: "{% url 'admin_settings_save' %}",
         type: 'POST',
         data: formData,
         dataType: 'json',

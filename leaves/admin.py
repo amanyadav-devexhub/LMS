@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import AcademicLeaveSettings, Holiday, LeaveRequest, Notification, SalaryDeduction
+from .models import LeaveSettings, Holiday, LeaveRequest, Notification, SalaryDeduction
 
 try:
     from .models import EmployeeLeaveAllocation, LeavePolicy, LeaveTypeConfig
@@ -242,8 +242,8 @@ class NotificationAdmin(admin.ModelAdmin):
     ordering = ("-created_at",)
 
 
-@admin.register(AcademicLeaveSettings)
-class AcademicLeaveSettingsAdmin(admin.ModelAdmin):
+@admin.register(LeaveSettings)
+class LeaveSettingsAdmin(admin.ModelAdmin):
     list_display = (
         "leave_year_start_month",
         "default_casual_quota",
