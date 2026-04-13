@@ -20,6 +20,7 @@ urlpatterns = [
     # path('profile/',           views.dashboard_template_view, name='profile_dashboard'),
     # path('profile/<int:user_id>/', views.dashboard_template_view, name='profile_detail'),
     path('profile/', views.profile_api, name='profile_dashboard'),
+    path('profile/<int:user_id>/', views.profile_api, name='profile_detail'),
 
     # ── Profile form POST handler ──
     path('profile/update/',    views.profile_api,          name='update_profile'),

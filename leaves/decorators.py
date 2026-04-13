@@ -2,7 +2,8 @@
 from django.shortcuts import redirect
 from django.contrib import messages
 from functools import wraps
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
+from django.urls import reverse, NoReverseMatch
 
 from users.rbac import log_access_attempt, user_has_permission
 
@@ -130,6 +131,13 @@ def _auth_failure_response(request, message, status, redirect_to="dashboard"):
         return JsonResponse({"success": False, "error": message}, status=status)
     if status >= 403:
         messages.error(request, message)
+    # Avoid redirect loops (e.g., dashboard -> dashboard) when permission is missing.
+    try:
+        target_url = reverse(redirect_to)
+    except NoReverseMatch:
+        target_url = None
+    if target_url and request.path == target_url:
+        return HttpResponse(message, status=status)
     return redirect(redirect_to)
 
 
