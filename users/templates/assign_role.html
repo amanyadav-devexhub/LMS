@@ -142,6 +142,27 @@
     align-items: center;
     gap: 10px;
 }
+.user-actions {
+    margin-top: 6px;
+}
+.profile-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--aqua-deep);
+    text-decoration: none;
+    border: 1px solid var(--border);
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: var(--surface2);
+    transition: all 0.18s;
+}
+.profile-link:hover {
+    border-color: var(--aqua);
+    color: var(--aqua-deep);
+}
 
 .total-badge {
     background: var(--aqua-glass);
@@ -533,6 +554,13 @@ table.assign-table tbody tr:hover td {
                                 {% endif %}
                             </div>
                             <div class="user-email">{{ user.email }}</div>
+                            {% if can_profile_view %}
+                            <div class="user-actions">
+                                <a class="profile-link" href="{% url 'profile_detail' user.id %}">
+                                    <i class="fa-solid fa-pen-to-square"></i> Edit Profile
+                                </a>
+                            </div>
+                            {% endif %}
                         </div>
                     </div>
                 </td>
@@ -685,6 +713,8 @@ const roleData = {
         {% endfor %}
     ]
 };
+const canProfileView = {{ can_profile_view|yesno:"true,false" }};
+const profileBaseUrl = "{% url 'profile_dashboard' %}";
 
 // Initialize event listeners
 $(document).ready(function() {
@@ -822,6 +852,9 @@ function updateTable(data) {
     data.users.forEach((user, index) => {
         const rowNumber = startIndex + index;
         const initials = (user.full_name || 'U').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+        const profileActionHtml = canProfileView
+            ? `<div class="user-actions"><a class="profile-link" href="${profileBaseUrl}${user.id}/"><i class="fa-solid fa-pen-to-square"></i> Edit Profile</a></div>`
+            : '';
         
         // Department HTML
         const deptHtml = user.department 
@@ -864,6 +897,7 @@ function updateTable(data) {
                                 ${user.is_senior ? '<span style="font-size:10px; color:var(--aqua); margin-left:4px;"><i class="fa-solid fa-star"></i> Senior</span>' : ''}
                             </div>
                             <div class="user-email">${escapeHtml(user.email)}</div>
+                            ${profileActionHtml}
                         </div>
                     </div>
                 </td>

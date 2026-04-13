@@ -5033,114 +5033,120 @@ def hr_pending_leaves(request):
 @role_required(["HR", "Admin"])
 def hr_leave_analytics(request):
     """Render leave analytics page with data from the API"""
+    
+    # ✅ FOR AJAX REQUESTS - Return JSON directly
     if _wants_json_response(request):
         return hr_leave_analytics_api(request)
-
-    try:
-        api_response = hr_leave_analytics_api(request)
-        data = json.loads(api_response.content.decode("utf-8"))
-        
-        if data.get("success"):
-            analytics = data
-            
-            # Prepare context for template
-            context = {
-                "profile": _build_profile_context(request.user),
-                "pending_count": LeaveRequest.objects.filter(status="PENDING").count(),
-                "current_year": analytics.get("current_year"),
-                
-                # KPI data
-                "total_this_year": analytics.get("totals", {}).get("total_this_year", 0),
-                "approved_count": analytics.get("totals", {}).get("approved", 0),
-                "rejected_count": analytics.get("totals", {}).get("rejected", 0),
-                "pending_total": analytics.get("totals", {}).get("pending", 0),
-                "on_leave_today": analytics.get("totals", {}).get("on_leave_today", 0),
-                "this_month_total": analytics.get("totals", {}).get("this_month_total", 0),
-                "this_month_approved": analytics.get("totals", {}).get("this_month_approved", 0),
-                "approval_rate": analytics.get("totals", {}).get("approval_rate", 0),
-                
-                # Chart data for both Django-rendered markup and JavaScript
-                "monthly_all": analytics.get("monthly_chart", {}).get("all", []),
-                "monthly_approved": analytics.get("monthly_chart", {}).get("approved", []),
-                "monthly_rejected": analytics.get("monthly_chart", {}).get("rejected", []),
-                "monthly_pending": analytics.get("monthly_chart", {}).get("pending", []),
-                "type_labels": analytics.get("type_chart", {}).get("labels", []),
-                "type_counts": analytics.get("type_chart", {}).get("counts", []),
-                "type_colors": analytics.get("type_chart", {}).get("colors", []),
-                "dept_labels": analytics.get("department_chart", {}).get("labels", []),
-                "dept_counts": analytics.get("department_chart", {}).get("counts", []),
-                "week_labels": analytics.get("weekly_chart", {}).get("labels", []),
-                "week_counts": analytics.get("weekly_chart", {}).get("counts", []),
-                "monthly_all_json": json.dumps(analytics.get("monthly_chart", {}).get("all", [])),
-                "monthly_approved_json": json.dumps(analytics.get("monthly_chart", {}).get("approved", [])),
-                "monthly_rejected_json": json.dumps(analytics.get("monthly_chart", {}).get("rejected", [])),
-                "monthly_pending_json": json.dumps(analytics.get("monthly_chart", {}).get("pending", [])),
-                "type_labels_json": json.dumps(analytics.get("type_chart", {}).get("labels", [])),
-                "type_counts_json": json.dumps(analytics.get("type_chart", {}).get("counts", [])),
-                "type_colors_json": json.dumps(analytics.get("type_chart", {}).get("colors", [])),
-                "dept_labels_json": json.dumps(analytics.get("department_chart", {}).get("labels", [])),
-                "dept_counts_json": json.dumps(analytics.get("department_chart", {}).get("counts", [])),
-                "week_labels_json": json.dumps(analytics.get("weekly_chart", {}).get("labels", [])),
-                "week_counts_json": json.dumps(analytics.get("weekly_chart", {}).get("counts", [])),
-                "type_stats": [
-                    {
-                        "label": label,
-                        "count": count,
-                        "color": color,
-                    }
-                    for label, count, color in zip(
-                        analytics.get("type_chart", {}).get("labels", []),
-                        analytics.get("type_chart", {}).get("counts", []),
-                        analytics.get("type_chart", {}).get("colors", []),
-                    )
-                ],
-                
-                # Top takers data
-                "top_takers": analytics.get("top_takers", []),
-            }
-            return render(request, "hr_leave_analytics.html", context)
-    except Exception as e:
-        pass
     
-    # Fallback: just render empty template
-    empty_chart_context = {
-        "current_year": timezone.now().year,
-        "pending_count": 0,
-        "total_this_year": 0,
-        "approved_count": 0,
-        "rejected_count": 0,
-        "pending_total": 0,
-        "on_leave_today": 0,
-        "this_month_total": 0,
-        "this_month_approved": 0,
-        "approval_rate": 0,
-        "monthly_all": [],
-        "monthly_approved": [],
-        "monthly_rejected": [],
-        "monthly_pending": [],
-        "type_labels": [],
-        "type_counts": [],
-        "type_colors": [],
-        "dept_labels": [],
-        "dept_counts": [],
-        "week_labels": [],
-        "week_counts": [],
-        "monthly_all_json": "[]",
-        "monthly_approved_json": "[]",
-        "monthly_rejected_json": "[]",
-        "monthly_pending_json": "[]",
-        "type_labels_json": "[]",
-        "type_counts_json": "[]",
-        "type_colors_json": "[]",
-        "dept_labels_json": "[]",
-        "dept_counts_json": "[]",
-        "week_labels_json": "[]",
-        "week_counts_json": "[]",
-        "type_stats": [],
-        "top_takers": [],
-    }
-    return _render_template_page(request, "hr_leave_analytics.html", empty_chart_context)
-
+    # ✅ FOR HTML REQUESTS - Render the template with data
+    try:
+        # Get the JSON data from the API
+        api_response = hr_leave_analytics_api(request)
+        
+        # Parse the JSON response
+        if hasattr(api_response, 'content'):
+            data = json.loads(api_response.content.decode("utf-8"))
+        else:
+            data = api_response
+        
+        # Prepare context for template
+        context = {
+            "profile": _build_profile_context(request.user),
+            "pending_count": LeaveRequest.objects.filter(status="PENDING").count(),
+            "current_year": data.get("current_year", timezone.now().year),
+            
+            # KPI data
+            "total_this_year": data.get("totals", {}).get("total_this_year", 0),
+            "approved_count": data.get("totals", {}).get("approved", 0),
+            "rejected_count": data.get("totals", {}).get("rejected", 0),
+            "pending_total": data.get("totals", {}).get("pending", 0),
+            "on_leave_today": data.get("totals", {}).get("on_leave_today", 0),
+            "this_month_total": data.get("totals", {}).get("this_month_total", 0),
+            "this_month_approved": data.get("totals", {}).get("this_month_approved", 0),
+            "approval_rate": data.get("totals", {}).get("approval_rate", 0),
+            
+            # Chart data
+            "monthly_all": data.get("monthly_chart", {}).get("all", []),
+            "monthly_approved": data.get("monthly_chart", {}).get("approved", []),
+            "monthly_rejected": data.get("monthly_chart", {}).get("rejected", []),
+            "monthly_pending": data.get("monthly_chart", {}).get("pending", []),
+            "type_labels": data.get("type_chart", {}).get("labels", []),
+            "type_counts": data.get("type_chart", {}).get("counts", []),
+            "type_colors": data.get("type_chart", {}).get("colors", []),
+            "dept_labels": data.get("department_chart", {}).get("labels", []),
+            "dept_counts": data.get("department_chart", {}).get("counts", []),
+            "week_labels": data.get("weekly_chart", {}).get("labels", []),
+            "week_counts": data.get("weekly_chart", {}).get("counts", []),
+            
+            # JSON strings for JavaScript
+            "monthly_all_json": json.dumps(data.get("monthly_chart", {}).get("all", [])),
+            "monthly_approved_json": json.dumps(data.get("monthly_chart", {}).get("approved", [])),
+            "monthly_rejected_json": json.dumps(data.get("monthly_chart", {}).get("rejected", [])),
+            "monthly_pending_json": json.dumps(data.get("monthly_chart", {}).get("pending", [])),
+            "type_labels_json": json.dumps(data.get("type_chart", {}).get("labels", [])),
+            "type_counts_json": json.dumps(data.get("type_chart", {}).get("counts", [])),
+            "type_colors_json": json.dumps(data.get("type_chart", {}).get("colors", [])),
+            "dept_labels_json": json.dumps(data.get("department_chart", {}).get("labels", [])),
+            "dept_counts_json": json.dumps(data.get("department_chart", {}).get("counts", [])),
+            "week_labels_json": json.dumps(data.get("weekly_chart", {}).get("labels", [])),
+            "week_counts_json": json.dumps(data.get("weekly_chart", {}).get("counts", [])),
+            
+            "type_stats": [
+                {
+                    "label": label,
+                    "count": count,
+                    "color": color,
+                }
+                for label, count, color in zip(
+                    data.get("type_chart", {}).get("labels", []),
+                    data.get("type_chart", {}).get("counts", []),
+                    data.get("type_chart", {}).get("colors", []),
+                )
+            ],
+            "top_takers": data.get("top_takers", []),
+        }
+        return render(request, "hr_leave_analytics.html", context)
+        
+    except Exception as e:
+        # Fallback: render empty template
+        empty_chart_context = {
+            "current_year": timezone.now().year,
+            "pending_count": 0,
+            "total_this_year": 0,
+            "approved_count": 0,
+            "rejected_count": 0,
+            "pending_total": 0,
+            "on_leave_today": 0,
+            "this_month_total": 0,
+            "this_month_approved": 0,
+            "approval_rate": 0,
+            "monthly_all": [],
+            "monthly_approved": [],
+            "monthly_rejected": [],
+            "monthly_pending": [],
+            "type_labels": [],
+            "type_counts": [],
+            "type_colors": [],
+            "dept_labels": [],
+            "dept_counts": [],
+            "week_labels": [],
+            "week_counts": [],
+            "monthly_all_json": "[]",
+            "monthly_approved_json": "[]",
+            "monthly_rejected_json": "[]",
+            "monthly_pending_json": "[]",
+            "type_labels_json": "[]",
+            "type_counts_json": "[]",
+            "type_colors_json": "[]",
+            "dept_labels_json": "[]",
+            "dept_counts_json": "[]",
+            "week_labels_json": "[]",
+            "week_counts_json": "[]",
+            "type_stats": [],
+            "top_takers": [],
+        }
+        return _render_template_page(request, "hr_leave_analytics.html", empty_chart_context)
+             
 
 @login_required
 def hr_on_leave_today(request):
@@ -5468,14 +5474,13 @@ def holiday_list(request):
 
     if not (request.user.is_superuser or user_has_permission(request.user, "holiday_view")):
         if _wants_json_response(request):
-            return _err("Access denied. You don't have permission to view holidays.", status=403)
+            return JsonResponse({"success": False, "error": "Access denied. You don't have permission to view holidays."}, status=403)
         messages.error(request, "Access denied.")
         return redirect("admin_dashboard")
 
-    if _wants_json_response(request):
-        return holiday_list_api(request)
-
     if not HOLIDAYS_ENABLED:
+        if _wants_json_response(request):
+            return JsonResponse({"success": False, "error": "Holiday module not available."}, status=503)
         return _render_template_page(request, "holiday_list.html", {
             "current_year": timezone.now().year,
             "current_month": "",
@@ -5552,9 +5557,76 @@ def holiday_list(request):
     years = [date(y, 1, 1) for y in range(today.year - 2, today.year + 3)]
     months = [(i, month_name[i]) for i in range(1, 13)]
 
+    # ✅ RETURN JSON FOR AJAX REQUESTS
+    if _wants_json_response(request):
+        # Pagination for holiday list
+        page = int(request.GET.get('page', 1))
+        per_page = int(request.GET.get('per_page', 20))
+        
+        paginator = Paginator(holidays, per_page)
+        page_obj = paginator.get_page(page)
+        
+        holidays_data = []
+        for h in page_obj:
+            holidays_data.append({
+                "id": h.id,
+                "name": h.name,
+                "description": h.description,
+                "date": h.date.isoformat(),
+                "end_date": h.end_date.isoformat() if h.end_date else None,
+                "holiday_type": h.holiday_type,
+                "holiday_type_display": h.get_holiday_type_display(),
+                "is_half_day": h.is_half_day,
+                "half_day_type": h.half_day_type,
+                "is_recurring": h.is_recurring,
+                "is_active": h.is_active,
+                "duration": h.duration,
+                "display_date": h.display_date,
+                "icon": icon_map.get(h.holiday_type, "fa-star"),
+                "color_class": color_map.get(h.holiday_type, "badge-info"),
+            })
+        
+        upcoming_data = [
+            {
+                "id": h.id,
+                "name": h.name,
+                "date": h.date.isoformat(),
+                "holiday_type": h.holiday_type,
+                "holiday_type_display": h.get_holiday_type_display(),
+                "display_date": h.display_date,
+            }
+            for h in upcoming
+        ]
+        
+        return JsonResponse({
+            "success": True,
+            "current_year": current_year,
+            "total_holidays": holidays.count(),
+            "upcoming": upcoming_data,
+            "calendar": calendar_data,
+            "holidays": holidays_data,
+            "pagination": {
+                "page": page_obj.number,
+                "num_pages": paginator.num_pages,
+                "total_count": paginator.count,
+                "has_next": page_obj.has_next(),
+                "has_previous": page_obj.has_previous(),
+            },
+            "years": [y.year for y in years],
+            "months": months,
+            "holiday_types": list(Holiday.HOLIDAY_TYPES),
+            "filters": {
+                "year": current_year,
+                "month": current_month,
+                "type": current_type,
+                "search": search_query,
+            }
+        })
+
+    # ✅ RETURN HTML FOR NORMAL BROWSER REQUESTS
     return _render_template_page(request, "holiday_list.html", {
         "current_year": current_year,
-        "current_month": str(current_month),
+        "current_month": current_month,
         "current_type": current_type,
         "search_query": search_query,
         "years": years,
@@ -5565,6 +5637,7 @@ def holiday_list(request):
         "upcoming": upcoming,
         "calendar_data": calendar_data,
     })
+
 
 @login_required
 def holiday_create(request):
@@ -5598,16 +5671,30 @@ def holiday_bulk_create(request):
 
     if not (request.user.is_superuser or user_has_permission(request.user, "holiday_create")):
         if _wants_json_response(request):
-            return _err("Access denied. You don't have permission to create holidays.", status=403)
+            return JsonResponse({"success": False, "error": "Access denied. You don't have permission to create holidays."}, status=403)
         messages.error(request, "Access denied.")
         return redirect("holiday_list")
 
+    # ✅ Generate years list for the template
+    current_year = timezone.now().year
+    years = range(current_year - 2, current_year + 3)  # 2024, 2025, 2026, 2027, 2028
+
     if request.method == "POST":
         return holiday_bulk_create_api(request)
+    
+    # ✅ For AJAX requests, return JSON
     if _wants_json_response(request):
-        return _ok({"year": timezone.now().year})
-    return _render_template_page(request, "holiday_bulk_form.html")
-
+        return JsonResponse({
+            "success": True,
+            "year": current_year,
+            "years": list(years),
+        })
+    
+    # ✅ For normal browser requests, render HTML template with years
+    return render(request, 'holiday_bulk_form.html', {
+        'years': years,
+        'current_year': current_year,
+    })
 
 @login_required
 def holiday_edit(request, holiday_id):
@@ -6276,11 +6363,82 @@ def admin_policy_toggle(request, policy_id):
 from django.shortcuts import render
 from .models import Department  # adjust if your model is named differently
 
-def department_list(request):
-    from django.db.models import Count
-    departments = Department.objects.annotate(emp_count=Count('user')).all()
-    return render(request, 'department_list.html', {'departments': departments})
+from django.db.models import Count, Q
+from django.shortcuts import render
+from django.http import JsonResponse
+from django.urls import reverse
+from users.models import Department, User
 
+def department_list(request):
+    """
+    Department list view - supports both HTML and JSON responses
+    """
+    # Check if request wants JSON
+    is_json = (
+        request.headers.get('X-Requested-With') == 'XMLHttpRequest' or
+        request.GET.get('format') == 'json' or
+        request.headers.get('Accept') == 'application/json'
+    )
+    
+    # Get all departments with employee count
+    departments = Department.objects.annotate(
+        emp_count=Count('user', filter=Q(user__is_superuser=False))
+    ).select_related('hr').order_by('name')
+    
+    # Search functionality
+    search = request.GET.get('q', '').strip()
+    if search:
+        departments = departments.filter(name__icontains=search)
+    
+    # Get HR users for forms
+    hr_users = User.objects.filter(role__name='HR').order_by('first_name')
+    
+    # Calculate total employees
+    total_employees = User.objects.filter(is_superuser=False).count()
+    
+    # ✅ RETURN JSON FOR AJAX REQUESTS
+    if is_json:
+        departments_data = []
+        for dept in departments:
+            departments_data.append({
+                "id": dept.id,
+                "name": dept.name,
+                "hr": {
+                    "id": dept.hr.id,
+                    "name": dept.hr.get_full_name() or dept.hr.email,
+                    "email": dept.hr.email,
+                } if dept.hr else None,
+                "employee_count": dept.emp_count,
+                "detail_url": reverse('department_detail', args=[dept.id]),
+                "edit_url": reverse('department_edit', args=[dept.id]),
+                "delete_url": reverse('department_delete', args=[dept.id]),
+            })
+        
+        hr_users_data = [
+            {
+                "id": u.id,
+                "name": u.get_full_name() or u.email,
+                "email": u.email,
+            }
+            for u in hr_users
+        ]
+        
+        return JsonResponse({
+            "success": True,
+            "departments": departments_data,
+            "hr_users": hr_users_data,
+            "search": search,
+            "total_departments": departments.count(),
+            "total_employees": total_employees,
+        })
+    
+    # ✅ RETURN HTML FOR NORMAL BROWSER REQUESTS
+    return render(request, 'department_list.html', {
+        'departments': departments,
+        'hr_users': hr_users,
+        'search': search,
+        'total_employees': total_employees,
+    })
 # ════════════════════════════════════════════════════════════════════
 #  ★ ADMIN — DELETE LEAVE POLICY
 # ════════════════════════════════════════════════════════════════════

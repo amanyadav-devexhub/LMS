@@ -105,6 +105,7 @@
                 <button class="pg-btn" onclick="loadPage({{ num }})">{{ num }}</button>
             {% endif %}
         {% endfor %}
+    
 
         {% if page_obj.has_next %}
             <button class="pg-btn" onclick="loadPage({{ page_obj.next_page_number }})">
@@ -127,4 +128,4 @@
         <i class="fa-solid fa-arrow-right"></i>
     </a>
 </div>
-{% endif %}
+{% endif %} 

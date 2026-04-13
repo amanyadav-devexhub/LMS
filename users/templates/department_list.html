@@ -357,26 +357,26 @@
 <div class="dept-stats animate-in">
     <div class="dept-stat">
         <div class="dept-stat-icon"><i class="fa-solid fa-building"></i></div>
-        <div class="dept-stat-val">{{ departments|length }}</div>
+        <div class="dept-stat-val" id="total-departments">{{ departments|length }}</div>
         <div class="dept-stat-label">Total Departments</div>
     </div>
     <div class="dept-stat">
         <div class="dept-stat-icon"><i class="fa-solid fa-users"></i></div>
-        <div class="dept-stat-val">{{ total_employees|default:"0" }}</div>
+        <div class="dept-stat-val" id="total-employees">{{ total_employees|default:"0" }}</div>
         <div class="dept-stat-label">Total Employees</div>
     </div>
     <div class="dept-stat">
         <div class="dept-stat-icon"><i class="fa-solid fa-user-tie"></i></div>
-        <div class="dept-stat-val">{{ departments|length }}</div>
+        <div class="dept-stat-val" id="active-depts">{{ departments|length }}</div>
         <div class="dept-stat-label">Active Depts</div>
     </div>
 </div>
 
 <!-- ── Search + Create ── -->
 <div class="search-topbar animate-in delay-1">
-    <form method="get" class="search-box">
+    <form method="get" class="search-box" id="search-form">
         <i class="fa-solid fa-magnifying-glass"></i>
-        <input type="text" name="q" value="{{ search }}"
+        <input type="text" name="q" id="search-input" value="{{ search }}"
                class="form-control" placeholder="Search departments…"
                style="width:260px;">
     </form>
@@ -386,63 +386,12 @@
 </div>
 
 <!-- ── Department Cards Grid ── -->
-<div class="dept-grid animate-in delay-2">
-
-    {% for dept in departments %}
-    <div class="dept-card">
-        <div class="dept-card-top">
-            <div class="dept-icon">
-                <i class="fa-solid fa-building"></i>
-            </div>
-            <div style="flex:1; min-width:0;">
-                <div class="dept-card-name">{{ dept.name }}</div>
-                <div class="dept-card-hr">
-                    {% if dept.hr %}
-                        <i class="fa-solid fa-user-tie"></i>
-                        {{ dept.hr.get_full_name|default:dept.hr.email }}
-                    {% else %}
-                        <i class="fa-solid fa-user-slash"></i>
-                        <span style="color:var(--text-faint);">No HR assigned</span>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-
-        <div class="dept-card-meta">
-            <div class="emp-pill">
-                <i class="fa-solid fa-users"></i>
-                {{ dept.emp_count }} Employee{{ dept.emp_count|pluralize }}
-            </div>
-            <div class="dept-card-actions">
-                <!-- View -->
-                <a href="{% url 'department_detail' dept.pk %}"
-                   class="action-btn action-btn-view" title="View Employees">
-                    <i class="fa-solid fa-eye"></i>
-                </a>
-                <!-- Edit -->
-                <button class="action-btn action-btn-edit" title="Edit"
-                        {% if rbac_flags.team_manage %}onclick="openEditModal({{ dept.pk }}, '{{ dept.name|escapejs }}', '{{ dept.hr.pk|default:'' }}')"{% else %}disabled style="opacity:.45;cursor:not-allowed;"{% endif %}>
-                    <i class="fa-solid fa-pen"></i>
-                </button>
-                <!-- Delete -->
-                <button class="action-btn action-btn-delete" title="Delete"
-                        {% if rbac_flags.team_manage %}onclick="openDeleteModal({{ dept.pk }}, '{{ dept.name|escapejs }}', {{ dept.emp_count }})"{% else %}disabled style="opacity:.45;cursor:not-allowed;"{% endif %}>
-                    <i class="fa-solid fa-trash"></i>
-                </button>
-            </div>
-        </div>
+<div class="dept-grid animate-in delay-2" id="departments-grid">
+    <!-- This will be populated by AJAX -->
+    <div class="loading-state" style="text-align:center; padding:40px;">
+        <i class="fa-solid fa-spinner fa-spin" style="font-size:24px;color:var(--aqua);"></i>
+        <p style="margin-top:10px;">Loading departments...</p>
     </div>
-    {% empty %}
-    <div class="dept-empty">
-        <div class="dept-empty-icon"><i class="fa-solid fa-building"></i></div>
-        <div class="dept-empty-title">No Departments Found</div>
-        <p>{% if search %}No results for "{{ search }}". {% endif %}Create your first department.</p>
-        <button class="btn-create" style="margin-top:16px;{% if not rbac_flags.team_manage %}opacity:.45;cursor:not-allowed;{% endif %}" {% if rbac_flags.team_manage %}onclick="openModal('createModal')"{% else %}disabled title="Permission required: team_manage"{% endif %}>
-            <i class="fa-solid fa-plus"></i> Create Department
-        </button>
-    </div>
-    {% endfor %}
-
 </div>
 
 
@@ -458,7 +407,7 @@
                 <i class="fa-solid fa-xmark"></i>
             </button>
         </div>
-        <form method="post" action="{% url 'department_create' %}" class="ajax-form">
+        <form method="post" action="{% url 'department_create' %}" class="ajax-form" id="create-form">
             {% csrf_token %}
             <div class="modal-body">
                 <div class="form-group">
@@ -468,7 +417,7 @@
                 </div>
                 <div class="form-group">
                     <label class="form-label">Assign HR / Head</label>
-                    <select name="hr" class="form-control">
+                    <select name="hr" class="form-control" id="create-hr-select">
                         <option value="">— No HR assigned —</option>
                         {% for u in hr_users %}
                         <option value="{{ u.pk }}">{{ u.get_full_name|default:u.email }} ({{ u.role.name }})</option>
@@ -632,5 +581,143 @@
     {% endif %}
     {% endfor %}
     {% endif %}
+
+    /* ========== AJAX FUNCTIONS FOR JSON RESPONSE ========== */
+    
+    // Escape HTML to prevent XSS
+    function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // Load departments via AJAX
+    function loadDepartments(searchTerm = '') {
+        let url = '/departments/?format=json';
+        if (searchTerm) {
+            url += '&q=' + encodeURIComponent(searchTerm);
+        }
+        
+        fetch(url, {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            },
+            credentials: 'same-origin'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                renderDepartments(data.departments);
+                updateStats(data.departments);
+            }
+        })
+        .catch(error => {
+            console.error('Error loading departments:', error);
+            const grid = document.getElementById('departments-grid');
+            if (grid) {
+                grid.innerHTML = `<div class="dept-empty">
+                    <div class="dept-empty-icon"><i class="fa-solid fa-building"></i></div>
+                    <div class="dept-empty-title">Error Loading Departments</div>
+                    <p>Please refresh the page.</p>
+                </div>`;
+            }
+        });
+    }
+
+    // Render department cards dynamically
+    function renderDepartments(departments) {
+        const grid = document.getElementById('departments-grid');
+        
+        if (!grid) return;
+        
+        if (!departments || departments.length === 0) {
+            grid.innerHTML = `
+                <div class="dept-empty">
+                    <div class="dept-empty-icon"><i class="fa-solid fa-building"></i></div>
+                    <div class="dept-empty-title">No Departments Found</div>
+                    <p>Create your first department.</p>
+                    <button class="btn-create" style="margin-top:16px;" onclick="openModal('createModal')">
+                        <i class="fa-solid fa-plus"></i> Create Department
+                    </button>
+                </div>
+            `;
+            return;
+        }
+        
+        let html = '';
+        departments.forEach(dept => {
+            const hrName = dept.hr ? escapeHtml(dept.hr.name) : null;
+            html += `
+                <div class="dept-card" data-dept-id="${dept.id}">
+                    <div class="dept-card-top">
+                        <div class="dept-icon">
+                            <i class="fa-solid fa-building"></i>
+                        </div>
+                        <div style="flex:1; min-width:0;">
+                            <div class="dept-card-name">${escapeHtml(dept.name)}</div>
+                            <div class="dept-card-hr">
+                                ${dept.hr ? 
+                                    `<i class="fa-solid fa-user-tie"></i> ${hrName}` : 
+                                    `<i class="fa-solid fa-user-slash"></i> <span style="color:var(--text-faint);">No HR assigned</span>`
+                                }
+                            </div>
+                        </div>
+                    </div>
+                    <div class="dept-card-meta">
+                        <div class="emp-pill">
+                            <i class="fa-solid fa-users"></i>
+                            ${dept.employee_count} Employee${dept.employee_count !== 1 ? 's' : ''}
+                        </div>
+                        <div class="dept-card-actions">
+                            <a href="/departments/${dept.id}/" class="action-btn action-btn-view" title="View Employees">
+                                <i class="fa-solid fa-eye"></i>
+                            </a>
+                            <button class="action-btn action-btn-edit" onclick="openEditModal(${dept.id}, '${escapeHtml(dept.name)}', '${dept.hr?.id || ''}')">
+                                <i class="fa-solid fa-pen"></i>
+                            </button>
+                            <button class="action-btn action-btn-delete" onclick="openDeleteModal(${dept.id}, '${escapeHtml(dept.name)}', ${dept.employee_count})">
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        grid.innerHTML = html;
+    }
+
+    // Update stats dynamically
+    function updateStats(departments) {
+        const totalDepts = departments.length;
+        const totalEmployees = departments.reduce((sum, dept) => sum + (dept.employee_count || 0), 0);
+        
+        const totalDeptsEl = document.getElementById('total-departments');
+        const totalEmployeesEl = document.getElementById('total-employees');
+        const activeDeptsEl = document.getElementById('active-depts');
+        
+        if (totalDeptsEl) totalDeptsEl.textContent = totalDepts;
+        if (totalEmployeesEl) totalEmployeesEl.textContent = totalEmployees;
+        if (activeDeptsEl) activeDeptsEl.textContent = totalDepts;
+    }
+
+    // Search functionality
+    let searchTimeout;
+    const searchInput = document.getElementById('search-input');
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                loadDepartments(this.value);
+            }, 300);
+        });
+    }
+    
+    // Initialize - load departments on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        loadDepartments('');
+    });
 </script>
 {% endblock %}

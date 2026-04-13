@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Holiday Management — LeaveSetu{% endblock %}
-{% block page_title %}Holiday Calendar {{ current_year }}{% endblock %}
+{% block page_title %}Holiday Calendar <span id="current-year-display">{{ current_year }}</span>{% endblock %}
 
 {% block content %}
 <!-- Action Bar -->
@@ -17,10 +17,10 @@
     <!-- Stats -->
     <div style="display: flex; gap: 15px;">
         <div style="background: var(--surface2); padding: 8px 15px; border-radius: 30px;">
-            <span style="font-weight: 600;">{{ total_holidays }}</span> Holidays
+            <span style="font-weight: 600;" id="total-holidays-count">{{ total_holidays }}</span> Holidays
         </div>
         <div style="background: var(--surface2); padding: 8px 15px; border-radius: 30px;">
-            <span style="font-weight: 600;">{{ total_days }}</span> Total Days
+            <span style="font-weight: 600;" id="total-days-count">{{ total_days }}</span> Total Days
         </div>
     </div>
 </div>
@@ -28,10 +28,10 @@
 <!-- Filters -->
 <div class="card" style="margin-bottom: 24px;">
     <div style="padding: 15px 20px;">
-        <form method="get" style="display: flex; gap: 15px; flex-wrap: wrap; align-items: flex-end;">
+        <form method="get" id="filter-form" style="display: flex; gap: 15px; flex-wrap: wrap; align-items: flex-end;">
             <div style="min-width: 150px;">
                 <label class="form-label">Year</label>
-                <select name="year" class="form-control" onchange="this.form.submit()">
+                <select name="year" id="year-select" class="form-control">
                     {% for year in years %}
                     <option value="{{ year|date:'Y' }}" {% if current_year == year|date:'Y'|add:0 %}selected{% endif %}>
                         {{ year|date:'Y' }}
@@ -42,7 +42,7 @@
             
             <div style="min-width: 150px;">
                 <label class="form-label">Month</label>
-                <select name="month" class="form-control" onchange="this.form.submit()">
+                <select name="month" id="month-select" class="form-control">
                     <option value="">All Months</option>
                     {% for m_num, m_name in months %}
                     <option value="{{ m_num }}" {% if current_month == m_num|stringformat:"i" %}selected{% endif %}>
@@ -54,7 +54,7 @@
             
             <div style="min-width: 150px;">
                 <label class="form-label">Type</label>
-                <select name="type" class="form-control" onchange="this.form.submit()">
+                <select name="type" id="type-select" class="form-control">
                     <option value="">All Types</option>
                     {% for type_value, type_label in holiday_types %}
                     <option value="{{ type_value }}" {% if current_type == type_value %}selected{% endif %}>
@@ -66,39 +66,41 @@
             
             <div style="flex: 1; min-width: 200px;">
                 <label class="form-label">Search</label>
-                <input type="text" name="search" class="form-control" placeholder="Search holidays..." value="{{ search_query }}">
+                <input type="text" name="search" id="search-input" class="form-control" placeholder="Search holidays..." value="{{ search_query }}">
             </div>
             
             <div>
-                <button type="submit" class="btn btn-primary">Filter</button>
-                <a href="{% url 'holiday_list' %}" class="btn btn-ghost">Clear</a>
+                <button type="button" id="filter-btn" class="btn btn-primary">Filter</button>
+                <button type="button" id="clear-btn" class="btn btn-ghost">Clear</button>
             </div>
         </form>
     </div>
 </div>
 
 <!-- Upcoming Holidays Banner -->
-{% if upcoming %}
-<div class="card" style="margin-bottom: 24px; background: linear-gradient(135deg, var(--aqua-deep), var(--aqua)); color: white;">
-    <div style="padding: 15px 20px; display: flex; align-items: center; gap: 20px; flex-wrap: wrap;">
-        <div style="display: flex; align-items: center; gap: 10px;">
-            <i class="fa-solid fa-calendar-day" style="font-size: 24px;"></i>
-            <h3 style="color: white; margin: 0;">Upcoming Holidays</h3>
-        </div>
-        
-        <div style="display: flex; gap: 15px; flex-wrap: wrap; flex: 1;">
-            {% for holiday in upcoming %}
-            <div style="background: rgba(255,255,255,0.15); padding: 8px 15px; border-radius: 30px;">
-                <strong>{{ holiday.date|date:"d M" }}</strong> - {{ holiday.name }}
+<div id="upcoming-banner" style="margin-bottom: 24px;">
+    {% if upcoming %}
+    <div class="card" style="background: linear-gradient(135deg, var(--aqua-deep), var(--aqua)); color: white;">
+        <div style="padding: 15px 20px; display: flex; align-items: center; gap: 20px; flex-wrap: wrap;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <i class="fa-solid fa-calendar-day" style="font-size: 24px;"></i>
+                <h3 style="color: white; margin: 0;">Upcoming Holidays</h3>
             </div>
-            {% endfor %}
+            
+            <div id="upcoming-holidays-list" style="display: flex; gap: 15px; flex-wrap: wrap; flex: 1;">
+                {% for holiday in upcoming %}
+                <div style="background: rgba(255,255,255,0.15); padding: 8px 15px; border-radius: 30px;">
+                    <strong>{{ holiday.date|date:"d M" }}</strong> - {{ holiday.name }}
+                </div>
+                {% endfor %}
+            </div>
         </div>
     </div>
+    {% endif %}
 </div>
-{% endif %}
 
 <!-- Calendar View -->
-<div class="grid-3" style="margin-bottom: 24px;">
+<div id="calendar-grid" class="grid-3" style="margin-bottom: 24px;">
     {% for month_data in calendar_data %}
     <div class="card">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
@@ -155,7 +157,7 @@
         </div>
     </div>
     {% empty %}
-    <div class="card" style="grid-column: span 3; text-align: center; padding: 60px;">
+    <div id="empty-holidays" class="card" style="grid-column: span 3; text-align: center; padding: 60px;">
         <i class="fa-solid fa-calendar" style="font-size: 48px; color: var(--text-muted); margin-bottom: 15px;"></i>
         <h3>No Holidays Found</h3>
         <p style="color: var(--text-muted);">Add your first holiday to get started.</p>
@@ -166,10 +168,31 @@
     {% endfor %}
 </div>
 
+<!-- Loading Overlay -->
+<div id="loading-overlay" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 9999; justify-content: center; align-items: center;">
+    <div style="background: white; padding: 20px; border-radius: 12px; text-align: center;">
+        <div style="width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto;"></div>
+        <p style="margin-top: 10px;">Loading holidays...</p>
+    </div>
+</div>
+
+<style>
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+</style>
+
+{% endblock %}
+
+{% block extra_scripts %}
 <script>
+// Toggle dropdown function
 function toggleDropdown(id) {
     const dropdown = document.getElementById(`dropdown-${id}`);
-    dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
+    if (dropdown) {
+        dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
+    }
 }
 
 // Close dropdowns when clicking outside
@@ -182,37 +205,219 @@ document.addEventListener('click', function(event) {
     document.querySelectorAll('.dropdown-menu').forEach(function(menu) {
         menu.style.display = 'none';
     });
-);
+});
 
-// Handle AJAX success updates
-$(document).on('ajax:success', '.ajax-form', function(e, data) {
-    if (data.success) {
-        const form = $(this);
-        
-        // Handle Delete
-        if (form.hasClass('delete-form')) {
-            form.closest('.card').fadeOut(400, function() {
-                $(this).remove();
-                if ($('.grid-3 .card').length === 0) {
-                   window.location.reload(); // Show empty state
-                }
-            });
-            return;
-        }
+// Show/hide loading overlay
+function showLoading() {
+    const overlay = document.getElementById('loading-overlay');
+    if (overlay) overlay.style.display = 'flex';
+}
 
-        // Handle Toggle (Active/Inactive)
-        if (data.hasOwnProperty('is_active')) {
-            const isActive = data.is_active;
-            const btn = form.find('button[type="submit"]');
-            
-            // Update Icon and Text
-            btn.find('i').removeClass('fa-eye fa-eye-slash').addClass(isActive ? 'fa-eye-slash' : 'fa-eye');
-            btn.contents().last()[0].textContent = isActive ? ' Deactivate' : ' Activate';
-            
-            // Optional: visual cue on the item card (e.g. opacity)
-            form.closest('.card').css('opacity', isActive ? '1' : '0.6');
+function hideLoading() {
+    const overlay = document.getElementById('loading-overlay');
+    if (overlay) overlay.style.display = 'none';
+}
+
+// Escape HTML to prevent XSS
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// Load holidays via AJAX
+function loadHolidays() {
+    showLoading();
+    
+    const year = document.getElementById('year-select')?.value || '';
+    const month = document.getElementById('month-select')?.value || '';
+    const type = document.getElementById('type-select')?.value || '';
+    const search = document.getElementById('search-input')?.value || '';
+    
+    let url = '/holidays/?format=json';
+    if (year) url += `&year=${year}`;
+    if (month) url += `&month=${month}`;
+    if (type) url += `&type=${type}`;
+    if (search) url += `&search=${encodeURIComponent(search)}`;
+    
+    fetch(url, {
+        method: 'GET',
+        headers: {
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        credentials: 'same-origin'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            updateHolidayUI(data);
+        } else {
+            console.error('Failed to load holidays:', data.error);
         }
+        hideLoading();
+    })
+    .catch(err => {
+        console.error('Error loading holidays:', err);
+        hideLoading();
+    });
+}
+
+// Update the entire UI with new data
+function updateHolidayUI(data) {
+    // Update page title
+    const yearDisplay = document.getElementById('current-year-display');
+    if (yearDisplay) yearDisplay.textContent = data.current_year;
+    
+    // Update stats
+    const totalHolidaysSpan = document.getElementById('total-holidays-count');
+    const totalDaysSpan = document.getElementById('total-days-count');
+    if (totalHolidaysSpan) totalHolidaysSpan.textContent = data.total_holidays;
+    if (totalDaysSpan) totalDaysSpan.textContent = data.total_holidays;
+    
+    // Update upcoming holidays banner
+    const upcomingContainer = document.getElementById('upcoming-holidays-list');
+    const upcomingBanner = document.getElementById('upcoming-banner');
+    
+    if (upcomingContainer && data.upcoming && data.upcoming.length > 0) {
+        let html = '';
+        data.upcoming.forEach(holiday => {
+            html += `
+                <div style="background: rgba(255,255,255,0.15); padding: 8px 15px; border-radius: 30px;">
+                    <strong>${escapeHtml(holiday.display_date || holiday.date)}</strong> - ${escapeHtml(holiday.name)}
+                </div>
+            `;
+        });
+        upcomingContainer.innerHTML = html;
+        if (upcomingBanner) upcomingBanner.style.display = 'block';
+    } else if (upcomingBanner) {
+        upcomingBanner.style.display = 'none';
     }
+    
+    // Update calendar grid
+    const calendarGrid = document.getElementById('calendar-grid');
+    if (!calendarGrid) return;
+    
+    if (!data.calendar || data.calendar.length === 0) {
+        calendarGrid.innerHTML = `
+            <div class="card" style="grid-column: span 3; text-align: center; padding: 60px;">
+                <i class="fa-solid fa-calendar" style="font-size: 48px; color: var(--text-muted); margin-bottom: 15px;"></i>
+                <h3>No Holidays Found</h3>
+                <p style="color: var(--text-muted);">No holidays found for the selected filters.</p>
+                <a href="{% url 'holiday_create' %}" class="btn btn-primary" style="margin-top: 15px;{% if not rbac_flags.holiday_create %}pointer-events:none;opacity:.45;{% endif %}">
+                    <i class="fa-solid fa-plus"></i> Add Holiday
+                </a>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '';
+    data.calendar.forEach(monthData => {
+        html += `
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h3>${escapeHtml(monthData.month_name)} ${data.current_year}</h3>
+                    <span class="badge badge-info">${monthData.count} holidays</span>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+        `;
+        
+        monthData.holidays.forEach(holiday => {
+            const dateDisplay = holiday.end_date && holiday.end_date !== holiday.date 
+                ? `${holiday.date.substring(5)} - ${holiday.end_date.substring(5)}`
+                : holiday.date.substring(5);
+            
+            html += `
+                <div style="display: flex; align-items: center; gap: 10px; padding: 8px; background: var(--surface2); border-radius: 10px;">
+                    <div style="width: 40px; height: 40px; background: var(--aqua-glass); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: var(--aqua-deep);">
+                        <i class="fa-solid ${escapeHtml(holiday.icon)}"></i>
+                    </div>
+                    <div style="flex: 1;">
+                        <div style="font-weight: 700;">${escapeHtml(holiday.name)}</div>
+                        <div style="font-size: 11px; color: var(--text-muted);">${escapeHtml(dateDisplay)}</div>
+                    </div>
+                    <div style="display: flex; gap: 5px;">
+                        <span class="badge ${escapeHtml(holiday.color_class)}">${escapeHtml(holiday.get_holiday_type_display)}</span>
+                        <div class="dropdown" style="position: relative;">
+                            <button class="btn btn-ghost btn-sm" onclick="toggleDropdown(${holiday.id})">
+                                <i class="fa-solid fa-ellipsis"></i>
+                            </button>
+                            <div id="dropdown-${holiday.id}" class="dropdown-menu" style="display: none; position: absolute; right: 0; top: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; min-width: 150px; z-index: 100;">
+                                <a href="/holidays/${holiday.id}/edit/" class="dropdown-item" style="display: block; padding: 8px 15px; color: var(--text); text-decoration: none;">
+                                    <i class="fa-solid fa-edit"></i> Edit
+                                </a>
+                                <form method="POST" action="/holidays/${holiday.id}/toggle/" class="ajax-form" style="display: block;">
+                                    <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+                                    <button type="submit" class="dropdown-item" style="width: 100%; text-align: left; padding: 8px 15px; background: none; border: none; cursor: pointer;">
+                                        <i class="fa-solid fa-${holiday.is_active ? 'eye-slash' : 'eye'}"></i>
+                                        ${holiday.is_active ? 'Deactivate' : 'Activate'}
+                                    </button>
+                                </form>
+                                <form method="POST" action="/holidays/${holiday.id}/delete/" class="ajax-form delete-form" style="display: block;">
+                                    <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+                                    <button type="submit" class="dropdown-item" style="width: 100%; text-align: left; padding: 8px 15px; background: none; border: none; cursor: pointer; color: var(--danger);">
+                                        <i class="fa-solid fa-trash"></i> Delete
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        html += `
+                </div>
+            </div>
+        `;
+    });
+    
+    calendarGrid.innerHTML = html;
+}
+
+// Initialize event listeners
+document.addEventListener('DOMContentLoaded', function() {
+    // Filter button click
+    const filterBtn = document.getElementById('filter-btn');
+    if (filterBtn) {
+        filterBtn.addEventListener('click', function() {
+            loadHolidays();
+        });
+    }
+    
+    // Clear button click
+    const clearBtn = document.getElementById('clear-btn');
+    if (clearBtn) {
+        clearBtn.addEventListener('click', function() {
+            const yearSelect = document.getElementById('year-select');
+            const monthSelect = document.getElementById('month-select');
+            const typeSelect = document.getElementById('type-select');
+            const searchInput = document.getElementById('search-input');
+            
+            if (yearSelect) yearSelect.value = '';
+            if (monthSelect) monthSelect.value = '';
+            if (typeSelect) typeSelect.value = '';
+            if (searchInput) searchInput.value = '';
+            
+            loadHolidays();
+        });
+    }
+    
+    // Enter key in search input
+    const searchInput = document.getElementById('search-input');
+    if (searchInput) {
+        searchInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                loadHolidays();
+            }
+        });
+    }
+    
+    // Initial load
+    loadHolidays();
 });
 </script>
 {% endblock %}
