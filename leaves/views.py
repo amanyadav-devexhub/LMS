@@ -75,10 +75,11 @@ from django.contrib import messages
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.timesince import timesince
+from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import csrf_exempt
 
 # ── App models ───────────────────────────────────────────────────────
-from .models import AcademicLeaveSettings, LeaveRequest, Notification, SalaryDeduction
+from .models import LeaveSettings, LeaveRequest, Notification, SalaryDeduction
 from users.models import User, Department, Role, RolePermissionAssignment, SalaryDetails
 from users.rbac import user_has_permission
 
@@ -207,7 +208,7 @@ def _target_allocation_days_for_leave_type(leave_type, sync_mode="monthly", as_o
     target_days = float(leave_type.days_per_year or 0)
 
     if getattr(leave_type, "quota_type", "STANDARD") == "ANNUAL_POOL":
-        settings_obj = AcademicLeaveSettings.get_solo()
+        settings_obj = LeaveSettings.get_solo()
         annual_quota = float(getattr(settings_obj, "annual_leave_quota", 12) or 12)
         target_days = annual_quota
         if sync_mode == "monthly":
@@ -236,7 +237,7 @@ def _target_allocation_days_for_leave_type(leave_type, sync_mode="monthly", as_o
 
 def _annual_quota_for_employee_leave_type(employee, leave_type):
     if getattr(leave_type, "quota_type", "STANDARD") == "ANNUAL_POOL":
-        settings_obj = AcademicLeaveSettings.get_solo()
+        settings_obj = LeaveSettings.get_solo()
         return float(getattr(settings_obj, "annual_leave_quota", leave_type.days_per_year or 0) or 0)
     return float(leave_type.days_per_year or 0)
 
@@ -503,7 +504,7 @@ def _check_special_leave_eligibility(employee, leave_type_config, leave_obj=None
 
 
 def _available_paid_days_for_leave(employee, leave_type_config, leave_date):
-    settings_obj = AcademicLeaveSettings.get_solo()
+    settings_obj = LeaveSettings.get_solo()
 
     def _is_special_config(config):
         return bool(config and config.quota_type in ("SPECIAL_EVENT", "MATERNITY_PATERNITY"))
@@ -624,7 +625,7 @@ def get_employee_leave_summary(employee, year=None, leave_type_config=None):
 
 def get_employee_leave_summary_for_balance_display(employee, year=None, force_monthly=False):
     summary = get_employee_leave_summary(employee, year)
-    settings_obj = AcademicLeaveSettings.get_solo()
+    settings_obj = LeaveSettings.get_solo()
     if not force_monthly and not getattr(settings_obj, "show_only_monthly_in_balance", True):
         return summary
 
@@ -745,7 +746,7 @@ def _deduct_leave_balance(leave):
 
         if not allocation or getattr(allocation.leave_type, "quota_type", "STANDARD") != "ANNUAL_POOL":
             target_date = leave.start_date or timezone.now().date()
-            leave_year = get_leave_year_for_date(target_date, AcademicLeaveSettings.get_solo().leave_year_start_month)
+            leave_year = get_leave_year_for_date(target_date, LeaveSettings.get_solo().leave_year_start_month)
             allocation = (
                 EmployeeLeaveAllocation.objects.filter(
                     employee=leave.employee,
@@ -843,6 +844,40 @@ def _forbidden(message: str = "You don't have permission to access this resource
     return _err(message, status=403)
 
 
+from django.http.request import RawPostDataException
+
+def _request_value(request, key: str, default: str = "") -> str:
+    """Read a value from form-data first, then JSON payload using cached body."""
+    # 1. Check POST data first (form submissions / multipart)
+    value = request.POST.get(key)
+    if value is not None:
+        return str(value)
+
+    # 2. Check GET parameters
+    value = request.GET.get(key)
+    if value is not None:
+        return str(value)
+
+    # 3. Try JSON body — body stream may already be consumed by request.POST
+    try:
+        if hasattr(request, '_body') and request._body:
+            body = request._body
+        else:
+            body = request.body          # raises RawPostDataException if POST already read it
+
+        payload = json.loads(body.decode("utf-8") or "{}")
+        data_value = payload.get(key, default)
+        return str(data_value) if data_value is not None else default
+
+    except RawPostDataException:
+        # request.POST already consumed the stream — all form values
+        # were already handled in step 1, so just return the default.
+        return default
+
+    except (TypeError, ValueError, UnicodeDecodeError, AttributeError):
+        return default
+
+
 def _serialize_leave(leave: LeaveRequest) -> dict:
     """Serialize a LeaveRequest to a dict suitable for JSON."""
     total_days = calculate_leave_days(leave)
@@ -874,6 +909,9 @@ def _serialize_leave(leave: LeaveRequest) -> dict:
         "attachment_url": leave.attachment.url if leave.attachment else None,
         "short_hours": leave.short_hours,
         "short_session": leave.short_session,
+        "hr_remark": (leave.hr_remark or ""),
+        "tl_remark": (leave.tl_remark or ""),
+        "manager_remark": (leave.manager_remark or ""),
         "created_at": leave.created_at.isoformat(),
         "updated_at": leave.updated_at.isoformat() if leave.updated_at else None,
     }
@@ -1711,6 +1749,10 @@ def approve_leave_api(request, leave_id):
     role_name = get_user_role(voter)
     is_admin = request.user.is_superuser or role_name == "Admin"
     old_status = leave.final_status
+    generic_remark = _request_value(request, "remarks", "").strip()
+    hr_remark = _request_value(request, "hr_remark", "").strip() or generic_remark
+    tl_remark = _request_value(request, "tl_remark", "").strip() or generic_remark
+    manager_remark = _request_value(request, "manager_remark", "").strip() or generic_remark
 
     # Admin override (always allowed)
     if is_admin:
@@ -1762,6 +1804,8 @@ def approve_leave_api(request, leave_id):
         leave.manager_rejected = False
         leave.manager_voted = True
         leave.manager_acted_at = timezone.now()
+        if manager_remark:
+            leave.manager_remark = manager_remark
         
         leave.save()
         
@@ -1842,11 +1886,15 @@ def approve_leave_api(request, leave_id):
         leave.tl_rejected = False
         leave.tl_voted = True
         leave.tl_acted_at = timezone.now()
+        if tl_remark:
+            leave.tl_remark = tl_remark
     elif role_name == "HR":
         leave.hr_approved = True
         leave.hr_rejected = False
         leave.hr_voted = True
         leave.hr_acted_at = timezone.now()
+        if hr_remark:
+            leave.hr_remark = hr_remark
     else:
         return _forbidden("You don't have voting rights.")
 
@@ -1985,6 +2033,10 @@ def reject_leave_api(request, leave_id):
     role_name = get_user_role(voter)
     is_admin = request.user.is_superuser or role_name == "Admin"
     old_status = leave.final_status
+    generic_remark = _request_value(request, "remarks", "").strip()
+    hr_remark = _request_value(request, "hr_remark", "").strip() or generic_remark
+    tl_remark = _request_value(request, "tl_remark", "").strip() or generic_remark
+    manager_remark = _request_value(request, "manager_remark", "").strip() or generic_remark
 
     # Admin override
     if is_admin:
@@ -2010,6 +2062,8 @@ def reject_leave_api(request, leave_id):
         leave.manager_rejected = True
         leave.manager_voted = True
         leave.manager_acted_at = timezone.now()
+        if manager_remark:
+            leave.manager_remark = manager_remark
         
         # Increment rejection count
         if not getattr(leave, 'manager_already_counted_reject', False):
@@ -2068,11 +2122,15 @@ def reject_leave_api(request, leave_id):
         leave.tl_approved = False
         leave.tl_voted = True
         leave.tl_acted_at = timezone.now()
+        if tl_remark:
+            leave.tl_remark = tl_remark
     elif role_name == "HR":
         leave.hr_rejected = True
         leave.hr_approved = False
         leave.hr_voted = True
         leave.hr_acted_at = timezone.now()
+        if hr_remark:
+            leave.hr_remark = hr_remark
     else:
         return _forbidden("You don't have voting rights.")
 
@@ -2191,11 +2249,11 @@ def leave_detail_api(request, leave_id):
     for approver in leave.approvers.all():
         r = get_user_role(approver)
         vote_map = {
-            "TL": (leave.tl_approved, leave.tl_rejected, leave.tl_acted_at),
-            "HR": (leave.hr_approved, leave.hr_rejected, leave.hr_acted_at),
-            "Manager": (leave.manager_approved, leave.manager_rejected, leave.manager_acted_at),
+            "TL": (leave.tl_approved, leave.tl_rejected, leave.tl_acted_at, leave.tl_remark),
+            "HR": (leave.hr_approved, leave.hr_rejected, leave.hr_acted_at, leave.hr_remark),
+            "Manager": (leave.manager_approved, leave.manager_rejected, leave.manager_acted_at, leave.manager_remark),
         }
-        approved, rejected, acted_at = vote_map.get(r, (False, False, None))
+        approved, rejected, acted_at, remark = vote_map.get(r, (False, False, None, ""))
         vote = "approved" if approved else ("rejected" if rejected else "pending")
         approvers_info.append({
             "name": approver.get_full_name() or approver.username,
@@ -2203,6 +2261,7 @@ def leave_detail_api(request, leave_id):
             "role": r,
             "vote": vote,
             "acted_at": acted_at.isoformat() if acted_at else None,
+            "remarks": remark or "",
             "initials": (
                 (approver.first_name[:1] + approver.last_name[:1]).upper()
                 if approver.first_name and approver.last_name
@@ -2860,7 +2919,7 @@ def hr_my_leave_balance_api(request):
             )
     
     # Get settings
-    settings_obj = AcademicLeaveSettings.get_solo()
+    settings_obj = LeaveSettings.get_solo()
     yearly_quota = float(getattr(settings_obj, 'default_annual_quota', 18) or 18)
     monthly_quota_total = yearly_quota / 12  # Total monthly quota shared across all types
     
@@ -4605,7 +4664,13 @@ def _render_template_page(request, template_name, extra_context=None):
         context["notification_count"] = unread
     if extra_context:
         context.update(extra_context)
-    return render(request, template_name, context)
+    response = render(request, template_name, context)
+    if request.user.is_authenticated:
+        # Prevent protected HTML pages from being reused from browser cache after logout.
+        response["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        response["Pragma"] = "no-cache"
+        response["Expires"] = "0"
+    return response
 
 
 def _wants_json_response(request):
@@ -4617,6 +4682,7 @@ def _wants_json_response(request):
 
 
 @login_required
+@never_cache
 def unified_dashboard(request):
     role = get_user_role(request.user)
     if role == "Admin":
@@ -4631,6 +4697,7 @@ def unified_dashboard(request):
 
 
 @login_required
+@never_cache
 def employee_dashboard(request):
     print(request)
     return _render_template_page(request, "employee_dashboard.html")
@@ -4641,6 +4708,7 @@ def employee_dashboard(request):
 #     return _render_template_page(request, "tl_dashboard.html")
 
 @login_required
+@never_cache
 @role_required(["TL"])
 def tl_dashboard(request, tab=None):
     """Unified TL Dashboard view"""
@@ -4771,11 +4839,13 @@ def tl_dashboard(request, tab=None):
     })
 
 @login_required
+@never_cache
 def hr_dashboard(request):
     return _render_template_page(request, "hr_dashboard.html")
 
 
 @login_required
+@never_cache
 @role_required(["Manager"])
 def manager_dashboard(request):
     if _wants_json_response(request):
@@ -4942,6 +5012,7 @@ def manager_leave_balance(request):
 
 
 @login_required
+@never_cache
 def admin_dashboard_page(request):
     wants_json = (
         request.GET.get("format") == "json"
@@ -4962,114 +5033,120 @@ def hr_pending_leaves(request):
 @role_required(["HR", "Admin"])
 def hr_leave_analytics(request):
     """Render leave analytics page with data from the API"""
+    
+    # ✅ FOR AJAX REQUESTS - Return JSON directly
     if _wants_json_response(request):
         return hr_leave_analytics_api(request)
-
-    try:
-        api_response = hr_leave_analytics_api(request)
-        data = json.loads(api_response.content.decode("utf-8"))
-        
-        if data.get("success"):
-            analytics = data
-            
-            # Prepare context for template
-            context = {
-                "profile": _build_profile_context(request.user),
-                "pending_count": LeaveRequest.objects.filter(status="PENDING").count(),
-                "current_year": analytics.get("current_year"),
-                
-                # KPI data
-                "total_this_year": analytics.get("totals", {}).get("total_this_year", 0),
-                "approved_count": analytics.get("totals", {}).get("approved", 0),
-                "rejected_count": analytics.get("totals", {}).get("rejected", 0),
-                "pending_total": analytics.get("totals", {}).get("pending", 0),
-                "on_leave_today": analytics.get("totals", {}).get("on_leave_today", 0),
-                "this_month_total": analytics.get("totals", {}).get("this_month_total", 0),
-                "this_month_approved": analytics.get("totals", {}).get("this_month_approved", 0),
-                "approval_rate": analytics.get("totals", {}).get("approval_rate", 0),
-                
-                # Chart data for both Django-rendered markup and JavaScript
-                "monthly_all": analytics.get("monthly_chart", {}).get("all", []),
-                "monthly_approved": analytics.get("monthly_chart", {}).get("approved", []),
-                "monthly_rejected": analytics.get("monthly_chart", {}).get("rejected", []),
-                "monthly_pending": analytics.get("monthly_chart", {}).get("pending", []),
-                "type_labels": analytics.get("type_chart", {}).get("labels", []),
-                "type_counts": analytics.get("type_chart", {}).get("counts", []),
-                "type_colors": analytics.get("type_chart", {}).get("colors", []),
-                "dept_labels": analytics.get("department_chart", {}).get("labels", []),
-                "dept_counts": analytics.get("department_chart", {}).get("counts", []),
-                "week_labels": analytics.get("weekly_chart", {}).get("labels", []),
-                "week_counts": analytics.get("weekly_chart", {}).get("counts", []),
-                "monthly_all_json": json.dumps(analytics.get("monthly_chart", {}).get("all", [])),
-                "monthly_approved_json": json.dumps(analytics.get("monthly_chart", {}).get("approved", [])),
-                "monthly_rejected_json": json.dumps(analytics.get("monthly_chart", {}).get("rejected", [])),
-                "monthly_pending_json": json.dumps(analytics.get("monthly_chart", {}).get("pending", [])),
-                "type_labels_json": json.dumps(analytics.get("type_chart", {}).get("labels", [])),
-                "type_counts_json": json.dumps(analytics.get("type_chart", {}).get("counts", [])),
-                "type_colors_json": json.dumps(analytics.get("type_chart", {}).get("colors", [])),
-                "dept_labels_json": json.dumps(analytics.get("department_chart", {}).get("labels", [])),
-                "dept_counts_json": json.dumps(analytics.get("department_chart", {}).get("counts", [])),
-                "week_labels_json": json.dumps(analytics.get("weekly_chart", {}).get("labels", [])),
-                "week_counts_json": json.dumps(analytics.get("weekly_chart", {}).get("counts", [])),
-                "type_stats": [
-                    {
-                        "label": label,
-                        "count": count,
-                        "color": color,
-                    }
-                    for label, count, color in zip(
-                        analytics.get("type_chart", {}).get("labels", []),
-                        analytics.get("type_chart", {}).get("counts", []),
-                        analytics.get("type_chart", {}).get("colors", []),
-                    )
-                ],
-                
-                # Top takers data
-                "top_takers": analytics.get("top_takers", []),
-            }
-            return render(request, "hr_leave_analytics.html", context)
-    except Exception as e:
-        pass
     
-    # Fallback: just render empty template
-    empty_chart_context = {
-        "current_year": timezone.now().year,
-        "pending_count": 0,
-        "total_this_year": 0,
-        "approved_count": 0,
-        "rejected_count": 0,
-        "pending_total": 0,
-        "on_leave_today": 0,
-        "this_month_total": 0,
-        "this_month_approved": 0,
-        "approval_rate": 0,
-        "monthly_all": [],
-        "monthly_approved": [],
-        "monthly_rejected": [],
-        "monthly_pending": [],
-        "type_labels": [],
-        "type_counts": [],
-        "type_colors": [],
-        "dept_labels": [],
-        "dept_counts": [],
-        "week_labels": [],
-        "week_counts": [],
-        "monthly_all_json": "[]",
-        "monthly_approved_json": "[]",
-        "monthly_rejected_json": "[]",
-        "monthly_pending_json": "[]",
-        "type_labels_json": "[]",
-        "type_counts_json": "[]",
-        "type_colors_json": "[]",
-        "dept_labels_json": "[]",
-        "dept_counts_json": "[]",
-        "week_labels_json": "[]",
-        "week_counts_json": "[]",
-        "type_stats": [],
-        "top_takers": [],
-    }
-    return _render_template_page(request, "hr_leave_analytics.html", empty_chart_context)
-
+    # ✅ FOR HTML REQUESTS - Render the template with data
+    try:
+        # Get the JSON data from the API
+        api_response = hr_leave_analytics_api(request)
+        
+        # Parse the JSON response
+        if hasattr(api_response, 'content'):
+            data = json.loads(api_response.content.decode("utf-8"))
+        else:
+            data = api_response
+        
+        # Prepare context for template
+        context = {
+            "profile": _build_profile_context(request.user),
+            "pending_count": LeaveRequest.objects.filter(status="PENDING").count(),
+            "current_year": data.get("current_year", timezone.now().year),
+            
+            # KPI data
+            "total_this_year": data.get("totals", {}).get("total_this_year", 0),
+            "approved_count": data.get("totals", {}).get("approved", 0),
+            "rejected_count": data.get("totals", {}).get("rejected", 0),
+            "pending_total": data.get("totals", {}).get("pending", 0),
+            "on_leave_today": data.get("totals", {}).get("on_leave_today", 0),
+            "this_month_total": data.get("totals", {}).get("this_month_total", 0),
+            "this_month_approved": data.get("totals", {}).get("this_month_approved", 0),
+            "approval_rate": data.get("totals", {}).get("approval_rate", 0),
+            
+            # Chart data
+            "monthly_all": data.get("monthly_chart", {}).get("all", []),
+            "monthly_approved": data.get("monthly_chart", {}).get("approved", []),
+            "monthly_rejected": data.get("monthly_chart", {}).get("rejected", []),
+            "monthly_pending": data.get("monthly_chart", {}).get("pending", []),
+            "type_labels": data.get("type_chart", {}).get("labels", []),
+            "type_counts": data.get("type_chart", {}).get("counts", []),
+            "type_colors": data.get("type_chart", {}).get("colors", []),
+            "dept_labels": data.get("department_chart", {}).get("labels", []),
+            "dept_counts": data.get("department_chart", {}).get("counts", []),
+            "week_labels": data.get("weekly_chart", {}).get("labels", []),
+            "week_counts": data.get("weekly_chart", {}).get("counts", []),
+            
+            # JSON strings for JavaScript
+            "monthly_all_json": json.dumps(data.get("monthly_chart", {}).get("all", [])),
+            "monthly_approved_json": json.dumps(data.get("monthly_chart", {}).get("approved", [])),
+            "monthly_rejected_json": json.dumps(data.get("monthly_chart", {}).get("rejected", [])),
+            "monthly_pending_json": json.dumps(data.get("monthly_chart", {}).get("pending", [])),
+            "type_labels_json": json.dumps(data.get("type_chart", {}).get("labels", [])),
+            "type_counts_json": json.dumps(data.get("type_chart", {}).get("counts", [])),
+            "type_colors_json": json.dumps(data.get("type_chart", {}).get("colors", [])),
+            "dept_labels_json": json.dumps(data.get("department_chart", {}).get("labels", [])),
+            "dept_counts_json": json.dumps(data.get("department_chart", {}).get("counts", [])),
+            "week_labels_json": json.dumps(data.get("weekly_chart", {}).get("labels", [])),
+            "week_counts_json": json.dumps(data.get("weekly_chart", {}).get("counts", [])),
+            
+            "type_stats": [
+                {
+                    "label": label,
+                    "count": count,
+                    "color": color,
+                }
+                for label, count, color in zip(
+                    data.get("type_chart", {}).get("labels", []),
+                    data.get("type_chart", {}).get("counts", []),
+                    data.get("type_chart", {}).get("colors", []),
+                )
+            ],
+            "top_takers": data.get("top_takers", []),
+        }
+        return render(request, "hr_leave_analytics.html", context)
+        
+    except Exception as e:
+        # Fallback: render empty template
+        empty_chart_context = {
+            "current_year": timezone.now().year,
+            "pending_count": 0,
+            "total_this_year": 0,
+            "approved_count": 0,
+            "rejected_count": 0,
+            "pending_total": 0,
+            "on_leave_today": 0,
+            "this_month_total": 0,
+            "this_month_approved": 0,
+            "approval_rate": 0,
+            "monthly_all": [],
+            "monthly_approved": [],
+            "monthly_rejected": [],
+            "monthly_pending": [],
+            "type_labels": [],
+            "type_counts": [],
+            "type_colors": [],
+            "dept_labels": [],
+            "dept_counts": [],
+            "week_labels": [],
+            "week_counts": [],
+            "monthly_all_json": "[]",
+            "monthly_approved_json": "[]",
+            "monthly_rejected_json": "[]",
+            "monthly_pending_json": "[]",
+            "type_labels_json": "[]",
+            "type_counts_json": "[]",
+            "type_colors_json": "[]",
+            "dept_labels_json": "[]",
+            "dept_counts_json": "[]",
+            "week_labels_json": "[]",
+            "week_counts_json": "[]",
+            "type_stats": [],
+            "top_takers": [],
+        }
+        return _render_template_page(request, "hr_leave_analytics.html", empty_chart_context)
+             
 
 @login_required
 def hr_on_leave_today(request):
@@ -5397,14 +5474,13 @@ def holiday_list(request):
 
     if not (request.user.is_superuser or user_has_permission(request.user, "holiday_view")):
         if _wants_json_response(request):
-            return _err("Access denied. You don't have permission to view holidays.", status=403)
+            return JsonResponse({"success": False, "error": "Access denied. You don't have permission to view holidays."}, status=403)
         messages.error(request, "Access denied.")
         return redirect("admin_dashboard")
 
-    if _wants_json_response(request):
-        return holiday_list_api(request)
-
     if not HOLIDAYS_ENABLED:
+        if _wants_json_response(request):
+            return JsonResponse({"success": False, "error": "Holiday module not available."}, status=503)
         return _render_template_page(request, "holiday_list.html", {
             "current_year": timezone.now().year,
             "current_month": "",
@@ -5481,9 +5557,76 @@ def holiday_list(request):
     years = [date(y, 1, 1) for y in range(today.year - 2, today.year + 3)]
     months = [(i, month_name[i]) for i in range(1, 13)]
 
+    # ✅ RETURN JSON FOR AJAX REQUESTS
+    if _wants_json_response(request):
+        # Pagination for holiday list
+        page = int(request.GET.get('page', 1))
+        per_page = int(request.GET.get('per_page', 20))
+        
+        paginator = Paginator(holidays, per_page)
+        page_obj = paginator.get_page(page)
+        
+        holidays_data = []
+        for h in page_obj:
+            holidays_data.append({
+                "id": h.id,
+                "name": h.name,
+                "description": h.description,
+                "date": h.date.isoformat(),
+                "end_date": h.end_date.isoformat() if h.end_date else None,
+                "holiday_type": h.holiday_type,
+                "holiday_type_display": h.get_holiday_type_display(),
+                "is_half_day": h.is_half_day,
+                "half_day_type": h.half_day_type,
+                "is_recurring": h.is_recurring,
+                "is_active": h.is_active,
+                "duration": h.duration,
+                "display_date": h.display_date,
+                "icon": icon_map.get(h.holiday_type, "fa-star"),
+                "color_class": color_map.get(h.holiday_type, "badge-info"),
+            })
+        
+        upcoming_data = [
+            {
+                "id": h.id,
+                "name": h.name,
+                "date": h.date.isoformat(),
+                "holiday_type": h.holiday_type,
+                "holiday_type_display": h.get_holiday_type_display(),
+                "display_date": h.display_date,
+            }
+            for h in upcoming
+        ]
+        
+        return JsonResponse({
+            "success": True,
+            "current_year": current_year,
+            "total_holidays": holidays.count(),
+            "upcoming": upcoming_data,
+            "calendar": calendar_data,
+            "holidays": holidays_data,
+            "pagination": {
+                "page": page_obj.number,
+                "num_pages": paginator.num_pages,
+                "total_count": paginator.count,
+                "has_next": page_obj.has_next(),
+                "has_previous": page_obj.has_previous(),
+            },
+            "years": [y.year for y in years],
+            "months": months,
+            "holiday_types": list(Holiday.HOLIDAY_TYPES),
+            "filters": {
+                "year": current_year,
+                "month": current_month,
+                "type": current_type,
+                "search": search_query,
+            }
+        })
+
+    # ✅ RETURN HTML FOR NORMAL BROWSER REQUESTS
     return _render_template_page(request, "holiday_list.html", {
         "current_year": current_year,
-        "current_month": str(current_month),
+        "current_month": current_month,
         "current_type": current_type,
         "search_query": search_query,
         "years": years,
@@ -5494,6 +5637,7 @@ def holiday_list(request):
         "upcoming": upcoming,
         "calendar_data": calendar_data,
     })
+
 
 @login_required
 def holiday_create(request):
@@ -5527,16 +5671,30 @@ def holiday_bulk_create(request):
 
     if not (request.user.is_superuser or user_has_permission(request.user, "holiday_create")):
         if _wants_json_response(request):
-            return _err("Access denied. You don't have permission to create holidays.", status=403)
+            return JsonResponse({"success": False, "error": "Access denied. You don't have permission to create holidays."}, status=403)
         messages.error(request, "Access denied.")
         return redirect("holiday_list")
 
+    # ✅ Generate years list for the template
+    current_year = timezone.now().year
+    years = range(current_year - 2, current_year + 3)  # 2024, 2025, 2026, 2027, 2028
+
     if request.method == "POST":
         return holiday_bulk_create_api(request)
+    
+    # ✅ For AJAX requests, return JSON
     if _wants_json_response(request):
-        return _ok({"year": timezone.now().year})
-    return _render_template_page(request, "holiday_bulk_form.html")
-
+        return JsonResponse({
+            "success": True,
+            "year": current_year,
+            "years": list(years),
+        })
+    
+    # ✅ For normal browser requests, render HTML template with years
+    return render(request, 'holiday_bulk_form.html', {
+        'years': years,
+        'current_year': current_year,
+    })
 
 @login_required
 def holiday_edit(request, holiday_id):
@@ -5956,7 +6114,7 @@ def admin_leave_type_create_page(request):
         "page_title_text": "Create Leave Type",
         "leave_type": None,
         "current_year": timezone.now().year,
-        "month_choices": AcademicLeaveSettings.MONTH_CHOICES,
+        "month_choices": LeaveSettings.MONTH_CHOICES,
     }
     return _render_template_page(request, "admin_leave_type_form.html", context)
 
@@ -5970,7 +6128,7 @@ def admin_leave_type_edit_page(request, lt_id):
         "page_title_text": f"Edit {lt.name}",
         "leave_type": lt,
         "current_year": timezone.now().year,
-        "month_choices": AcademicLeaveSettings.MONTH_CHOICES,
+        "month_choices": LeaveSettings.MONTH_CHOICES,
     }
     return _render_template_page(request, "admin_leave_type_form.html", context)
 
@@ -6205,11 +6363,82 @@ def admin_policy_toggle(request, policy_id):
 from django.shortcuts import render
 from .models import Department  # adjust if your model is named differently
 
-def department_list(request):
-    from django.db.models import Count
-    departments = Department.objects.annotate(emp_count=Count('user')).all()
-    return render(request, 'department_list.html', {'departments': departments})
+from django.db.models import Count, Q
+from django.shortcuts import render
+from django.http import JsonResponse
+from django.urls import reverse
+from users.models import Department, User
 
+def department_list(request):
+    """
+    Department list view - supports both HTML and JSON responses
+    """
+    # Check if request wants JSON
+    is_json = (
+        request.headers.get('X-Requested-With') == 'XMLHttpRequest' or
+        request.GET.get('format') == 'json' or
+        request.headers.get('Accept') == 'application/json'
+    )
+    
+    # Get all departments with employee count
+    departments = Department.objects.annotate(
+        emp_count=Count('user', filter=Q(user__is_superuser=False))
+    ).select_related('hr').order_by('name')
+    
+    # Search functionality
+    search = request.GET.get('q', '').strip()
+    if search:
+        departments = departments.filter(name__icontains=search)
+    
+    # Get HR users for forms
+    hr_users = User.objects.filter(role__name='HR').order_by('first_name')
+    
+    # Calculate total employees
+    total_employees = User.objects.filter(is_superuser=False).count()
+    
+    # ✅ RETURN JSON FOR AJAX REQUESTS
+    if is_json:
+        departments_data = []
+        for dept in departments:
+            departments_data.append({
+                "id": dept.id,
+                "name": dept.name,
+                "hr": {
+                    "id": dept.hr.id,
+                    "name": dept.hr.get_full_name() or dept.hr.email,
+                    "email": dept.hr.email,
+                } if dept.hr else None,
+                "employee_count": dept.emp_count,
+                "detail_url": reverse('department_detail', args=[dept.id]),
+                "edit_url": reverse('department_edit', args=[dept.id]),
+                "delete_url": reverse('department_delete', args=[dept.id]),
+            })
+        
+        hr_users_data = [
+            {
+                "id": u.id,
+                "name": u.get_full_name() or u.email,
+                "email": u.email,
+            }
+            for u in hr_users
+        ]
+        
+        return JsonResponse({
+            "success": True,
+            "departments": departments_data,
+            "hr_users": hr_users_data,
+            "search": search,
+            "total_departments": departments.count(),
+            "total_employees": total_employees,
+        })
+    
+    # ✅ RETURN HTML FOR NORMAL BROWSER REQUESTS
+    return render(request, 'department_list.html', {
+        'departments': departments,
+        'hr_users': hr_users,
+        'search': search,
+        'total_employees': total_employees,
+    })
 # ════════════════════════════════════════════════════════════════════
 #  ★ ADMIN — DELETE LEAVE POLICY
 # ════════════════════════════════════════════════════════════════════
@@ -6600,6 +6829,7 @@ def leave_detail_page(request, leave_id):
             'role': 'Team Leader',
             'vote': 'approved' if leave.tl_approved else ('rejected' if leave.tl_rejected else 'pending'),
             'acted_at': leave.tl_acted_at.strftime('%d %b %Y, %I:%M %p') if leave.tl_acted_at else None,
+            'remarks': leave.tl_remark or '',
         })
     
     # HR
@@ -6616,6 +6846,7 @@ def leave_detail_page(request, leave_id):
             'role': 'HR',
             'vote': 'approved' if leave.hr_approved else ('rejected' if leave.hr_rejected else 'pending'),
             'acted_at': leave.hr_acted_at.strftime('%d %b %Y, %I:%M %p') if leave.hr_acted_at else None,
+            'remarks': leave.hr_remark or '',
         })
     
     # Manager
@@ -6632,6 +6863,7 @@ def leave_detail_page(request, leave_id):
             'role': 'Manager',
             'vote': 'approved' if leave.manager_approved else ('rejected' if leave.manager_rejected else 'pending'),
             'acted_at': leave.manager_acted_at.strftime('%d %b %Y, %I:%M %p') if leave.manager_acted_at else None,
+            'remarks': leave.manager_remark or '',
         })
     
     # Check if current user can approve/reject
@@ -6683,7 +6915,7 @@ def leave_detail_page(request, leave_id):
                         leave.tl_rejected = True
                     leave.tl_voted = True
                     leave.tl_acted_at = timezone.now()
-                    leave.tl_remarks = remarks
+                    leave.tl_remark = remarks
                     
                 elif role_name == 'Manager':
                     if action == 'approve':
@@ -6694,7 +6926,7 @@ def leave_detail_page(request, leave_id):
                         leave.manager_rejected = True
                     leave.manager_voted = True
                     leave.manager_acted_at = timezone.now()
-                    leave.manager_remarks = remarks
+                    leave.manager_remark = remarks
                     
                 elif role_name == 'HR':
                     if action == 'approve':
@@ -6705,7 +6937,7 @@ def leave_detail_page(request, leave_id):
                         leave.hr_rejected = True
                     leave.hr_voted = True
                     leave.hr_acted_at = timezone.now()
-                    leave.hr_remarks = remarks
+                    leave.hr_remark = remarks
                 
                 # Keep vote counters in sync with the action performed.
                 if action == 'approve':
@@ -6748,7 +6980,7 @@ def leave_detail_page(request, leave_id):
                         'role': 'Team Leader',
                         'vote': 'approved' if leave.tl_approved else ('rejected' if leave.tl_rejected else 'pending'),
                         'acted_at': leave.tl_acted_at.strftime('%d %b %Y, %I:%M %p') if leave.tl_acted_at else None,
-                        'remarks': getattr(leave, 'tl_remarks', ''),
+                        'remarks': leave.tl_remark or '',
                     })
                 
                 # Refresh HR data
@@ -6759,7 +6991,7 @@ def leave_detail_page(request, leave_id):
                         'role': 'HR',
                         'vote': 'approved' if leave.hr_approved else ('rejected' if leave.hr_rejected else 'pending'),
                         'acted_at': leave.hr_acted_at.strftime('%d %b %Y, %I:%M %p') if leave.hr_acted_at else None,
-                        'remarks': getattr(leave, 'hr_remarks', ''),
+                        'remarks': leave.hr_remark or '',
                     })
                 
                 # Refresh Manager data
@@ -6770,7 +7002,7 @@ def leave_detail_page(request, leave_id):
                         'role': 'Manager',
                         'vote': 'approved' if leave.manager_approved else ('rejected' if leave.manager_rejected else 'pending'),
                         'acted_at': leave.manager_acted_at.strftime('%d %b %Y, %I:%M %p') if leave.manager_acted_at else None,
-                        'remarks': getattr(leave, 'manager_remarks', ''),
+                        'remarks': leave.manager_remark or '',
                     })
                 
                 return JsonResponse({
@@ -6951,7 +7183,7 @@ def admin_settings(request):
     if not (request.user.is_superuser or user_has_permission(request.user, "settings_view")):
         return JsonResponse({"success": False, "error": "Access denied."}, status=403) if request.headers.get('X-Requested-With') == 'XMLHttpRequest' else redirect('admin_dashboard')
     
-    settings_obj = AcademicLeaveSettings.get_solo()
+    settings_obj = LeaveSettings.get_solo()
 
     leave_type_defaults = {}
     if POLICY_ENABLED:
@@ -7017,14 +7249,14 @@ def admin_settings(request):
                 "holiday_type_counts": list(holiday_type_counts),
                 "month_choices": [
                     {"value": month_num, "label": month_label}
-                    for month_num, month_label in AcademicLeaveSettings.MONTH_CHOICES
+                    for month_num, month_label in LeaveSettings.MONTH_CHOICES
                 ]
             }
         })
 
     context = {
         "settings_obj": settings_obj,
-        "month_choices": AcademicLeaveSettings.MONTH_CHOICES,
+        "month_choices": LeaveSettings.MONTH_CHOICES,
         "leave_type_defaults": leave_type_defaults,
         "annual_quota": annual_quota,
         "monthly_quota": monthly_quota,
@@ -7052,7 +7284,7 @@ def admin_settings_save(request):
             return JsonResponse({"success": False, "error": "Method not allowed."}, status=405)
         return redirect("admin_settings")
 
-    settings_obj = AcademicLeaveSettings.get_solo()
+    settings_obj = LeaveSettings.get_solo()
 
     def _to_float(value, fallback):
         try:
@@ -7139,7 +7371,7 @@ def admin_settings_save(request):
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         response_data = {
             "success": True,
-            "message": "Academic/Leave settings updated successfully.",
+            "message": "/Leave settings updated successfully.",
             "data": {
                 "settings": {
                     "leave_year_start_month": settings_obj.leave_year_start_month,
@@ -7157,7 +7389,7 @@ def admin_settings_save(request):
             response_data["sync_message"] = sync_message
         return JsonResponse(response_data)
 
-    messages.success(request, "Academic/Leave settings updated successfully.")
+    messages.success(request, "/Leave settings updated successfully.")
     if sync_message:
         messages.info(request, sync_message)
-    return redirect("admin_settings")
+    return redirect("admin_settings.html ")

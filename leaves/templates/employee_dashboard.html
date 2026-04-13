@@ -398,6 +398,14 @@
     text-overflow: ellipsis;
     color: var(--text-muted);
 }
+.remark-cell {
+    max-width: 220px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--text-mid);
+    font-style: italic;
+}
 .date-cell {
     color: var(--text-muted);
     font-weight: 500;
@@ -676,6 +684,10 @@ async function loadDashboard() {
             credentials: 'same-origin',
         });
 
+        if (response.status === 401 || response.status === 403) {
+            window.location.href = "{% url 'login' %}";
+            return;
+        }
         if (!response.ok) throw new Error(`API error: ${response.status}`);
         
         const rawData = await response.json();
@@ -700,6 +712,7 @@ async function loadDashboard() {
             end_date: leave.end_date,
             days: leave.total_days, // total_days → days
             reason: leave.reason,
+            hr_remark: leave.hr_remark,
             final_status: leave.final_status,
         }));
         
@@ -743,7 +756,7 @@ function renderHero() {
         <a href="{% url 'apply_leave' %}" class="apply-btn-hero">
             <i class="fa-regular fa-calendar-plus"></i>
             Apply for Leave
-            <i class="fa-regular fa-arrow-right"></i>
+            <i class="fa-solid fa-arrow-right"></i>
         </a>
     `;
 }
@@ -827,7 +840,7 @@ function renderQuickActions() {
     const applyLeaveLink = canApplyLeave
         ? `<a href="{% url 'apply_leave' %}" class="action-link">
                 <span>Apply for Leave</span>
-                <i class="fa-regular fa-arrow-right"></i>
+                <i class="fa-solid fa-arrow-right"></i>
            </a>`
         : `<div class="action-link" style="opacity:.5;pointer-events:none;cursor:not-allowed;" title="Permission required: leave_apply">
                 <span>Apply for Leave</span>
@@ -854,7 +867,7 @@ function renderQuickActions() {
             </div>
             <a href="{% url 'profile_dashboard' %}" class="action-link">
                 <span>View Full Profile</span>
-                <i class="fa-regular fa-arrow-right"></i>
+                <i class="fa-solid fa-arrow-right"></i>
             </a>
         </div>
         
@@ -943,6 +956,7 @@ function renderLeaveHistory() {
                         <th>From — To</th>
                         <th>Days</th>
                         <th>Reason</th>
+                        <th>HR Remark</th>
                         <th>Status</th>
                     </tr>
                 </thead>
@@ -959,6 +973,7 @@ function renderLeaveHistory() {
                 <td class="date-cell">${formatDate(leave.start_date)} — ${formatDate(leave.end_date)}</td>
                 <td><strong>${leave.days || 0}</strong></td>
                 <td class="reason-cell">${escapeHtml(leave.reason) || '—'}</td>
+                <td class="remark-cell" title="${escapeHtml(leave.hr_remark || 'No HR remark')}">${escapeHtml(leave.hr_remark) || '—'}</td>
                 <td>
                     <span class="status ${statusClass}">
                         <span class="status-dot ${leave.final_status?.toLowerCase() || 'pending'}"></span>
@@ -1024,6 +1039,10 @@ async function loadDashboardPage(page) {
             credentials: 'same-origin',
         });
 
+        if (response.status === 401 || response.status === 403) {
+            window.location.href = "{% url 'login' %}";
+            return;
+        }
         if (!response.ok) throw new Error(`API error: ${response.status}`);
         
         const rawData = await response.json();
@@ -1044,6 +1063,7 @@ async function loadDashboardPage(page) {
             end_date: leave.end_date,
             days: leave.total_days,
             reason: leave.reason,
+            hr_remark: leave.hr_remark,
             final_status: leave.final_status,
         }));
         
@@ -1129,6 +1149,12 @@ window.addEventListener('beforeunload', () => {
     if (employeeAutoRefreshTimer) {
         clearInterval(employeeAutoRefreshTimer);
         employeeAutoRefreshTimer = null;
+    }
+});
+
+window.addEventListener('pageshow', (event) => {
+    if (event.persisted) {
+        window.location.reload();
     }
 });
 </script>

@@ -105,6 +105,7 @@
                 <button class="pg-btn" onclick="loadPage({{ num }})">{{ num }}</button>
             {% endif %}
         {% endfor %}
+    
 
         {% if page_obj.has_next %}
             <button class="pg-btn" onclick="loadPage({{ page_obj.next_page_number }})">
@@ -124,7 +125,7 @@
     <p>Ready to take some time off? Your first leave request is just a click away.</p>
     <a href="{% url 'apply_leave' %}" class="apply-btn" style="display:inline-flex;">
         <span>Apply for Leave</span>
-        <i class="fa-regular fa-arrow-right"></i>
+        <i class="fa-solid fa-arrow-right"></i>
     </a>
 </div>
-{% endif %}
+{% endif %} 

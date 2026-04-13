@@ -775,6 +775,7 @@
 <script>
 // Global variables
 let currentAction = null;
+let currentLeaveId = {{ leave.id }};
 
 // Show modal for approval/rejection
 function showApprovalModal(action) {
@@ -886,7 +887,7 @@ function updateApproverStatus(approvers) {
     });
 }
 
-// Handle form submission with AJAX
+// Handle form submission with AJAX - ✅ FIXED to use JSON API endpoint
 $(document).ready(function() {
     $('#approvalForm').on('submit', function(e) {
         e.preventDefault();
@@ -896,11 +897,14 @@ $(document).ready(function() {
         const submitBtn = $('#submitBtn');
         const originalText = submitBtn.html();
         
+        // ✅ FIX: Use the JSON API endpoint instead of HTML page URL
+        const apiUrl = '/api/leave-detail/' + currentLeaveId + '/';
+        
         // Disable button and show loading
         submitBtn.prop('disabled', true).html('<i class="fa-solid fa-spinner fa-spin"></i> Processing...');
         
         $.ajax({
-            url: window.location.href,
+            url: apiUrl,
             method: 'POST',
             data: {
                 action: action,

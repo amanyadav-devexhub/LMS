@@ -144,21 +144,13 @@ def login_view(request):
 
 
 def user_logout(request):
-    refresh_token = request.COOKIES.get('refresh_token')
-
-    if refresh_token:
-        try:
-            token = RefreshToken(refresh_token)
-            token.blacklist()   # 🔥 invalidate token
-        except Exception:
-            pass
-
+    logout(request)
     response = redirect("login")
-
-    # Delete cookies
-    response.delete_cookie('access_token')
-    response.delete_cookie('refresh_token')
-
+    response.delete_cookie('access_token', path='/', samesite='Lax')
+    response.delete_cookie('refresh_token', path='/', samesite='Lax')
+    response["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response["Pragma"] = "no-cache"
+    response["Expires"] = "0"
     return response
 
 
@@ -564,26 +556,60 @@ def user_logout(request):
 
 
 @login_required
-def profile_api(request):
+def profile_api(request, user_id=None):
     """
     Dual-mode endpoint:
     - GET from browser → Render HTML template
     - GET from fetch/XHR → Return JSON
     - POST → Update profile data
     """
-    user = request.user
-    can_salary_view = user_has_permission(user, "salary_view")
-    can_salary_update = user_has_permission(user, "salary_update")
-    can_bank_view = user_has_permission(user, "bank_view")
-    can_bank_update = user_has_permission(user, "bank_update")
-    can_verification_view = user_has_permission(user, "verification_view")
-    can_verification_update = user_has_permission(user, "verification_update")
+    viewer = request.user
+
+    def _role_name(target):
+        return (getattr(getattr(target, "role", None), "name", "") or "").strip()
+
+    def _is_admin_role(target):
+        return getattr(target, "is_superuser", False) or _role_name(target) in {"Admin", "Administrator"}
+
+    def _is_hr_role(target):
+        return _role_name(target) in {"HR", "Hr", "Human Resources"}
+
+    def _can_access_target(viewer_user, target_user, for_edit=False):
+        if viewer_user == target_user:
+            return True
+        if not (user_has_permission(viewer_user, "user_view") or user_has_permission(viewer_user, "user_update")):
+            return False
+        if _is_hr_role(viewer_user) and (_is_admin_role(target_user) or _is_hr_role(target_user)):
+            return False
+        if for_edit and not user_has_permission(viewer_user, "user_update"):
+            return False
+        return True
+
+    target_user = viewer
+    is_viewing_other = False
+    if user_id and int(user_id) != viewer.id:
+        target_user = get_object_or_404(User, pk=user_id)
+        is_viewing_other = True
+        if not _can_access_target(viewer, target_user, for_edit=False):
+            if _wants_json_response(request):
+                return JsonResponse({"success": False, "error": "You don't have permission to view this profile."}, status=403)
+            messages.error(request, "You don't have permission to view this profile.")
+            return redirect('profile_dashboard')
+
+    can_salary_view = user_has_permission(viewer, "salary_view")
+    can_salary_update = user_has_permission(viewer, "salary_update")
+    can_bank_view = user_has_permission(viewer, "bank_view")
+    can_bank_update = user_has_permission(viewer, "bank_update")
+    can_verification_view = user_has_permission(viewer, "verification_view")
+    can_verification_update = user_has_permission(viewer, "verification_update")
+    can_edit_profile = _can_access_target(viewer, target_user, for_edit=True)
+    can_hr_basic_update = user_has_permission(viewer, "user_update") and can_edit_profile
     
     # related models
-    salary, _ = SalaryDetails.objects.get_or_create(user=user)
-    bank, _ = BankDetails.objects.get_or_create(user=user)
-    verification, _ = VerificationDetails.objects.get_or_create(user=user)
-    additional, _ = AdditionalDetails.objects.get_or_create(user=user)
+    salary, _ = SalaryDetails.objects.get_or_create(user=target_user)
+    bank, _ = BankDetails.objects.get_or_create(user=target_user)
+    verification, _ = VerificationDetails.objects.get_or_create(user=target_user)
+    additional, _ = AdditionalDetails.objects.get_or_create(user=target_user)
     
     # Check if this is an AJAX/fetch request
     is_ajax = (
@@ -599,11 +625,11 @@ def profile_api(request):
             "success": True,
             "data": {
                 "profile": {
-                    "first_name": user.first_name,
-                    "last_name": user.last_name,
-                    "email": user.email,
-                    "username": user.username,
-                    "phone": additional.phone or user.phone,
+                    "first_name": target_user.first_name,
+                    "last_name": target_user.last_name,
+                    "email": target_user.email,
+                    "username": target_user.username,
+                    "phone": additional.phone or target_user.phone,
                     "personal_email": additional.personal_email,
                     "alternate_phone": additional.alternate_phone,
                     "date_of_birth": additional.date_of_birth.isoformat() if additional.date_of_birth else None,
@@ -634,10 +660,10 @@ def profile_api(request):
                     "blood_group": additional.blood_group,
                     "notes": additional.notes,
                 },
-                "department": user.department.name if user.department else None,
-                "designation": user.designation,
-                "date_of_joining": user.date_of_joining.isoformat() if user.date_of_joining else None,
-                "avatar_url": user.avatar.url if user.avatar else None,
+                "department": target_user.department.name if target_user.department else None,
+                "designation": target_user.designation,
+                "date_of_joining": target_user.date_of_joining.isoformat() if target_user.date_of_joining else None,
+                "avatar_url": target_user.avatar.url if target_user.avatar else None,
             }
         }
         
@@ -647,24 +673,24 @@ def profile_api(request):
         
         # Return HTML template otherwise
         from leaves.models import LeaveRequest
-        total_leaves = LeaveRequest.objects.filter(employee=user).count()
-        approved_leaves = LeaveRequest.objects.filter(employee=user, final_status='APPROVED').count()
-        pending_leaves = LeaveRequest.objects.filter(employee=user, final_status='PENDING').count()
+        total_leaves = LeaveRequest.objects.filter(employee=target_user).count()
+        approved_leaves = LeaveRequest.objects.filter(employee=target_user, final_status='APPROVED').count()
+        pending_leaves = LeaveRequest.objects.filter(employee=target_user, final_status='PENDING').count()
         
         # Build profile context for template
         profile = {
-            'avatar': user.avatar,
-            'first_name': user.first_name,
-            'last_name': user.last_name,
-            'email': user.email,
-            'username': user.username,
-            'phone': additional.phone or user.phone,
+            'avatar': target_user.avatar,
+            'first_name': target_user.first_name,
+            'last_name': target_user.last_name,
+            'email': target_user.email,
+            'username': target_user.username,
+            'phone': additional.phone or target_user.phone,
             'personal_email': additional.personal_email,
             'alternate_phone': additional.alternate_phone,
-            'employee_id': user.id,
-            'department': user.department.name if user.department else '',
-            'designation': user.designation,
-            'date_of_joining': user.date_of_joining,
+            'employee_id': target_user.id,
+            'department': target_user.department.name if target_user.department else '',
+            'designation': target_user.designation,
+            'date_of_joining': target_user.date_of_joining,
             'date_of_birth': additional.date_of_birth,
             'gender': additional.gender,
             'marital_status': additional.marital_status,
@@ -688,18 +714,20 @@ def profile_api(request):
         
         return render(request, 'profile.html', {
             'profile': profile,
-            'profile_user': user,
+            'profile_user': target_user,
             'profile_data': profile_data['data'],
             'total_leaves': total_leaves,
             'approved_leaves': approved_leaves,
             'pending_leaves': pending_leaves,
-            'can_edit_profile': True,
+            'can_edit_profile': can_edit_profile,
+            'can_hr_basic_update': can_hr_basic_update,
+            'is_viewing_other': is_viewing_other,
             'can_salary_view': can_salary_view,
-            'can_salary_update': can_salary_update,
+            'can_salary_update': can_salary_update and can_edit_profile,
             'can_bank_view': can_bank_view,
-            'can_bank_update': can_bank_update,
+            'can_bank_update': can_bank_update and can_edit_profile,
             'can_verification_view': can_verification_view,
-            'can_verification_update': can_verification_update,
+            'can_verification_update': can_verification_update and can_edit_profile,
         })
 
     # ─────────────────────────────────────
@@ -712,14 +740,12 @@ def profile_api(request):
             target_user_id = request.POST.get('target_user_id')
             
             # If editing another user's profile (HR/Admin)
-            if target_user_id and int(target_user_id) != user.id:
-                # Check permissions
-                if user_has_permission(user, "user_update") or user_has_permission(user, "user_view"):
-                    target_user = get_object_or_404(User, pk=target_user_id)
-                else:
+            if target_user_id and int(target_user_id) != viewer.id:
+                target_user = get_object_or_404(User, pk=target_user_id)
+                if not _can_access_target(viewer, target_user, for_edit=True):
                     return JsonResponse({"success": False, "error": "You don't have permission to edit this profile."}, status=403)
             else:
-                target_user = user
+                target_user = viewer
             
             # Get or create related models for target user
             target_salary, _ = SalaryDetails.objects.get_or_create(user=target_user)
@@ -791,7 +817,7 @@ def profile_api(request):
             # ─── HR BASIC DETAILS (Admin/HR only) ───
             elif section == 'basic_hr':
                 # Check permission
-                if not (user_has_permission(user, "user_update") or user_has_permission(user, "team_manage")):
+                if not (user_has_permission(viewer, "user_update") or user_has_permission(viewer, "team_manage")):
                     return JsonResponse({"success": False, "error": "Access denied."}, status=403)
                 
                 if request.POST.get('first_name'):
@@ -838,7 +864,7 @@ def profile_api(request):
             
             # ─── SALARY ───
             elif section == 'salary':
-                if not user_has_permission(user, "salary_update"):
+                if not user_has_permission(viewer, "salary_update"):
                     return JsonResponse({"success": False, "error": "Permission denied for salary updates."}, status=403)
                 if request.POST.get('basic'):
                     target_salary.basic_salary = float(request.POST.get('basic') or 0)
@@ -858,7 +884,7 @@ def profile_api(request):
             
             # ─── BANK ───
             elif section == 'bank':
-                if not user_has_permission(user, "bank_update"):
+                if not user_has_permission(viewer, "bank_update"):
                     return JsonResponse({"success": False, "error": "Permission denied for bank updates."}, status=403)
                 if request.POST.get('account_number'):
                     target_bank.account_number = request.POST.get('account_number').strip()
@@ -876,7 +902,7 @@ def profile_api(request):
             
             # ─── VERIFICATION ───
             elif section == 'verification':
-                if not user_has_permission(user, "verification_update"):
+                if not user_has_permission(viewer, "verification_update"):
                     return JsonResponse({"success": False, "error": "Permission denied for verification updates."}, status=403)
                 if request.POST.get('aadhaar'):
                     target_verification.aadhar_number = request.POST.get('aadhaar').strip()
@@ -1260,6 +1286,8 @@ def _get_assign_role_context(request):
 @login_required
 def department_edit(request, pk):
     if not _is_admin(request):
+        if _wants_json_response(request):
+            return JsonResponse({"success": False, "error": "Access denied. Admins only."}, status=403)
         messages.error(request, "Access denied.")
         return redirect('admin_dashboard')
 
@@ -1269,30 +1297,64 @@ def department_edit(request, pk):
         hr_id = request.POST.get('hr', '').strip()
         
         if not name:
+            if _wants_json_response(request):
+                return JsonResponse({"success": False, "error": "Department name is required."}, status=400)
             messages.error(request, "Department name is required.")
         elif Department.objects.filter(name__iexact=name).exclude(pk=pk).exists():
+            if _wants_json_response(request):
+                return JsonResponse({"success": False, "error": f'Another department named "{name}" already exists.'}, status=400)
             messages.error(request, f'Another department named "{name}" already exists.')
         else:
             dept.name = name
             dept.hr = User.objects.get(pk=hr_id) if hr_id else None
             dept.save()
-            messages.success(request, f'Department "{name}" updated successfully!')
             
-            is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
-            if is_ajax:
+            # ✅ ADD JSON RESPONSE FOR AJAX
+            if _wants_json_response(request):
                 return JsonResponse({
-                    "success": True, 
-                    "message": f'Department "{name}" updated successfully.',
-                    "redirect_url": reverse('department_list')
+                    "success": True,
+                    "message": f'Department "{name}" updated successfully!',
+                    "redirect_url": reverse('department_list'),
+                    "department": {
+                        "id": dept.id,
+                        "name": dept.name,
+                        "hr": {
+                            "id": dept.hr.id,
+                            "name": dept.hr.get_full_name() or dept.hr.email
+                        } if dept.hr else None,
+                    }
                 })
-                
-    return redirect('department_list')
-
+            
+            messages.success(request, f'Department "{name}" updated successfully!')
+            return redirect('department_list')
+    
+    # GET request - return department data for AJAX
+    if _wants_json_response(request):
+        hr_users = User.objects.filter(role__name='HR').order_by('first_name')
+        return JsonResponse({
+            "success": True,
+            "department": {
+                "id": dept.id,
+                "name": dept.name,
+                "hr_id": dept.hr.id if dept.hr else None,
+            },
+            "hr_users": [
+                {"id": u.id, "name": u.get_full_name() or u.email, "email": u.email}
+                for u in hr_users
+            ]
+        })
+    
+    return render(request, 'department_edit.html', {
+        'dept': dept,
+        'hr_users': User.objects.filter(role__name='HR').order_by('first_name')
+    })
 
 
 @login_required
 def department_delete(request, pk):
     if not _is_admin(request):
+        if _wants_json_response(request):
+            return JsonResponse({"success": False, "error": "Access denied. Admins only."}, status=403)
         messages.error(request, "Access denied.")
         return redirect('admin_dashboard')
 
@@ -1301,17 +1363,36 @@ def department_delete(request, pk):
         name = dept.name
         User.objects.filter(department=dept).update(department=None)
         dept.delete()
-        messages.success(request, f'Department "{name}" deleted successfully!')
         
-        is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
-        if is_ajax:
+        # ✅ ADD JSON RESPONSE FOR AJAX
+        if _wants_json_response(request):
             return JsonResponse({
-                "success": True, 
-                "message": f'Department "{name}" deleted.',
-                "redirect_url": reverse('department_list')
+                "success": True,
+                "message": f'Department "{name}" deleted successfully!',
+                "redirect_url": reverse('department_list'),
+                "deleted_id": pk
             })
-            
-    return redirect('department_list')
+        
+        messages.success(request, f'Department "{name}" deleted successfully!')
+        return redirect('department_list')
+    
+    # GET request - return department data for confirmation
+    if _wants_json_response(request):
+        employee_count = User.objects.filter(department=dept).count()
+        return JsonResponse({
+            "success": True,
+            "department": {
+                "id": dept.id,
+                "name": dept.name,
+                "employee_count": employee_count
+            }
+        })
+    
+    return render(request, 'department_confirm_delete.html', {
+        'dept': dept,
+        'employee_count': User.objects.filter(department=dept).count()
+    })
+
 
 
 @login_required
@@ -1336,19 +1417,15 @@ def department_create(request):
                 return JsonResponse({"success": False, "error": f'Department "{name}" already exists.'}, status=400)
             messages.error(request, f'Department "{name}" already exists.')
         else:
-            # Create the new department
             department = Department(name=name)
-            
-            # Assign HR if provided
             if hr_id:
                 try:
                     department.hr = User.objects.get(pk=hr_id)
                 except User.DoesNotExist:
                     pass
-            
             department.save()
             
-            # ✅ FIX: For AJAX requests, return JSON with redirect URL
+            # ✅ ADD JSON RESPONSE FOR AJAX
             if _wants_json_response(request):
                 return JsonResponse({
                     "success": True,
@@ -1357,7 +1434,11 @@ def department_create(request):
                     "department": {
                         "id": department.id,
                         "name": department.name,
-                        "hr": department.hr.email if department.hr else None
+                        "hr": {
+                            "id": department.hr.id,
+                            "name": department.hr.get_full_name() or department.hr.email
+                        } if department.hr else None,
+                        "employee_count": 0
                     }
                 })
             
@@ -1385,6 +1466,7 @@ def department_create(request):
         'hr_users': users
     })
 
+
 @login_required
 def department_detail(request, pk):
     if not _is_admin(request):
@@ -1393,7 +1475,7 @@ def department_detail(request, pk):
         messages.error(request, "Access denied.")
         return redirect('admin_dashboard')
 
-    dept      = get_object_or_404(Department, pk=pk)
+    dept = get_object_or_404(Department, pk=pk)
     employees = User.objects.filter(department=dept).select_related('role').order_by('first_name')
     emp_count = employees.count()
 
@@ -1407,7 +1489,7 @@ def department_detail(request, pk):
         })
 
     return render(request, 'department_detail.html', {
-        'dept':      dept,
+        'dept': dept,
         'employees': employees,
         'emp_count': emp_count,
     })
@@ -1511,34 +1593,46 @@ def role_create(request):
     if request.method == 'POST':
         name = request.POST.get('name', '').strip()
         
+        # Check if this is an AJAX request
+        is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+        
         if not name:
-            messages.error(request, "Role name is required.")
+            error_msg = "Role name is required."
+            if is_ajax:
+                return JsonResponse({"success": False, "error": error_msg}, status=400)
+            messages.error(request, error_msg)
         else:
             # Get canonical role name
             canonical_name = Role.get_canonical_name(name)
             
             # Check if canonical role already exists
             if Role.objects.filter(name=canonical_name).exists():
-                messages.error(
-                    request, 
-                    f'Role "{name}" is the same as "{canonical_name}" which already exists. '
-                    f'Please use the existing role.'
-                )
+                error_msg = f'Role "{name}" is the same as "{canonical_name}" which already exists. Please use the existing role.'
+                if is_ajax:
+                    # ✅ Return error response WITHOUT redirect
+                    return JsonResponse({"success": False, "error": error_msg}, status=400)
+                messages.error(request, error_msg)
             else:
                 # Create role with canonical name
                 role = Role.objects.create(name=canonical_name)
-                messages.success(request, f'Role "{canonical_name}" created successfully!')
+                success_msg = f'Role "{canonical_name}" created successfully!'
                 
-                is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
                 if is_ajax:
+                    # ✅ Return success response WITHOUT redirect
                     return JsonResponse({
                         "success": True, 
-                        "message": f'Role "{canonical_name}" created successfully.',
+                        "message": success_msg,
                         "role_id": role.id,
                         "role_name": canonical_name
                     })
-                    
-    return redirect('role_list')
+                
+                messages.success(request, success_msg)
+    
+    # ✅ Only redirect for non-AJAX requests
+    if not request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return redirect('role_list')
+    
+    return JsonResponse({"success": False, "error": "Invalid request"}, status=400)
 
 
 @login_required
@@ -1551,56 +1645,74 @@ def role_edit(request, pk):
     
     if request.method == 'POST':
         name = request.POST.get('name', '').strip()
+        is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
         
         if not name:
-            messages.error(request, "Role name is required.")
+            error_msg = "Role name is required."
+            if is_ajax:
+                return JsonResponse({"success": False, "error": error_msg}, status=400)
+            messages.error(request, error_msg)
         else:
             canonical_name = Role.get_canonical_name(name)
             
-            # Check if trying to change to a different canonical role
             if canonical_name != role.name and Role.objects.filter(name=canonical_name).exclude(pk=pk).exists():
-                messages.error(
-                    request, 
-                    f'Cannot rename to "{name}" because "{canonical_name}" already exists.'
-                )
+                error_msg = f'Cannot rename to "{name}" because "{canonical_name}" already exists.'
+                if is_ajax:
+                    return JsonResponse({"success": False, "error": error_msg}, status=400)
+                messages.error(request, error_msg)
             else:
                 old_name = role.name
                 role.name = canonical_name
                 role.save()
-                messages.success(request, f'Role "{old_name}" renamed to "{canonical_name}".')
+                success_msg = f'Role "{old_name}" renamed to "{canonical_name}".'
                 
-                is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
                 if is_ajax:
                     return JsonResponse({
                         "success": True, 
-                        "message": f'Role renamed to "{canonical_name}".',
+                        "message": success_msg,
                         "role_name": canonical_name
                     })
-                    
-    return redirect('role_list')
-
+                
+                messages.success(request, success_msg)
+    
+    if not request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return redirect('role_list')
+    
+    return JsonResponse({"success": False, "error": "Invalid request"}, status=400)
 
 @login_required
 def role_delete(request, pk):
     if not (request.user.is_superuser or user_has_permission(request.user, "role_delete") or _is_admin(request)):
         messages.error(request, "Access denied.")
         return redirect('admin_dashboard')
+    
     role = get_object_or_404(Role, pk=pk)
+    
     if request.method == 'POST':
+        is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+        
         if role.name == 'Admin':
-            messages.error(request, "The Admin role cannot be deleted.")
+            error_msg = "The Admin role cannot be deleted."
+            if is_ajax:
+                return JsonResponse({"success": False, "error": error_msg}, status=400)
+            messages.error(request, error_msg)
             return redirect('role_list')
+        
         name = role.name
         User.objects.filter(role=role).update(role=None)
         RolePermissionAssignment.objects.filter(role=role).delete()
         role.delete()
-        messages.success(request, f'Role "{name}" deleted.')
+        success_msg = f'Role "{name}" deleted successfully.'
         
-        is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
         if is_ajax:
-            return JsonResponse({"success": True, "message": f'Role "{name}" deleted.'})
-            
-    return redirect('role_list')
+            return JsonResponse({"success": True, "message": success_msg})
+        
+        messages.success(request, success_msg)
+    
+    if not request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return redirect('role_list')
+    
+    return JsonResponse({"success": False, "error": "Invalid request"}, status=400)
 
 
 @login_required
@@ -2072,6 +2184,15 @@ def assign_role_page(request):
         'end_index': min(end, total_users),
         'per_page': per_page,
     })
+    context['can_profile_view'] = (
+        request.user.is_superuser
+        or user_has_permission(request.user, "user_view")
+        or user_has_permission(request.user, "user_update")
+    )
+    context['can_profile_edit'] = (
+        request.user.is_superuser
+        or user_has_permission(request.user, "user_update")
+    )
 
     return render(request, 'assign_role.html', context)
 

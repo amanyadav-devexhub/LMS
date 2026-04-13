@@ -1,6 +1,6 @@
 {% extends "base.html" %}
-{% block title %}Academic & Leave Settings — LeaveSetu{% endblock %}
-{% block page_title %}Academic & Leave Settings{% endblock %}
+{% block title %}Leave Settings — LeaveSetu{% endblock %}
+{% block page_title %}Leave Settings{% endblock %}
 
 {% block extra_head %}
 <style>
@@ -258,7 +258,7 @@
 {% block content %}
 <div class="settings-wrap">
   <div class="settings-banner">
-    <h2>Academic & Leave Settings</h2>
+    <h2>Leave Settings</h2>
     <p>Configure leave-year month, annual leave quota, monthly accrual, attendance rules, and holiday calendar access from one place.</p>
   </div>
 
@@ -399,18 +399,42 @@
 {% block extra_scripts %}
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script>
+// ========== FIX: Prevent back button from showing cached JSON ==========
+
+// 1. Force reload when page is loaded from back/forward cache
+window.addEventListener('pageshow', function(event) {
+    if (event.persisted) {
+        window.location.reload();
+    }
+});
+
+// 2. Check if we accidentally loaded JSON instead of HTML
+if (document.body && document.body.innerText && document.body.innerText.trim().startsWith('{')) {
+    window.location.reload();
+}
+
+// 3. Add cache-busting parameter to AJAX GET requests
+(function() {
+    var originalAjax = $.ajax;
+    $.ajax = function(options) {
+        if (options && options.url && options.url.indexOf('/admin/settings/') !== -1 && options.type === 'GET') {
+            var separator = options.url.indexOf('?') !== -1 ? '&' : '?';
+            options.url = options.url + separator + '_t=' + Date.now();
+        }
+        return originalAjax.call(this, options);
+    };
+})();
+
+// ========== YOUR EXISTING CODE ==========
 $(document).ready(function() {
-    // Load initial data via AJAX
     loadSettingsData();
     
-    // Auto-update monthly quota when annual quota changes
     $('#default_annual_quota').on('input', function() {
         var annualValue = parseFloat($(this).val()) || 0;
         var monthlyValue = annualValue / 12;
         $('#default_monthly_quota').val(monthlyValue.toFixed(2));
     });
     
-    // Handle form submission with AJAX
     $('#settings-form').on('submit', function(e) {
         e.preventDefault();
         saveSettings();
@@ -418,8 +442,6 @@ $(document).ready(function() {
 });
 
 function loadSettingsData() {
-    // $('#loading-overlay').fadeIn(200);
-    
     $.ajax({
         url: window.location.href,
         type: 'GET',
@@ -430,7 +452,6 @@ function loadSettingsData() {
         success: function(response) {
             if (response.success) {
                 updateUIWithData(response.data);
-                // showToast('Settings loaded successfully', 'success');
             } else {
                 showToast('Failed to load settings', 'error');
             }
@@ -438,15 +459,11 @@ function loadSettingsData() {
         error: function(xhr, status, error) {
             console.error('Error loading settings:', error);
             showToast('Error loading settings. Please refresh the page.', 'error');
-        },
-        complete: function() {
-            // $('#loading-overlay').fadeOut(200);
         }
     });
 }
 
 function updateUIWithData(data) {
-    // Update stats
     if (data.stats) {
         $('#stats-container').html(`
             <div class="summary-card">
@@ -464,7 +481,6 @@ function updateUIWithData(data) {
         `);
     }
     
-    // Update form fields
     if (data.settings) {
         $('#leave_year_start_month').val(data.settings.leave_year_start_month);
         $('#default_annual_quota').val(data.settings.annual_quota);
@@ -476,7 +492,6 @@ function updateUIWithData(data) {
         $('#show_only_monthly_in_balance').prop('checked', data.settings.show_only_monthly_in_balance);
     }
     
-    // Update holiday stats
     if (data.holiday_type_counts && data.holiday_type_counts.length > 0) {
         var holidayStatsHtml = '';
         data.holiday_type_counts.forEach(function(item) {
@@ -487,7 +502,6 @@ function updateUIWithData(data) {
         $('#holiday-stats-container').html('<span style="font-size:11px;color:var(--text-muted);">No holidays configured</span>');
     }
     
-    // Update upcoming holidays table
     if (data.upcoming_holidays && data.upcoming_holidays.length > 0) {
         var holidaysHtml = '';
         data.upcoming_holidays.forEach(function(holiday) {
@@ -506,7 +520,6 @@ function updateUIWithData(data) {
 }
 
 function saveSettings() {
-    // Validate form
     if (!$('#settings-form')[0].checkValidity()) {
         $('#settings-form')[0].reportValidity();
         return;
@@ -515,7 +528,6 @@ function saveSettings() {
     $('#save-btn').prop('disabled', true);
     $('#loading-overlay').fadeIn(200);
     
-    // Collect form data
     var formData = {
         'leave_year_start_month': $('#leave_year_start_month').val(),
         'default_annual_quota': $('#default_annual_quota').val(),
@@ -540,11 +552,9 @@ function saveSettings() {
             if (response.success) {
                 showToast(response.message, 'success');
                 
-                // Update UI with new data
                 if (response.data && response.data.settings) {
                     $('#default_monthly_quota').val(response.data.settings.monthly_quota);
                     
-                    // Update stats if provided
                     if (response.data.stats) {
                         $('#stats-container').html(`
                             <div class="summary-card">
@@ -563,12 +573,10 @@ function saveSettings() {
                     }
                 }
                 
-                // Show sync message if exists
                 if (response.sync_message) {
                     showToast(response.sync_message, 'info', 5000);
                 }
                 
-                // Reload holiday data
                 loadSettingsData();
             } else {
                 showToast(response.error || 'Failed to save settings', 'error');
@@ -596,7 +604,6 @@ function saveSettings() {
 }
 
 function showToast(message, type = 'success', duration = 3000) {
-    // Remove existing toasts
     $('.toast-notification').remove();
     
     var bgColor = type === 'success' ? '#10b981' : (type === 'error' ? '#ef4444' : '#3b82f6');

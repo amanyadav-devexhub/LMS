@@ -1107,6 +1107,15 @@ document.addEventListener('keydown',function(e){
     }
 });
 
+document.querySelectorAll('a[href$="/logout/"]').forEach((logoutLink) => {
+    logoutLink.addEventListener('click', () => {
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        sessionStorage.removeItem('accessToken');
+        sessionStorage.removeItem('refreshToken');
+    });
+});
+
 // Global AJAX Setup (jQuery)
 $.ajaxSetup({
     beforeSend: function(xhr, settings) {
@@ -1146,6 +1155,12 @@ axios.interceptors.response.use(
         return Promise.reject(error);
     }
 );
+
+window.addEventListener('pageshow', function(event) {
+    if (event.persisted && {{ request.user.is_authenticated|yesno:'true,false' }}) {
+        window.location.reload();
+    }
+});
 
 // --- GLOBAL AJAX FORM HANDLER ---
 function showToast(message, type = 'success') {

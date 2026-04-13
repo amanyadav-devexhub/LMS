@@ -216,7 +216,7 @@
     </div>
   </div>
 
-  <form method="POST" id="bulk-holiday-form">
+  <form method="POST" id="bulk-holiday-form" action="{% url 'api_holiday_bulk_create' %}">
     {% csrf_token %}
 
     <!-- ── YEAR SELECTION ── -->

@@ -188,17 +188,26 @@ DEFAULT_ROLE_PERMISSION_CODES = {
     "HR": {
         "dashboard_hr",
         "leave_apply", "leave_view_own", "leave_view_all", "leave_approve", "leave_reject", "leave_balance_view",
-        "user_view", "team_view", "team_manage", "report_view", "notification_view",
+        "user_view", "user_update", "team_view", "team_manage", "report_view", "notification_view",
+        "salary_view", "salary_update",
+        "bank_view", "bank_update",
+        "verification_view", "verification_update",
     },
     "Hr": {
         "dashboard_hr",
         "leave_apply", "leave_view_own", "leave_view_all", "leave_approve", "leave_reject", "leave_balance_view",
-        "user_view", "team_view", "team_manage", "report_view", "notification_view",
+        "user_view", "user_update", "team_view", "team_manage", "report_view", "notification_view",
+        "salary_view", "salary_update",
+        "bank_view", "bank_update",
+        "verification_view", "verification_update",
     },
     "Human Resources": {
         "dashboard_hr",
         "leave_apply", "leave_view_own", "leave_view_all", "leave_approve", "leave_reject", "leave_balance_view",
-        "user_view", "team_view", "team_manage", "report_view", "notification_view",
+        "user_view", "user_update", "team_view", "team_manage", "report_view", "notification_view",
+        "salary_view", "salary_update",
+        "bank_view", "bank_update",
+        "verification_view", "verification_update",
     },
     
     # Manager
@@ -305,6 +314,13 @@ def role_has_permission(role, codename: str) -> bool:
     ensure_permission_catalog()
     normalized = (codename or "").strip().lower()
     if not normalized:
+        return False
+    # If no explicit assignments exist yet for this role, fall back to defaults.
+    if not RolePermissionAssignment.objects.filter(role=role).exists():
+        defaults = DEFAULT_ROLE_PERMISSION_CODES.get(getattr(role, "name", ""), set())
+        default_codes = {code.strip().lower() for code in defaults if code}
+        if normalized in default_codes:
+            return RBACPermission.objects.filter(codename=normalized, is_active=True).exists()
         return False
 
     return RolePermissionAssignment.objects.filter(
