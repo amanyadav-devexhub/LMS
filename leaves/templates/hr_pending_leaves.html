@@ -2,141 +2,473 @@
 {% block title %}Pending Approvals — LeaveSetu HR{% endblock %}
 {% block page_title %}Pending Leave Approvals{% endblock %}
 
-{% block content %}
+{% block extra_head %}
 <style>
-.clickable-row {
-    cursor: pointer;
-    transition: background 0.2s;
-}
-.clickable-row:hover {
-    background: rgba(0,198,212,0.05);
-}
-</style>
+.clickable-row { cursor: pointer; transition: background 0.18s; }
+.clickable-row:hover { background: rgba(0,198,212,0.05); }
 
-<div class="card">
+/* ── Skeleton ── */
+.skel {
+    background: linear-gradient(90deg, var(--border) 25%, var(--border-mid) 50%, var(--border) 75%);
+    background-size: 200% 100%;
+    animation: skel-shimmer 1.4s infinite;
+    border-radius: 6px; display: inline-block;
+}
+@keyframes skel-shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+
+/* ── Pagination ── */
+.pager {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 18px; border-top: 1px solid var(--border);
+    background: var(--surface2); flex-wrap: wrap; gap: 10px;
+}
+.pager-info { font-size: 12px; color: var(--text-muted); font-weight: 600; }
+.pager-btns { display: flex; gap: 6px; }
+.pager-btn {
+    padding: 5px 13px; border-radius: 8px; font-size: 12px; font-weight: 700;
+    border: 1px solid var(--border-mid); background: var(--surface);
+    color: var(--text); cursor: pointer; transition: all 0.16s;
+}
+.pager-btn:hover:not(:disabled) { background: var(--aqua-glass); border-color: var(--aqua); color: var(--aqua-deep); }
+.pager-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.pager-btn.active { background: var(--aqua-glass); border-color: var(--aqua); color: var(--aqua-deep); }
+
+/* ── Toast ── */
+#toast-wrap {
+    position: fixed; top: 24px; right: 24px; z-index: 9999;
+    display: flex; flex-direction: column; gap: 10px; pointer-events: none;
+}
+@keyframes t-in  { from{opacity:0;transform:translateY(10px) scale(.96)} to{opacity:1;transform:none} }
+@keyframes t-out { from{opacity:1;transform:none} to{opacity:0;transform:translateY(8px) scale(.96)} }
+
+/* ── Loading overlay ── */
+#table-loading {
+    position: absolute; inset: 0; background: rgba(var(--surface-rgb, 15,25,40), 0.55);
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 0 0 16px 16px; z-index: 10; backdrop-filter: blur(2px);
+    opacity: 0; transition: opacity 0.2s; pointer-events: none;
+}
+#table-loading.visible { opacity: 1; pointer-events: all; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="card" style="position:relative;">
+    <input type="hidden" id="csrf-token-fallback" value="{{ csrf_token }}" />
     <div class="table-header">
         <div class="table-title">
-            <i class="fa-solid fa-file-circle-exclamation" style="margin-right: 8px;"></i>
+            <i class="fa-solid fa-file-circle-exclamation" style="margin-right:8px;"></i>
             Leave Requests Awaiting Your Approval
         </div>
-        <span class="badge badge-pending" id="pending-badge">{{ pending_count }} pending</span>
+        <span class="badge badge-pending" id="pending-badge">
+            <span class="skel" style="width:65px;height:13px;"></span>
+        </span>
     </div>
-    
-    <div class="table-container" id="hr-pending-container">
-        {% include "partials/hr_pending_leaves_table.html" %}
+
+    <!-- Loading overlay (spins on page-change) -->
+    <div id="table-loading">
+        <i class="fa-solid fa-spinner fa-spin" style="font-size:22px;color:var(--aqua);"></i>
+    </div>
+
+    <!-- Table -->
+    <div class="table-container" style="overflow-x:auto;" id="pending-table-wrap">
+        <table class="data-table">
+            <thead>
+                 <tr>
+                    <th>Employee</th>
+                    <th>Department</th>
+                    <th>Leave Type</th>
+                    <th>Duration</th>
+                    <th>Dates</th>
+                    <th>Reason</th>
+                    <th>Applied On</th>
+                    <th>Actions</th>
+                 </tr>
+            </thead>
+            <tbody id="pending-tbody">
+                <!-- skeleton rows -->
+                {% for i in "12345" %}
+                <tr>
+                    <td colspan="8" style="padding:14px 16px;">
+                        <div style="display:flex;align-items:center;gap:12px;">
+                            <span class="skel" style="width:36px;height:36px;border-radius:10px;flex-shrink:0;"></span>
+                            <div style="flex:1;">
+                                <span class="skel" style="width:130px;height:12px;display:block;margin-bottom:6px;"></span>
+                                <span class="skel" style="width:90px;height:10px;display:block;"></span>
+                            </div>
+                            <span class="skel" style="width:55px;height:22px;border-radius:20px;"></span>
+                            <span class="skel" style="width:70px;height:28px;border-radius:8px;"></span>
+                            <span class="skel" style="width:70px;height:28px;border-radius:8px;"></span>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    <div class="pager" id="pager" style="display:none;">
+        <span class="pager-info" id="pager-info"></span>
+        <div class="pager-btns" id="pager-btns"></div>
     </div>
 </div>
 
-<script>
-$(document).ready(function () {
+<!-- Toast container -->
+<div id="toast-wrap"></div>
 
-    // ─── Helper: decrement both page badge + sidebar badge ───────────────────
-    function decrementBadge() {   // <── REPLACE THIS WHOLE FUNCTION
-        // ── Page header badge ──────────────────────────────────────────
-        const $pageBadge = $('#pending-badge');
-        let pageCount = parseInt($pageBadge.text());
-        if (!isNaN(pageCount) && pageCount > 0) {
-            $pageBadge.text((pageCount - 1) + ' pending');
+{% endblock %}
+
+
+{% block extra_scripts %}
+<script>
+// --- URL helpers (ensure they work with trailing slash) ---
+const DETAIL_URL  = (id) => '{% url "leave_detail" 0 %}'.replace('/0/', `/${id}/`);
+const APPROVE_URL = (id) => '{% url "api_approve_leave" 0 %}'.replace('/0/', `/${id}/`);
+const REJECT_URL  = (id) => '{% url "api_reject_leave" 0 %}'.replace('/0/', `/${id}/`);
+
+const API_URL = '{% url "api_hr_pending" %}';
+
+let currentPage    = 1;
+let totalPages     = 1;
+let totalCount     = 0;
+
+// ─── CSRF ──────────────────────────────────────────────────────────────────
+function getCsrf() {
+    const fromCookie = document.cookie.split(';')
+        .map(c => c.trim())
+        .find(c => c.startsWith('csrftoken='))
+        ?.split('=')[1] ?? '';
+    if (fromCookie) return fromCookie;
+
+    const fallback = document.getElementById('csrf-token-fallback');
+    if (fallback && fallback.value && fallback.value !== 'NOTPROVIDED') {
+        return fallback.value;
+    }
+    return '';
+}
+
+// ─── Escape HTML ───────────────────────────────────────────────────────────
+function esc(str) {
+    const m = {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'};
+    return String(str ?? '').replace(/[&<>"']/g, c => m[c]);
+}
+
+// ─── Date formatter ────────────────────────────────────────────────────────
+function fmtDate(str, fmt) {
+    if (!str) return '—';
+    const d   = new Date(str);
+    if (isNaN(d)) return str;
+    const mon = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return fmt
+        .replace('d', String(d.getDate()).padStart(2,'0'))
+        .replace('M', mon[d.getMonth()])
+        .replace('Y', d.getFullYear());
+}
+
+// ─── Initials ──────────────────────────────────────────────────────────────
+function initials(u) {
+    return ((u.first_name||u.username||'?')[0] + (u.last_name||'')[0] ?? '').toUpperCase();
+}
+
+// ─── Toast ─────────────────────────────────────────────────────────────────
+function toast(msg, type = 'success') {
+    const cfg = {
+        success: { bg:'rgba(5,201,138,0.12)',  bd:'rgba(5,201,138,0.3)',  ic:'fa-circle-check',  cl:'#05c98a' },
+        error:   { bg:'rgba(240,64,88,0.12)',  bd:'rgba(240,64,88,0.3)',  ic:'fa-circle-xmark',  cl:'#f04058' },
+        info:    { bg:'rgba(0,198,212,0.10)',  bd:'rgba(0,198,212,0.25)', ic:'fa-circle-info',   cl:'var(--aqua-deep)' },
+    };
+    const c  = cfg[type] || cfg.info;
+    const el = document.createElement('div');
+    el.style.cssText = `background:${c.bg};border:1px solid ${c.bd};border-radius:12px;
+        padding:12px 18px;display:flex;align-items:center;gap:10px;font-size:13px;
+        font-weight:600;color:var(--text);backdrop-filter:blur(12px);pointer-events:auto;
+        box-shadow:0 8px 32px rgba(0,0,0,0.18);animation:t-in 0.28s ease;max-width:340px;`;
+    el.innerHTML = `<i class="fa-solid ${c.ic}" style="color:${c.cl};font-size:15px;flex-shrink:0;"></i>${esc(msg)}`;
+    document.getElementById('toast-wrap').appendChild(el);
+    setTimeout(() => {
+        el.style.animation = 't-out 0.24s ease forwards';
+        setTimeout(() => el.remove(), 240);
+    }, 3400);
+}
+
+// ─── Render one table row ──────────────────────────────────────────────────
+function buildRow(leave) {
+    const emp      = leave.employee || {};
+    const fullName = [emp.first_name, emp.last_name].filter(Boolean).join(' ') || emp.username || '—';
+    const dept     = emp.department || emp.department_name || '—';
+    const ini      = initials(emp);
+
+    const startFmt = fmtDate(leave.start_date, 'd M');
+    const endFmt   = (leave.end_date && leave.end_date !== leave.start_date)
+                    ? ` → ${fmtDate(leave.end_date, 'd M Y')}` : '';
+
+    // Action cell
+    let actions = '';
+    // FIX: Check if pending AND HR hasn't voted yet
+    if (leave.final_status === 'PENDING' && !leave.hr_voted) {
+        const approveUrl = APPROVE_URL(leave.id);
+        const rejectUrl = REJECT_URL(leave.id);
+        actions = `
+            <div style="display:flex;gap:5px;" id="act-${leave.id}">
+                <form method="POST" action="${approveUrl}" class="hr-ajax-form" data-id="${leave.id}" data-action="approve" data-employee-name="${esc(fullName)}" style="display:inline;">
+                    <button type="submit" class="btn btn-success btn-sm">
+                        <i class="fa-solid fa-check"></i> Approve
+                    </button>
+                </form>
+                <form method="POST" action="${rejectUrl}" class="hr-ajax-form" data-id="${leave.id}" data-action="reject" data-employee-name="${esc(fullName)}" style="display:inline;">
+                    <button type="submit" class="btn btn-danger btn-sm">
+                        <i class="fa-solid fa-xmark"></i> Reject
+                    </button>
+                </form>
+            </div>`;
+    } else if (leave.hr_voted) {
+        actions = `<div id="act-${leave.id}"><span class="badge badge-secondary">✓ Voted</span></div>`;
+    } else if (leave.final_status === 'APPROVED') {
+        actions = `<div id="act-${leave.id}"><span class="badge badge-approved">Approved</span></div>`;
+    } else if (leave.final_status === 'REJECTED') {
+        actions = `<div id="act-${leave.id}"><span class="badge badge-rejected">Rejected</span></div>`;
+    } else {
+        // Fallback for any other state (should not happen)
+        actions = `<div id="act-${leave.id}"><span class="badge badge-secondary">${esc(leave.final_status || '—')}</span></div>`;
+    }
+
+    return `
+    <tr class="clickable-row" data-id="${leave.id}" data-href="${DETAIL_URL(leave.id)}">
+        <td>
+            <div style="display:flex;align-items:center;gap:10px;">
+                <div class="avatar">${esc(ini)}</div>
+                <div>
+                    <div style="font-weight:700;">${esc(fullName)}</div>
+                    <div style="font-size:11px;color:var(--text-muted);">${esc(emp.email||'')}</div>
+                </div>
+            </div>
+        </td>
+        <td>${esc(dept)}</td>
+        <td><span class="badge badge-info">${esc(leave.leave_type||'—')}</span></td>
+        <td>${esc(leave.duration||'—')}</td>
+        <td style="white-space:nowrap;">${startFmt}${endFmt}</td>
+        <td style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(leave.reason||'—')}</td>
+        <td>${fmtDate(leave.created_at,'d M Y')}</td>
+        <td onclick="event.stopPropagation()">${actions}</td>
+    </tr>`;
+}
+
+// ─── Render empty state ────────────────────────────────────────────────────
+function renderEmpty() {
+    document.getElementById('pending-tbody').innerHTML = `
+        <tr><td colspan="8" class="empty-state" style="padding:40px;">
+            <div class="empty-icon"><i class="fa-solid fa-circle-check" style="color:var(--success);"></i></div>
+            <div class="empty-title">All Clear!</div>
+            <p>No pending leave approvals at the moment.</p>
+        </td></tr>`;
+}
+
+// ─── Render pagination ─────────────────────────────────────────────────────
+function renderPager(page, total, count) {
+    const pager     = document.getElementById('pager');
+    const info      = document.getElementById('pager-info');
+    const btnsWrap  = document.getElementById('pager-btns');
+
+    if (total <= 1) { pager.style.display = 'none'; return; }
+    pager.style.display = 'flex';
+
+    info.textContent = `Page ${page} of ${total} · ${count} request${count !== 1 ? 's' : ''}`;
+
+    let html = `<button class="pager-btn" id="pager-prev" ${page <= 1 ? 'disabled' : ''}>
+                    <i class="fa-solid fa-chevron-left" style="font-size:10px;"></i>
+                </button>`;
+
+    const window_size = 5;
+    let start = Math.max(1, page - Math.floor(window_size / 2));
+    let end   = Math.min(total, start + window_size - 1);
+    if (end - start < window_size - 1) start = Math.max(1, end - window_size + 1);
+
+    if (start > 1) html += `<button class="pager-btn" data-page="1">1</button>
+                            ${start > 2 ? '<span style="padding:0 4px;color:var(--text-faint);">…</span>' : ''}`;
+
+    for (let p = start; p <= end; p++) {
+        html += `<button class="pager-btn${p === page ? ' active' : ''}" data-page="${p}">${p}</button>`;
+    }
+
+    if (end < total) html += `${end < total - 1 ? '<span style="padding:0 4px;color:var(--text-faint);">…</span>' : ''}
+                            <button class="pager-btn" data-page="${total}">${total}</button>`;
+
+    html += `<button class="pager-btn" id="pager-next" ${page >= total ? 'disabled' : ''}>
+                <i class="fa-solid fa-chevron-right" style="font-size:10px;"></i>
+            </button>`;
+
+    btnsWrap.innerHTML = html;
+}
+
+// ─── Main fetch ────────────────────────────────────────────────────────────
+function loadPage(page = 1, overlay = false) {
+    currentPage = page;
+
+    if (overlay) {
+        document.getElementById('table-loading').classList.add('visible');
+    }
+
+    fetch(`${API_URL}?page=${page}`, {
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+    })
+    .then(json => {
+        const d = json.data ?? json;
+
+        totalPages = d.total_pages   ?? 1;
+        totalCount = d.pending_count ?? d.total_count ?? (d.results?.length ?? 0);
+
+        // Update badge
+        const badge = document.getElementById('pending-badge');
+        badge.className = totalCount > 0 ? 'badge badge-pending' : 'badge badge-approved';
+        badge.textContent = totalCount > 0 ? `${totalCount} pending` : 'All clear';
+        updateSidebarBadge(totalCount);
+
+        // Update table
+        const tbody  = document.getElementById('pending-tbody');
+        const leaves = d.results ?? d.leaves ?? [];
+
+        if (leaves.length === 0 && page === 1) {
+            renderEmpty();
+        } else {
+            tbody.innerHTML = leaves.map(buildRow).join('');
         }
 
-        // ── Sidebar badge ──────────────────────────────────────────────
-        const $sidebarBadge = $('.nav-item .nav-text')
-            .filter(function () {
-                return $(this).text().trim() === 'Pending Approvals';
-            })
-            .closest('.nav-item')
-            .find('.nav-badge');
+        renderPager(page, totalPages, totalCount);
+    })
+    .catch(err => {
+        console.error('[Pending Leaves]', err);
+        document.getElementById('pending-tbody').innerHTML = `
+            <tr><td colspan="8" style="padding:30px;text-align:center;color:var(--danger);font-size:13px;font-weight:600;">
+                <i class="fa-solid fa-triangle-exclamation" style="margin-right:8px;"></i>
+                Failed to load data. 
+                <button onclick="loadPage(${currentPage})" style="margin-left:10px;background:none;border:1px solid var(--danger);
+                    color:var(--danger);border-radius:8px;padding:3px 12px;font-size:12px;font-weight:700;cursor:pointer;">
+                    Retry
+                </button>
+            </td></tr>`;
+    })
+    .finally(() => {
+        document.getElementById('table-loading').classList.remove('visible');
+    });
+}
 
-        if ($sidebarBadge.length) {
-            let sCount = parseInt($sidebarBadge.text());
-            if (!isNaN(sCount) && sCount > 0) {
-                sCount -= 1;
-                if (sCount === 0) {
-                    $sidebarBadge.remove();
-                } else {
-                    $sidebarBadge.text(sCount);
+// ─── Sidebar badge sync ────────────────────────────────────────────────────
+function updateSidebarBadge(count) {
+    const navItems = document.querySelectorAll('.nav-item');
+    navItems.forEach(item => {
+        const text = item.querySelector('.nav-text');
+        if (text?.textContent?.trim() === 'Pending Approvals') {
+            let badge = item.querySelector('.nav-badge');
+            if (count <= 0) {
+                badge?.remove();
+            } else {
+                if (!badge) {
+                    badge = document.createElement('span');
+                    badge.className = 'nav-badge';
+                    item.appendChild(badge);
                 }
+                badge.textContent = count;
             }
         }
-    }   // <── END OF FUNCTION
+    });
+}
 
-    // ─── AJAX Pagination ──────────────────────────────────────────────────────
-    $(document).on('click', '.ajax-pagination', function (e) {
-    // ... rest of your code stays the same
-```
+// ─── Approve / Reject (manager-style ajax form submit) ───────────────────
+document.addEventListener('submit', function(e) {
+    const form = e.target.closest('.hr-ajax-form');
+    if (!form) return;
 
-So the full structure of your script should be:
-```
-$(document).ready(function () {
-    function decrementBadge() { ... }   ← paste here
-    $(document).on('click', '.ajax-pagination', ...)
-    $(document).on('submit', '.ajax-form', ...)
-    $(document).on('click', '.clickable-row form, ...', ...)
-    function getCookie(name) { ... }
-});
+    e.preventDefault();
+    e.stopPropagation();
 
-    // ─── AJAX Form Submission (approve / reject) ──────────────────────────────
-    // Intercept ALL .ajax-form submits inside the container (works after re-render too)
-    $(document).on('submit', '.ajax-form', function (e) {
-        e.preventDefault();
-        e.stopPropagation();
+    const id = form.dataset.id;
+    const action = form.dataset.action;
+    const employeeName = form.dataset.employeeName || 'Leave request';
+    const postUrl = form.getAttribute('action');
 
-        const $form = $(this);
-        const $row  = $form.closest('tr');
-        const url   = $form.attr('action');
-        const csrfToken = $form.find('[name=csrfmiddlewaretoken]').val()
-                       || $('input[name=csrfmiddlewaretoken]').first().val()
-                       || getCookie('csrftoken');
+    if (action === 'reject' && !confirm('Reject this leave request?')) {
+        return;
+    }
 
-        // Disable buttons immediately to prevent double-submit
-        $form.find('button').prop('disabled', true);
+    const submitBtn = form.querySelector('button[type="submit"]');
+    const originalBtnHtml = submitBtn ? submitBtn.innerHTML : '';
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+    }
 
-        $.ajax({
-            url: url,
+    const formData = new FormData(form);
+    if (!formData.get('csrfmiddlewaretoken')) {
+        formData.append('csrfmiddlewaretoken', getCsrf());
+    }
+
+    const runRequest = () => {
+        fetch(postUrl, {
             method: 'POST',
-            data: $form.serialize(),
-            headers: { 'X-CSRFToken': csrfToken, 'X-Requested-With': 'XMLHttpRequest' },
-            success: function (data) {
-                if (data.success) {
-                    $row.fadeOut(400, function () {
-                        $(this).remove();
-                        decrementBadge();
-
-                        // If no rows left, show empty state
-                        const $tbody = $('#hr-pending-container tbody');
-                        if ($tbody.find('tr:visible').length === 0) {
-                            $tbody.html(
-                                '<tr><td colspan="100%" class="text-center" style="padding:2rem;color:var(--text-muted);">' +
-                                '<i class="fa-solid fa-check-circle" style="color:var(--color-success);margin-right:6px;"></i>' +
-                                'All caught up! No pending approvals.' +
-                                '</td></tr>'
-                            );
-                        }
-                    });
-                } else {
-                    // Re-enable buttons if server returned an error
-                    $form.find('button').prop('disabled', false);
-                    console.warn('Action failed:', data.message || 'Unknown error');
-                }
+            headers: {
+                'X-CSRFToken': getCsrf(),
+                'X-Requested-With': 'XMLHttpRequest',
             },
-            error: function (xhr) {
-                $form.find('button').prop('disabled', false);
-                console.error('AJAX error:', xhr.status, xhr.responseText);
+            body: formData,
+            credentials: 'same-origin'
+        })
+        .then(async r => {
+            const data = await r.json();
+            if (!r.ok) throw new Error(data.error || data.message || `HTTP ${r.status}`);
+            return data;
+        })
+        .then(data => {
+            if (!data.success) {
+                throw new Error(data.error || data.message || 'Action failed.');
+            }
+            const label = action === 'approve' ? 'approved' : 'rejected';
+            toast(`${employeeName}'s leave ${label} successfully.`, action === 'approve' ? 'success' : 'info');
+            loadPage(currentPage, true);
+        })
+        .catch(err => {
+            console.error('[HR pending action]', err);
+            toast(err.message || 'Something went wrong. Please try again.', 'error');
+        })
+        .finally(() => {
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalBtnHtml;
             }
         });
-    });
+    };
 
-    // ─── Stop row click when clicking inside action buttons/forms ────────────
-    $(document).on('click', '.clickable-row form, .clickable-row button', function (e) {
-        e.stopPropagation();
-    });
-
-    // ─── CSRF helper ─────────────────────────────────────────────────────────
-    function getCookie(name) {
-        const value = `; ${document.cookie}`;
-        const parts = value.split(`; ${name}=`);
-        if (parts.length === 2) return parts.pop().split(';').shift();
+    if (action === 'approve') {
+        setTimeout(runRequest, 1000);
+    } else {
+        runRequest();
     }
 });
+
+// ─── Pager click delegation ────────────────────────────────────────────────
+document.getElementById('pager-btns')?.addEventListener('click', function(e) {
+    const btn = e.target.closest('.pager-btn');
+    if (!btn || btn.disabled) return;
+
+    if (btn.id === 'pager-prev') loadPage(currentPage - 1, true);
+    else if (btn.id === 'pager-next') loadPage(currentPage + 1, true);
+    else if (btn.dataset.page) loadPage(parseInt(btn.dataset.page), true);
+});
+
+// ─── Row click → detail page (skip if clicking on action area) ────────────
+document.addEventListener('click', function(e) {
+    // If the click is inside the last column (actions) or on a button, don't navigate
+    if (e.target.closest('td:last-child, button, .badge')) return;
+    const row = e.target.closest('.clickable-row');
+    if (row?.dataset.href) window.location.href = row.dataset.href;
+});
+
+// ─── Initial load ──────────────────────────────────────────────────────────
+loadPage(1);
 </script>
 {% endblock %}

@@ -70,10 +70,37 @@
                 </td>
                 <td onclick="event.stopPropagation()">
                     <div class="act-cell">
+                        {% if rbac_flags.user_view or rbac_flags.user_update %}
                         <a href="{% url 'profile_detail' emp.pk %}"
+                           class="tbl-btn edit" title="Edit Profile">
+                            <i class="fa-solid fa-id-card"></i>
+                        </a>
+                        {% endif %}
+                        <a href="{% url 'employee_detail' emp.pk %}"
                            class="tbl-btn view" title="View Profile">
                             <i class="fa-solid fa-eye"></i>
                         </a>
+                        {% if rbac_flags.user_update %}
+                        <a href="{% url 'employee_detail' emp.pk %}?edit=1" class="tbl-btn edit" title="Edit Employee">
+                            <i class="fa-solid fa-pen"></i>
+                        </a>
+                        {% endif %}
+                        {% if emp.is_active and rbac_flags.user_deactivate or not emp.is_active and rbac_flags.user_activate %}
+                        <form method="POST" action="{% url 'toggle_employee_status' emp.pk %}" class="ajax-form" style="display:inline;">
+                            {% csrf_token %}
+                            <button type="submit" class="tbl-btn" title="{% if emp.is_active %}Deactivate{% else %}Activate{% endif %}">
+                                <i class="fa-solid {% if emp.is_active %}fa-user-slash{% else %}fa-user-check{% endif %}"></i>
+                            </button>
+                        </form>
+                        {% endif %}
+                        {% if rbac_flags.user_delete %}
+                        <form method="POST" action="{% url 'delete_employee' emp.pk %}" class="ajax-form" style="display:inline;" onsubmit="return confirm('Delete {{ emp.get_full_name|default:emp.username }}? This cannot be undone.');">
+                            {% csrf_token %}
+                            <button type="submit" class="tbl-btn" title="Delete Employee" style="color:var(--danger);border-color:rgba(240,64,88,0.2);">
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
+                        </form>
+                        {% endif %}
                     </div>
                 </td>
             </tr>

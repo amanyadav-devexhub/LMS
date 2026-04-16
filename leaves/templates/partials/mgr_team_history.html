@@ -1,7 +1,8 @@
 {% if team_history_page %}
     <table class="tt">
         <thead>
-            <tr><th>Employee</th><th>Date</th><th>Type</th><th>Status</th></thead>
+            <tr><th>Employee</th><th>Date</th><th>Type</th><th>Status</th></tr>
+        </thead>
         <tbody>
             {% for leave in team_history_page %}
             <tr class="clickable-row" data-href="{% url 'leave_detail' leave.id %}">
@@ -18,8 +19,7 @@
                 </td>
                 <td>{{ leave.start_date|date:"d M Y" }}{% if leave.end_date and leave.end_date != leave.start_date %} → {{ leave.end_date|date:"d M Y" }}{% endif %}</td>
                 <td>
-                    <span class="badge badge-info">{{ leave.leave_type|capfirst }}</span>
-                    {% if not leave.is_paid %}<span class="badge badge-warning">Unpaid</span>{% endif %}
+                    <span class="badge badge-info">{{ leave.leave_type_display|default:leave.leave_type|capfirst }}</span>
                 </td>
                 <td>
                     {% if leave.status == 'APPROVED' %}<span class="chip ch-gn">Approved</span>

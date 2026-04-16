@@ -398,6 +398,14 @@
     text-overflow: ellipsis;
     color: var(--text-muted);
 }
+.remark-cell {
+    max-width: 220px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--text-mid);
+    font-style: italic;
+}
 .date-cell {
     color: var(--text-muted);
     font-weight: 500;
@@ -620,84 +628,226 @@
 .clickable-row:hover {
     background: rgba(0,198,212,0.05) !important;
 }
+
+/* Loading state */
+.skeleton {
+    background: linear-gradient(90deg, var(--surface2) 0%, var(--border) 50%, var(--surface2) 100%);
+    background-size: 200% 100%;
+    animation: shimmer 2s infinite;
+}
+@keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
 </style>
 
-<div id="panel-overview" class="employee-panel {% if tab == 'overview' or not tab %}show{% endif %}">
-    <!-- Simplified Hero Section with Apply Button -->
-    <div class="dashboard-hero animate-in">
-        <div class="hero-content">
-            <div class="hero-avatar">
-                {{ request.user.first_name|first|upper }}{{ request.user.last_name|first|upper }}
+<!-- Content Container -->
+<div id="content-container">
+    <div id="panel-overview">
+        <!-- Hero Section -->
+        <div id="hero-section" class="dashboard-hero animate-in"></div>
+
+        <!-- Leave Balance Section -->
+        <div id="leave-balance-section" class="leave-breakdown-section animate-in delay-1"></div>
+
+        <!-- Quick Actions -->
+        <div id="quick-actions-section" class="quick-actions animate-in delay-2"></div>
+    </div>
+
+    <div id="panel-history" style="display: none;">
+        <!-- Leave History Section -->
+        <div id="leave-history-section" class="section-card animate-in"></div>
+    </div>
+</div>
+
+<style>
+.employee-panel { display: block; }
+.employee-panel.show { display: block; }
+</style>
+
+<script>
+// Dashboard Data Store
+const dashboardState = {
+    data: null,
+    currentPage: 1,
+    perPage: 10,
+};
+let employeeAutoRefreshTimer = null;
+
+// Fetch dashboard data from API
+async function loadDashboard() {
+    try {
+        const response = await fetch("{% url 'api_employee_dashboard' %}", {
+            headers: {
+                'Accept': 'application/json',
+            },
+            credentials: 'same-origin',
+        });
+
+        if (response.status === 401 || response.status === 403) {
+            window.location.href = "{% url 'login' %}";
+            return;
+        }
+        if (!response.ok) throw new Error(`API error: ${response.status}`);
+        
+        const rawData = await response.json();
+        console.log('Raw API response:', rawData);
+        
+        // Transform API structure to match template expectations
+        dashboardState.data = {
+            ...rawData,
+            // Extract leaves.results array and flatten pagination info
+            leaves: rawData.leaves?.results || [],
+            total_pages: rawData.leaves?.num_pages || 1,
+            current_page: rawData.leaves?.page || 1,
+            all_leaves_count: rawData.leaves?.total_count || rawData.all_leaves_count || 0,
+        };
+        
+        // Transform leave items to map API fields to template fields
+        dashboardState.data.leaves = dashboardState.data.leaves.map(leave => ({
+            id: leave.id,
+            leave_type_name: leave.leave_type, // "Casual" → leave_type_name
+            leave_type_code: leave.leave_type.substring(0, 1).toUpperCase(), // Generate code first letter
+            start_date: leave.start_date,
+            end_date: leave.end_date,
+            days: leave.total_days, // total_days → days
+            reason: leave.reason,
+            hr_remark: leave.hr_remark,
+            final_status: leave.final_status,
+        }));
+        
+        console.log('Transformed data:', dashboardState.data);
+        renderDashboard();
+    } catch (error) {
+        console.error('Access Denied By Admin:', error);
+        document.getElementById('content-container').innerHTML = `
+            <div class="empty-state">
+                <div class="empty-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                <h4>Access Denied By Admin</h4>
+                <p>${error.message}</p>
+                <button class="btn-primary" onclick="location.reload()">Retry</button>
             </div>
+        `;
+    }
+}
+
+// Render hero section
+function renderHero() {
+    const { data } = dashboardState;
+    const user = data.user;
+    const profile = data.profile || {};
+    const designation = data.designation || 'Employee';
+    
+    const initials = `${user.first_name?.[0] || ''}${user.last_name?.[0] || ''}`.toUpperCase();
+    
+    const hero = document.getElementById('hero-section');
+    hero.innerHTML = `
+        <div class="hero-content">
+            <div class="hero-avatar">${initials}</div>
             <div class="hero-info">
-                <h2>Welcome back, {{ request.user.first_name|default:"Employee" }}</h2>
-                <p><i class="fa-regular fa-envelope"></i> {{ request.user.email }}</p>
+                <h2>Welcome back, ${user.first_name || 'Employee'}</h2>
+                <p><i class="fa-regular fa-envelope"></i> ${user.email}</p>
                 <div class="hero-badge">
                     <i class="fa-solid fa-briefcase"></i> 
-                    {% if profile.designation %}{{ profile.designation }}{% else %}Employee{% endif %}
+                    ${designation}
                 </div>
             </div>
         </div>
         <a href="{% url 'apply_leave' %}" class="apply-btn-hero">
             <i class="fa-regular fa-calendar-plus"></i>
             Apply for Leave
-            <i class="fa-regular fa-arrow-right"></i>
+            <i class="fa-solid fa-arrow-right"></i>
         </a>
-    </div>
+    `;
+}
 
-    <!-- My Leave Balance Section -->
-    <div class="leave-breakdown-section animate-in delay-1">
+// Render leave balance cards
+function renderLeaveBalance() {
+    const { data } = dashboardState;
+    const { active_leave_types, leave_summary } = data;
+    const breakdown = leave_summary?.breakdown || [];
+    
+    const year = new Date().getFullYear();
+    let html = `
         <div class="lbs-header">
             <div class="lbs-title">
                 <div class="lbs-title-icon"><i class="fa-solid fa-wallet"></i></div>
                 My Leave Balance
             </div>
-            <span class="lbs-year-badge"><i class="fa-regular fa-calendar"></i> {% now "Y" %}</span>
+            <span class="lbs-year-badge"><i class="fa-regular fa-calendar"></i> ${year}</span>
         </div>
+    `;
 
-        {% if leave_breakdown %}
-        <div class="lbs-grid">
-            {% for b in leave_breakdown %}
-            <div class="lbs-card">
-                <div class="lbs-card-accent" style="background:{{ b.color }};"></div>
-                <div class="lbs-card-name">{{ b.name }}</div>
-                <div class="lbs-card-remaining">{{ b.remaining|floatformat:1 }}</div>
-                <div class="lbs-card-of">of {{ b.allocated|floatformat:0 }} days allocated</div>
-                <div class="lbs-card-bar-bg">
-                    <div class="lbs-card-bar-fill" style="width:{{ b.used_percent }}%;background:{{ b.color }};"></div>
+    if (breakdown && breakdown.length > 0) {
+        html += '<div class="lbs-grid">';
+        
+        for (const b of breakdown) {
+            const usedPercent = b.allocated ? (b.used / b.allocated * 100) : 0;
+            
+            html += `
+                <div class="lbs-card">
+                    <div class="lbs-card-accent" style="background:${b.color};"></div>
+                    <div class="lbs-card-name">${b.name}</div>
+                    <div class="lbs-card-remaining">${b.remaining.toFixed(1)}</div>
+                    <div class="lbs-card-of">of ${b.allocated.toFixed(0)} days allocated</div>
+                    <div class="lbs-card-bar-bg">
+                        <div class="lbs-card-bar-fill" style="width:${usedPercent}%;background:${b.color};"></div>
+                    </div>
+                    <div class="lbs-card-footer">
+                        <span class="lbs-paid-tag ${b.is_paid ? 'paid' : 'unpaid'}">
+                            ${b.is_paid ? 'Paid' : 'Unpaid'}
+                        </span>
+                        <span class="lbs-used-text">${b.used.toFixed(1)} used</span>
+                    </div>
                 </div>
-                <div class="lbs-card-footer">
-                    {% if b.is_paid %}
-                        <span class="lbs-paid-tag paid">Paid</span>
-                    {% else %}
-                        <span class="lbs-paid-tag unpaid">Unpaid</span>
-                    {% endif %}
-                    <span class="lbs-used-text">{{ b.used|floatformat:1 }} used</span>
+            `;
+        }
+        
+        html += '</div>';
+        
+        // Total row
+        html += `
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 24px;border-top:1px solid var(--border);background:linear-gradient(90deg,rgba(0,198,212,0.03),transparent);flex-wrap:wrap;gap:8px;">
+                <div style="font-size:12px;color:var(--text-muted);font-weight:600;">
+                    <i class="fa-solid fa-sigma" style="color:var(--aqua-deep);margin-right:6px;"></i>
+                    Total Available Balance
+                </div>
+                <div style="font-size:24px;font-weight:800;color:var(--aqua-deep);">
+                    ${data.available_balance.toFixed(1)} days
                 </div>
             </div>
-            {% endfor %}
-        </div>
-
-        <!-- Total row -->
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 24px;border-top:1px solid var(--border);background:linear-gradient(90deg,rgba(0,198,212,0.03),transparent);flex-wrap:wrap;gap:8px;">
-            <div style="font-size:12px;color:var(--text-muted);font-weight:600;">
-                <i class="fa-solid fa-sigma" style="color:var(--aqua-deep);margin-right:6px;"></i>
-                Total Available Balance
+        `;
+    } else {
+        html += `
+            <div style="padding:40px;text-align:center;color:var(--text-muted);">
+                <i class="fa-solid fa-chart-simple" style="font-size:48px;margin-bottom:12px;opacity:0.5;"></i>
+                <p>No leave types configured yet.</p>
             </div>
-            <div style="font-size:24px;font-weight:800;color:var(--aqua-deep);">
-                {{ total_remaining|default:"0"|floatformat:1 }} days
-            </div>
-        </div>
-        {% else %}
-        <div style="padding:40px;text-align:center;color:var(--text-muted);">
-            <i class="fa-solid fa-chart-simple" style="font-size:48px;margin-bottom:12px;opacity:0.5;"></i>
-            <p>No leave types configured yet.</p>
-        </div>
-        {% endif %}
-    </div>
+        `;
+    }
+    
+    document.getElementById('leave-balance-section').innerHTML = html;
+}
 
-    <!-- Employee Details & Quick Actions -->
-    <div class="quick-actions">
+// Render quick actions
+function renderQuickActions() {
+    const { data } = dashboardState;
+    const profile = data.profile || {};
+    const unreadCount = data.unread_count || 0;
+    const totalRemaining = data.available_balance.toFixed(1);
+    const leaveTypesCount = data.active_leave_types?.length || 0;
+    const canApplyLeave = Boolean(window.rbacFlags?.leave_apply);
+    const applyLeaveLink = canApplyLeave
+        ? `<a href="{% url 'apply_leave' %}" class="action-link">
+                <span>Apply for Leave</span>
+                <i class="fa-solid fa-arrow-right"></i>
+           </a>`
+        : `<div class="action-link" style="opacity:.5;pointer-events:none;cursor:not-allowed;" title="Permission required: leave_apply">
+                <span>Apply for Leave</span>
+                <i class="fa-regular fa-lock"></i>
+           </div>`;
+    
+    const html = `
         <div class="action-card animate-in delay-2">
             <div class="action-header">
                 <i class="fa-regular fa-circle-user"></i>
@@ -705,19 +855,19 @@
             </div>
             <div class="action-item">
                 <span class="action-label">Department</span>
-                <span class="action-value">{{ profile.department|default:"—" }}</span>
+                <span class="action-value">${data.user?.department || '—'}</span>
             </div>
             <div class="action-item">
                 <span class="action-label">Designation</span>
-                <span class="action-value">{{ profile.designation|default:designation|default:"—" }}</span>
+                <span class="action-value">${data.designation || '—'}</span>
             </div>
             <div class="action-item">
                 <span class="action-label">Role</span>
-                <span class="action-value">{{ role_name|default:"Employee" }}</span>
+                <span class="action-value">${data.role_name || 'Employee'}</span>
             </div>
-            <a href="{% url 'dashboard' %}" class="action-link">
+            <a href="{% url 'profile_dashboard' %}" class="action-link">
                 <span>View Full Profile</span>
-                <i class="fa-regular fa-arrow-right"></i>
+                <i class="fa-solid fa-arrow-right"></i>
             </a>
         </div>
         
@@ -729,82 +879,283 @@
             <div class="action-item">
                 <span class="action-label">Notifications</span>
                 <span class="action-value">
-                    {% if unread_count|default:0 > 0 %}
-                        <span style="background:var(--danger);color:white;padding:2px 8px;border-radius:30px;font-size:12px;">{{ unread_count }} New</span>
-                    {% else %}
-                        None
-                    {% endif %}
+                    ${unreadCount > 0 
+                        ? `<span style="background:var(--danger);color:white;padding:2px 8px;border-radius:30px;font-size:12px;">${unreadCount} New</span>`
+                        : 'None'
+                    }
                 </span>
             </div>
             <div class="action-item">
                 <span class="action-label">Total Available</span>
-                <span class="action-value">{{ total_remaining|default:available_balance|default:"0" }} days</span>
+                <span class="action-value">${totalRemaining} days</span>
             </div>
             <div class="action-item">
                 <span class="action-label">Leave Types</span>
-                <span class="action-value">{{ leave_breakdown|length|default:"0" }} configured</span>
+                <span class="action-value">${leaveTypesCount} configured</span>
             </div>
-            <a href="{% url 'apply_leave' %}" class="action-link">
-                <span>Apply for Leave</span>
-                <i class="fa-regular fa-arrow-right"></i>
-            </a>
+            ${applyLeaveLink}
         </div>
-    </div>
-</div>
-
-<div id="panel-history" class="employee-panel {% if tab == 'history' %}show{% endif %}">
-    <!-- Leave History Section -->
-    <div class="section-card animate-in">
-        <div class="section-card-header">
-            <div class="section-card-title">
-                <div class="section-title-icon"><i class="fa-regular fa-clock-rotate-left"></i></div>
-                Detailed Leave History
-            </div>
-            <span class="section-count">{{ all_leaves_count }} Records</span>
-        </div>
-        <div id="leave-history-container">
-            {% include 'partials/employee_leave_history.html' %}
-        </div>
-    </div>
-</div>
-
-<style>
-.employee-panel { display: none; }
-.employee-panel.show { display: block; }
-</style>
-
-<script>
-function switchTab(tabId) {
-    document.querySelectorAll('.employee-panel').forEach(p => p.classList.remove('show'));
-    const target = document.getElementById('panel-' + tabId);
-    if(target) target.classList.add('show');
+    `;
     
-    // Update URL without reload
-    const url = new URL(window.location);
-    url.searchParams.set('tab', tabId);
-    window.history.replaceState({}, '', url);
-
-    // Update Sidebar highlight if needed (though base.html handle active based on URL name mostly)
+    document.getElementById('quick-actions-section').innerHTML = html;
 }
 
-$(function() {
-    const params = new URLSearchParams(window.location.search);
-    const tab = params.get('tab');
-    if(tab) switchTab(tab);
-});
+// Helper function to escape HTML
+function escapeHtml(text) {
+    if (!text) return text;
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
 
-// AJAX Pagination link compatibility
-$(document).on('click', '.pg-btn', function(e) {
-    if($(this).hasClass('ajax-pagination')) {
-        e.preventDefault();
-        // ... handled by your existing ajax pagination if any
+// Function to view leave details - Updated with correct URL pattern
+function viewLeaveDetails(leaveId) {
+    // Navigate to leave detail page using the correct URL pattern
+    window.location.href = `/leave-detail/${leaveId}/`;
+}
+
+// Render leave history table with clickable rows
+function renderLeaveHistory() {
+    const { data, currentPage } = dashboardState;
+    const { leaves, total_pages } = data;
+    
+    if (!leaves || leaves.length === 0) {
+        document.getElementById('leave-history-section').innerHTML = `
+            <div class="section-card-header">
+                <div class="section-card-title">
+                    <div class="section-title-icon"><i class="fa fa-history"></i></div>
+                    Detailed Leave History
+                </div>
+                <span class="section-count">0 Records</span>
+            </div>
+            <div class="empty-state">
+                <div class="empty-icon"><i class="fa-solid fa-calendar"></i></div>
+                <h4>No Leave Records</h4>
+                <p>You haven't applied for any leave yet.</p>
+                <a href="{% url 'apply_leave' %}" class="btn-primary">
+                    <i class="fa-regular fa-calendar-plus"></i> Apply for Leave
+                </a>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = `
+        <div class="section-card-header">
+            <div class="section-card-title">
+                <div class="section-title-icon"><i class="fa fa-history"></i></div>
+                Detailed Leave History
+            </div>
+            <span class="section-count">${data.all_leaves_count} Records</span>
+        </div>
+        <div class="table-wrapper">
+            <table class="leaves-table">
+                <thead>
+                    <tr>
+                        <th>Leave Type</th>
+                        <th>From — To</th>
+                        <th>Days</th>
+                        <th>Reason</th>
+                        <th>HR Remark</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+    
+    for (const leave of leaves) {
+        const statusClass = `status-${leave.final_status?.toLowerCase() || 'pending'}`;
+        const badgeClass = `badge-${leave.leave_type_code?.toLowerCase() || 'casual'}`;
+        
+        html += `
+            <tr class="clickable-row" data-leave-id="${leave.id}" onclick="viewLeaveDetails(${leave.id})">
+                <td><span class="badge ${badgeClass}">${escapeHtml(leave.leave_type_name) || 'N/A'}</span></td>
+                <td class="date-cell">${formatDate(leave.start_date)} — ${formatDate(leave.end_date)}</td>
+                <td><strong>${leave.days || 0}</strong></td>
+                <td class="reason-cell">${escapeHtml(leave.reason) || '—'}</td>
+                <td class="remark-cell" title="${escapeHtml(leave.hr_remark || 'No HR remark')}">${escapeHtml(leave.hr_remark) || '—'}</td>
+                <td>
+                    <span class="status ${statusClass}">
+                        <span class="status-dot ${leave.final_status?.toLowerCase() || 'pending'}"></span>
+                        ${leave.final_status || 'PENDING'}
+                    </span>
+                </td>
+            </tr>
+        `;
+    }
+    
+    html += `
+                </tbody>
+            </table>
+        </div>
+    `;
+    
+    // Pagination
+    if (total_pages > 1) {
+        html += `
+            <div class="pagination-wrap">
+                <div class="pagination-info">
+                    Page ${currentPage} of ${total_pages}
+                </div>
+                <div class="pagination-btns">
+        `;
+        
+        // Previous button
+        if (currentPage > 1) {
+            html += `<button class="pg-btn" onclick="goToPage(${currentPage - 1})"><i class="fa-solid fa-chevron-left"></i></button>`;
+        } else {
+            html += `<button class="pg-btn disabled"><i class="fa-solid fa-chevron-left"></i></button>`;
+        }
+        
+        // Page numbers
+        for (let i = 1; i <= total_pages; i++) {
+            const isActive = i === currentPage ? 'active' : '';
+            html += `<button class="pg-btn ${isActive}" onclick="goToPage(${i})">${i}</button>`;
+        }
+        
+        // Next button
+        if (currentPage < total_pages) {
+            html += `<button class="pg-btn" onclick="goToPage(${currentPage + 1})"><i class="fa-solid fa-chevron-right"></i></button>`;
+        } else {
+            html += `<button class="pg-btn disabled"><i class="fa-solid fa-chevron-right"></i></button>`;
+        }
+        
+        html += `
+                </div>
+            </div>
+        `;
+    }
+    
+    document.getElementById('leave-history-section').innerHTML = html;
+}
+
+// Load specific page for pagination
+async function loadDashboardPage(page) {
+    try {
+        const response = await fetch(`{% url 'api_employee_dashboard' %}?page=${page}`, {
+            headers: {
+                'Accept': 'application/json',
+            },
+            credentials: 'same-origin',
+        });
+
+        if (response.status === 401 || response.status === 403) {
+            window.location.href = "{% url 'login' %}";
+            return;
+        }
+        if (!response.ok) throw new Error(`API error: ${response.status}`);
+        
+        const rawData = await response.json();
+        
+        dashboardState.data = {
+            ...rawData,
+            leaves: rawData.leaves?.results || [],
+            total_pages: rawData.leaves?.num_pages || 1,
+            current_page: page,
+            all_leaves_count: rawData.leaves?.total_count || rawData.all_leaves_count || 0,
+        };
+        
+        dashboardState.data.leaves = dashboardState.data.leaves.map(leave => ({
+            id: leave.id,
+            leave_type_name: leave.leave_type,
+            leave_type_code: leave.leave_type.substring(0, 1).toUpperCase(),
+            start_date: leave.start_date,
+            end_date: leave.end_date,
+            days: leave.total_days,
+            reason: leave.reason,
+            hr_remark: leave.hr_remark,
+            final_status: leave.final_status,
+        }));
+        
+        // Only re-render the history section
+        renderLeaveHistory();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (error) {
+        console.error('Failed to load page:', error);
+    }
+}
+
+// Render all sections
+function renderDashboard() {
+    renderHero();
+    renderLeaveBalance();
+    renderQuickActions();
+    renderLeaveHistory();
+}
+
+// Helper: Format date
+function formatDate(dateStr) {
+    try {
+        if (!dateStr) return '—';
+        const date = new Date(dateStr);
+        if (isNaN(date.getTime())) return '—';
+        
+        // Use numeric values that are guaranteed valid
+        const day = date.getDate();
+        const month = date.toLocaleString('en-US', { month: 'short' });
+        const year = date.getFullYear();
+        
+        return `${day} ${month} ${year}`;
+    } catch (e) {
+        console.error('Date format error:', dateStr, e);
+        return '—';
+    }
+}
+
+// Pagination function
+function goToPage(page) {
+    dashboardState.currentPage = page;
+    loadDashboardPage(page);
+}
+
+// Tab switching
+function switchTab(tabId) {
+    const panelOverview = document.getElementById('panel-overview');
+    const panelHistory = document.getElementById('panel-history');
+
+    if (tabId === 'overview') {
+        panelOverview.style.display = 'block';
+        panelHistory.style.display = 'none';
+        window.history.replaceState({}, '', '/dashboard/');
+    } else if (tabId === 'history') {
+        panelOverview.style.display = 'none';
+        panelHistory.style.display = 'block';
+        window.history.replaceState({}, '', '/employee_dashboard/');
+    }
+}
+
+// Initialize on page load
+$(function() {
+    const path = window.location.pathname;
+
+    if (path.includes('employee_dashboard')) {
+        switchTab('history');
+    } else {
+        switchTab('overview');
+    }
+
+    loadDashboard();
+
+    if (!employeeAutoRefreshTimer) {
+        employeeAutoRefreshTimer = setInterval(() => {
+            if (document.visibilityState === 'visible') {
+                loadDashboard();
+            }
+        }, 30000);
     }
 });
 
-function loadPage(p) {
-    const params = new URLSearchParams(window.location.search);
-    params.set('page', p);
-    window.location.href = '?' + params.toString();
-}
+window.addEventListener('beforeunload', () => {
+    if (employeeAutoRefreshTimer) {
+        clearInterval(employeeAutoRefreshTimer);
+        employeeAutoRefreshTimer = null;
+    }
+});
+
+window.addEventListener('pageshow', (event) => {
+    if (event.persisted) {
+        window.location.reload();
+    }
+});
 </script>
 {% endblock %}

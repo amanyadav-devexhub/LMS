@@ -32,11 +32,11 @@
             <td>
                 <div style="display: flex; gap: 5px;">
                     {% if leave.final_status == 'PENDING' and not leave.tl_voted %}
-                        <form method="POST" action="{% url 'approve_leave' leave.id %}" class="ajax-form" style="display: inline;" onclick="event.stopPropagation()">
+                        <form method="POST" action="{% url 'approve_leave' leave.id %}" class="tl-ajax-form" style="display: inline;" onclick="event.stopPropagation()">
                             {% csrf_token %}
                             <button type="submit" class="btn btn-success btn-sm"><i class="fa-solid fa-check"></i> Approve</button>
                         </form>
-                        <form method="POST" action="{% url 'reject_leave' leave.id %}" class="ajax-form" style="display: inline;" onclick="event.stopPropagation()">
+                        <form method="POST" action="{% url 'reject_leave' leave.id %}" class="tl-ajax-form" style="display: inline;" onclick="event.stopPropagation()">
                             {% csrf_token %}
                             <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Reject this leave request?')"><i class="fa-solid fa-xmark"></i> Reject</button>
                         </form>

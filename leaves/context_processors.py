@@ -1,6 +1,74 @@
 # leaves/context_processors.py
 from datetime import datetime, timedelta
 from .models import Holiday, LeaveRequest
+from users.rbac import get_user_permission_codes, menu_permission_flags, user_has_permission
+
+
+def _sidebar_role_from_permissions(user):
+    if not user or not getattr(user, 'is_authenticated', False):
+        return None
+
+    if getattr(user, 'is_superuser', False):
+        return 'Admin'
+
+    role_name = getattr(getattr(user, 'role', None), 'name', None)
+    
+    # Direct role name to sidebar role mapping
+    role_mapping = {
+        'Admin': 'Admin',
+        'Administrator': 'Admin',
+        'HR': 'HR',
+        'Hr': 'HR',
+        'Human Resources': 'HR',
+        'Manager': 'Manager',
+        'TL': 'TL',
+        'Tl': 'TL',
+        'Team Lead': 'TL',
+        'Team Leader': 'TL',
+        'Lead': 'TL',
+        'Employee': 'Employee',
+        'Staff': 'Employee',
+    }
+    
+    # Check if role name exists in mapping
+    if role_name in role_mapping:
+        return role_mapping[role_name]
+    
+    # Fallback to permission-based detection
+    perms = set(get_user_permission_codes(user))
+
+    if perms & {
+        'dashboard_admin', 'role_view', 'permission_view', 'role_create', 'role_update',
+        'role_delete', 'role_assign_permissions', 'permission_assign', 'user_create',
+        'user_update', 'user_delete', 'user_activate', 'user_deactivate', 'user_assign_role',
+        'leave_policy_create', 'leave_policy_update', 'leave_policy_delete', 'leave_balance_update',
+        'settings_update',
+    }:
+        return 'Admin'
+
+    if perms & {
+        'dashboard_hr', 'team_manage', 'user_view', 'report_view', 'settings_view',
+        'leave_approve', 'leave_reject', 'leave_view_all', 'holiday_create', 'holiday_update',
+        'holiday_delete', 'leave_balance_view',
+    }:
+        return 'HR'
+
+    if perms & {
+        'dashboard_manager', 'dashboard_tl', 'team_view', 'leave_view_all', 'leave_approve', 'leave_reject',
+        'leave_balance_view',
+    }:
+        # Check if user has TL role
+        if role_name in ['TL', 'Tl', 'Team Lead', 'Team Leader', 'Lead']:
+            return 'TL'
+        return 'Manager'
+
+    if perms & {
+        'dashboard_employee', 'leave_apply', 'leave_view_own', 'leave_balance_view',
+        'notification_view',
+    }:
+        return 'Employee'
+
+    return None
 
 def holiday_context(request):
     """Add holiday counts and info to all templates"""
@@ -43,7 +111,7 @@ def hr_counts_context(request):
     context = {}
     
     # Only for HR and Admin
-    if request.user.role.name in ['HR', 'Admin']:
+    if user_has_permission(request.user, 'leave_manage') or user_has_permission(request.user, 'user_manage') or request.user.role.name in ['HR', 'Admin']:
         from django.db.models import Count, Q
         from datetime import date
         
@@ -63,3 +131,22 @@ def hr_counts_context(request):
         ).count()
     
     return context
+
+
+def rbac_context(request):
+    """Expose computed RBAC menu flags to templates."""
+    if not request.user.is_authenticated:
+        return {}
+
+    return {
+        'rbac_flags': menu_permission_flags(request.user),
+        'sidebar_role': _sidebar_role_from_permissions(request.user),
+    }
+
+from django.utils import timezone
+
+def user_timezone(request):
+    return {
+        'current_time_ist': timezone.localtime(timezone.now()),
+        'TIMEZONE': 'Asia/Kolkata'
+    }

@@ -64,7 +64,6 @@
 }
 .lt-lbl:hover { border-color:var(--aqua); background:var(--aqua-glass); color:var(--text-mid); }
 .lt-ico { width:36px; height:36px; border-radius:10px; background:var(--aqua-lt); display:flex; align-items:center; justify-content:center; font-size:.95rem; color:var(--aqua-deep); transition:all .2s; }
-/* checked state — uses CSS var injected inline per card */
 .lt-card input:checked + .lt-lbl { border-color:var(--lt-color,var(--aqua-deep)); background:var(--lt-bg,var(--aqua-glass)); color:var(--lt-color,var(--aqua-deep)); }
 .lt-card input:checked + .lt-lbl .lt-ico { background:var(--lt-ico-bg,var(--aqua-lt)); color:var(--lt-color,var(--aqua-deep)); }
 
@@ -77,6 +76,44 @@
   line-height:1.4;
 }
 .lt-remaining.zero { background:rgba(220,38,38,.08); color:var(--red); border-color:rgba(220,38,38,.2); }
+
+.special-group {
+  border: 1.5px solid var(--bd);
+  border-radius: var(--r);
+  background: var(--bg-input);
+  overflow: hidden;
+  grid-column: 1 / -1;
+}
+.special-group-head {
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: .85rem .95rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+}
+.special-group-title { font-size: .82rem; font-weight: 700; color: var(--text-mid); display: flex; align-items: center; gap: .5rem; }
+.special-group-sub { font-size: .68rem; color: var(--text-faint); margin-top: 2px; }
+.special-group-chevron { color: var(--aqua-deep); transition: transform .2s ease; }
+.special-group.open .special-group-chevron { transform: rotate(180deg); }
+.special-group-body {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height .25s ease;
+  border-top: 1px solid transparent;
+}
+.special-group.open .special-group-body {
+  max-height: 380px;
+  border-top-color: var(--bd);
+}
+.special-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px,1fr));
+  gap: .65rem;
+  padding: .85rem;
+}
 
 /* Duration pills */
 .dur-pills { display:flex; gap:.5rem; flex-wrap:wrap; margin-bottom:1.35rem; }
@@ -150,15 +187,22 @@
 /* Sidebar */
 .sb-stack { display:flex; flex-direction:column; gap:.95rem; }
 
-/* ★ New balance card per leave type */
+/* ★ Balance card per leave type */
 .bal-type-item {
   padding:.72rem .9rem;
   background:var(--bg-input); border:1px solid var(--bd);
   border-radius:var(--r); margin-bottom:.52rem;
   display:flex; flex-direction:column; gap:6px;
   position:relative; overflow:hidden;
+  transition: border-color .25s, box-shadow .25s, background .25s;
 }
 .bal-type-item:last-child { margin-bottom:0; }
+/* ★ Highlighted when the matching leave type is selected */
+.bal-type-item.bal-selected {
+  border-color:var(--aqua-deep);
+  box-shadow:0 0 0 2px var(--aqua-glow);
+  background:var(--aqua-glass);
+}
 .bal-type-accent { position:absolute; left:0; top:0; bottom:0; width:3px; border-radius:var(--r) 0 0 var(--r); }
 .bal-type-top { display:flex; align-items:center; justify-content:space-between; }
 .bal-type-name { font-size:.82rem; font-weight:700; color:var(--text-mid); display:flex; align-items:center; gap:.4rem; }
@@ -184,6 +228,22 @@
 .rule-txt strong { color:var(--text); font-weight:700; display:block; margin-bottom:.1rem; }
 .tips-list { padding-left:1.1rem; font-size:.79rem; color:var(--text-mid); line-height:2; font-weight:500; }
 
+/* ★ Real-time validation messages */
+.validation-warning {
+  background:rgba(245,158,11,0.1);
+  border-left:3px solid #f59e0b;
+  padding:.75rem 1rem;
+  border-radius:8px;
+  margin-bottom:.6rem;
+  font-size:.8rem;
+  display:flex;
+  align-items:flex-start;
+  gap:.5rem;
+  color:#92400e;
+  animation:slideDown .2s ease both;
+}
+.validation-warning i { color:#f59e0b; flex-shrink:0; margin-top:2px; }
+
 @keyframes slideDown { from{opacity:0;transform:translateY(-7px)} to{opacity:1;transform:translateY(0)} }
 </style>
 {% endblock %}
@@ -196,7 +256,6 @@
     <div>
       <div class="al-eyebrow">Leave Management</div>
       <div class="al-page-title">Apply for Leave</div>
-      <div class="al-page-sub">Fill in all details and submit your request for approval.</div>
     </div>
     <a href="javascript:history.back()" class="al-back-btn">
       <i class="fa-solid fa-arrow-left"></i> Back
@@ -213,17 +272,16 @@
       </div>
       <div class="al-card-body">
         <form method="POST" action="{% url 'apply_leave' %}"
-              id="leaveForm" enctype="multipart/form-data" class="ajax-form">
+          id="leaveForm" enctype="multipart/form-data" class="leave-ajax-form">
           {% csrf_token %}
 
-          <!-- ★ DYNAMIC Leave Type Cards from EmployeeLeaveAllocation -->
+          <!-- ★ Leave Type Cards -->
           <div class="sec-lbl"><i class="fa-solid fa-tag"></i> Leave Type</div>
 
           {% if active_leave_types %}
           <div class="lt-grid" id="lt-grid">
             {% for lt in active_leave_types %}
-            {# Find remaining balance for this type #}
-            {% with code=lt.code %}
+            {% if lt.code != 'MARRIAGE' and lt.code != 'MATERNITY' and lt.code != 'PATERNITY' %}
             <div class="lt-card" style="
               --lt-color:{{ lt.color }};
               --lt-bg:{{ lt.color }}18;
@@ -232,30 +290,22 @@
                      name="leave_type"
                      id="ltype-{{ lt.code }}"
                      value="{{ lt.code }}"
+                     data-code="{{ lt.code }}"
                      {% if forloop.first %}checked{% endif %}
                      onchange="onTypeChange('{{ lt.code }}', {{ lt.max_consecutive_days }})">
               <label class="lt-lbl" for="ltype-{{ lt.code }}">
                 <div class="lt-ico">
-                  {% if lt.code == 'CASUAL' %}
-                    <i class="fa-solid fa-umbrella-beach"></i>
-                  {% elif lt.code == 'SICK' %}
-                    <i class="fa-solid fa-kit-medical"></i>
-                  {% elif lt.code == 'URGENT' %}
-                    <i class="fa-solid fa-bolt"></i>
-                  {% elif lt.code == 'MATERNITY' or lt.code == 'PATERNITY' %}
-                    <i class="fa-solid fa-baby"></i>
-                  {% elif lt.code == 'MARRIED' or lt.code == 'MARRIAGE' %}
-                    <i class="fa-solid fa-rings-wedding"></i>
-                  {% elif lt.code == 'COMP' or lt.code == 'COMP_OFF' %}
-                    <i class="fa-solid fa-rotate-left"></i>
-                  {% elif lt.code == 'ANNUAL' or lt.code == 'EARNED' or lt.code == 'PL' %}
-                    <i class="fa-solid fa-star"></i>
-                  {% else %}
-                    <i class="fa-solid fa-calendar-check"></i>
+                  {% if lt.code == 'CASUAL' %}<i class="fa-solid fa-umbrella-beach"></i>
+                  {% elif lt.code == 'SICK' %}<i class="fa-solid fa-kit-medical"></i>
+                  {% elif lt.code == 'URGENT' %}<i class="fa-solid fa-bolt"></i>
+                  {% elif lt.code == 'MATERNITY' or lt.code == 'PATERNITY' %}<i class="fa-solid fa-baby"></i>
+                  {% elif lt.code == 'MARRIED' or lt.code == 'MARRIAGE' %}<i class="fa-solid fa-rings-wedding"></i>
+                  {% elif lt.code == 'COMP' or lt.code == 'COMP_OFF' %}<i class="fa-solid fa-rotate-left"></i>
+                  {% elif lt.code == 'ANNUAL' or lt.code == 'EARNED' or lt.code == 'PL' %}<i class="fa-solid fa-star"></i>
+                  {% else %}<i class="fa-solid fa-calendar-check"></i>
                   {% endif %}
                 </div>
                 {{ lt.name }}
-                {# ★ Show remaining days from EmployeeLeaveAllocation #}
                 {% for b in leave_breakdown %}
                   {% if b.code == lt.code %}
                     <span class="lt-remaining {% if b.remaining == 0 %}zero{% endif %}">
@@ -265,48 +315,112 @@
                 {% endfor %}
               </label>
             </div>
-            {% endwith %}
+            {% endif %}
             {% endfor %}
+
+            <div class="special-group" id="special-leave-group">
+              <button type="button" class="special-group-head" onclick="toggleSpecialLeaveGroup()">
+                <div>
+                  <div class="special-group-title">
+                    <i class="fa-solid fa-certificate"></i>
+                    Special Leave
+                  </div>
+                  <div class="special-group-sub">Maternity, Paternity, Marriage</div>
+                </div>
+                <i class="fa-solid fa-chevron-down special-group-chevron"></i>
+              </button>
+              <div class="special-group-body" id="special-leave-group-body">
+                <div class="special-grid">
+                  {% for lt in active_leave_types %}
+                  {% if lt.code == 'MARRIAGE' or lt.code == 'MATERNITY' or lt.code == 'PATERNITY' %}
+                  <div class="lt-card" style="
+                    --lt-color:{{ lt.color }};
+                    --lt-bg:{{ lt.color }}18;
+                    --lt-ico-bg:{{ lt.color }}22;">
+                    <input type="radio"
+                           name="leave_type"
+                           id="ltype-{{ lt.code }}"
+                           value="{{ lt.code }}"
+                           data-code="{{ lt.code }}"
+                           onchange="onTypeChange('{{ lt.code }}', {{ lt.max_consecutive_days }})">
+                    <label class="lt-lbl" for="ltype-{{ lt.code }}">
+                      <div class="lt-ico">
+                        {% if lt.code == 'MATERNITY' or lt.code == 'PATERNITY' %}<i class="fa-solid fa-baby"></i>
+                        {% elif lt.code == 'MARRIAGE' %}<i class="fa-solid fa-rings-wedding"></i>
+                        {% else %}<i class="fa-solid fa-calendar-check"></i>
+                        {% endif %}
+                      </div>
+                      {{ lt.name }}
+                      <div style="font-size:.68rem;color:var(--text-muted);font-weight:500;line-height:1.35;margin-top:-2px;">
+                        {% if lt.max_lifetime_usage > 0 %}
+                          {{ lt.max_lifetime_usage|floatformat:0 }} days total
+                        {% elif lt.days_per_year > 0 %}
+                          {{ lt.days_per_year|floatformat:0 }} days
+                        {% else %}
+                          Special leave
+                        {% endif %}
+                      </div>
+                      <div style="font-size:.65rem;color:var(--text-faint);font-weight:500;line-height:1.4;max-width:100%;">
+                        {{ lt.description|default:"No description provided." }}
+                      </div>
+                      {% for b in leave_breakdown %}
+                        {% if b.code == lt.code %}
+                          <span class="lt-remaining {% if b.remaining == 0 %}zero{% endif %}">
+                            {{ b.remaining|floatformat:1 }}d left
+                          </span>
+                        {% endif %}
+                      {% endfor %}
+                    </label>
+                  </div>
+                  {% endif %}
+                  {% endfor %}
+                </div>
+              </div>
+            </div>
           </div>
 
           {% else %}
-          {# Fallback: hardcoded 4 types if admin hasn't configured yet #}
+          {# Fallback: hardcoded types #}
           <div class="lt-grid">
             <div class="lt-card">
-              <input type="radio" name="leave_type" id="ltype-casual" value="Casual" checked>
-              <label class="lt-lbl" for="ltype-casual">
-                <div class="lt-ico"><i class="fa-solid fa-umbrella-beach"></i></div>
-                Casual Leave
-              </label>
+              <input type="radio" name="leave_type" id="ltype-casual" value="CASUAL" checked onchange="onTypeChange('CASUAL',5)">
+              <label class="lt-lbl" for="ltype-casual"><div class="lt-ico"><i class="fa-solid fa-umbrella-beach"></i></div>Casual Leave</label>
             </div>
             <div class="lt-card">
-              <input type="radio" name="leave_type" id="ltype-sick" value="Sick">
-              <label class="lt-lbl" for="ltype-sick">
-                <div class="lt-ico"><i class="fa-solid fa-kit-medical"></i></div>
-                Sick Leave
-              </label>
+              <input type="radio" name="leave_type" id="ltype-sick" value="SICK" onchange="onTypeChange('SICK',5)">
+              <label class="lt-lbl" for="ltype-sick"><div class="lt-ico"><i class="fa-solid fa-kit-medical"></i></div>Sick Leave</label>
             </div>
             <div class="lt-card">
-              <input type="radio" name="leave_type" id="ltype-urgent" value="Urgent">
-              <label class="lt-lbl" for="ltype-urgent">
-                <div class="lt-ico"><i class="fa-solid fa-bolt"></i></div>
-                Urgent Leave
-              </label>
+              <input type="radio" name="leave_type" id="ltype-urgent" value="URGENT" onchange="onTypeChange('URGENT',5)">
+              <label class="lt-lbl" for="ltype-urgent"><div class="lt-ico"><i class="fa-solid fa-bolt"></i></div>Urgent Leave</label>
             </div>
             <div class="lt-card">
-              <input type="radio" name="leave_type" id="ltype-married" value="Married">
-              <label class="lt-lbl" for="ltype-married">
-                <div class="lt-ico"><i class="fa-solid fa-rings-wedding"></i></div>
-                Married Leave
-              </label>
+              <input type="radio" name="leave_type" id="ltype-married" value="MARRIED" onchange="onTypeChange('MARRIED',5)">
+              <label class="lt-lbl" for="ltype-married"><div class="lt-ico"><i class="fa-solid fa-rings-wedding"></i></div>Married Leave</label>
             </div>
           </div>
           {% endif %}
 
-          <!-- ★ Dynamic info banner — shows when selected leave type has 0 remaining -->
-          <div id="zero-balance-banner" style="display:none; margin-bottom:1rem; padding:.85rem 1rem; background:rgba(220,38,38,.07); border:1px solid rgba(220,38,38,.22); border-radius:var(--r); font-size:.82rem; color:var(--red); display:none; align-items:center; gap:.5rem; animation:slideDown .2s ease both;">
+          <!-- ★ Zero balance banner -->
+          <div id="zero-balance-banner" style="display:none; margin-bottom:.75rem; padding:.85rem 1rem; background:rgba(220,38,38,.07); border:1px solid rgba(220,38,38,.22); border-radius:var(--r); font-size:.82rem; color:var(--red); align-items:center; gap:.5rem; animation:slideDown .2s ease both;">
             <i class="fa-solid fa-triangle-exclamation"></i>
             <span id="zero-balance-text">No balance remaining for this leave type — leave will be unpaid.</span>
+          </div>
+
+          <!-- ★ Real-time rule validation messages -->
+          <div id="validation-messages" style="margin-bottom:.25rem;">
+            <div id="advance-notice-warning" class="validation-warning" style="display:none;">
+              <i class="fa-solid fa-calendar-day"></i>
+              <span id="advance-notice-text"></span>
+            </div>
+            <div id="max-days-warning" class="validation-warning" style="display:none;">
+              <i class="fa-solid fa-ban"></i>
+              <span id="max-days-text"></span>
+            </div>
+            <div id="document-warning" class="validation-warning" style="display:none;">
+              <i class="fa-solid fa-paperclip"></i>
+              <span id="document-text"></span>
+            </div>
           </div>
 
           <!-- Duration -->
@@ -409,7 +523,7 @@
     <!-- ══ SIDEBAR ══ -->
     <div class="sb-stack">
 
-      <!-- ★ LEAVE BALANCE — from EmployeeLeaveAllocation -->
+      <!-- ★ LEAVE BALANCE -->
       <div class="al-card">
         <div class="al-card-head">
           <div class="al-card-icon"><i class="fa-solid fa-wallet"></i></div>
@@ -419,20 +533,16 @@
 
           {% if leave_breakdown %}
             {% for b in leave_breakdown %}
-            <div class="bal-type-item">
+            <!-- ★ data-code enables real-time highlight when that type is selected -->
+            <div class="bal-type-item" data-code="{{ b.code }}">
               <div class="bal-type-accent" style="background:{{ b.color }};"></div>
               <div class="bal-type-top">
                 <div class="bal-type-name" style="padding-left:8px;">
-                  {% if b.code == 'CASUAL' %}
-                    <i class="fa-solid fa-umbrella-beach" style="color:{{ b.color }};font-size:.8rem;"></i>
-                  {% elif b.code == 'SICK' %}
-                    <i class="fa-solid fa-kit-medical" style="color:{{ b.color }};font-size:.8rem;"></i>
-                  {% elif b.code == 'MARRIED' or b.code == 'MARRIAGE' %}
-                    <i class="fa-solid fa-rings-wedding" style="color:{{ b.color }};font-size:.8rem;"></i>
-                  {% elif b.code == 'URGENT' %}
-                    <i class="fa-solid fa-bolt" style="color:{{ b.color }};font-size:.8rem;"></i>
-                  {% else %}
-                    <i class="fa-solid fa-calendar-check" style="color:{{ b.color }};font-size:.8rem;"></i>
+                  {% if b.code == 'CASUAL' %}<i class="fa-solid fa-umbrella-beach" style="color:{{ b.color }};font-size:.8rem;"></i>
+                  {% elif b.code == 'SICK' %}<i class="fa-solid fa-kit-medical" style="color:{{ b.color }};font-size:.8rem;"></i>
+                  {% elif b.code == 'MARRIED' or b.code == 'MARRIAGE' %}<i class="fa-solid fa-rings-wedding" style="color:{{ b.color }};font-size:.8rem;"></i>
+                  {% elif b.code == 'URGENT' %}<i class="fa-solid fa-bolt" style="color:{{ b.color }};font-size:.8rem;"></i>
+                  {% else %}<i class="fa-solid fa-calendar-check" style="color:{{ b.color }};font-size:.8rem;"></i>
                   {% endif %}
                   {{ b.name }}
                 </div>
@@ -460,40 +570,23 @@
             </div>
 
           {% else %}
-          {# Fallback to old LeaveBalance #}
-          {% if balance %}
-            <div class="bal-type-item">
-              <div class="bal-type-accent" style="background:#6366f1;"></div>
-              <div class="bal-type-top">
-                <div class="bal-type-name" style="padding-left:8px;"><i class="fa-solid fa-umbrella-beach" style="color:#6366f1;font-size:.8rem;"></i> Casual Leave</div>
-                <div class="bal-type-days" style="color:#6366f1;">{{ balance.casual_leave }}</div>
-              </div>
-            </div>
-            <div class="bal-type-item">
-              <div class="bal-type-accent" style="background:#ec4899;"></div>
-              <div class="bal-type-top">
-                <div class="bal-type-name" style="padding-left:8px;"><i class="fa-solid fa-kit-medical" style="color:#ec4899;font-size:.8rem;"></i> Sick Leave</div>
-                <div class="bal-type-days" style="color:#ec4899;">{{ balance.sick_leave }}</div>
-              </div>
-            </div>
-          {% else %}
-            <div class="no-alloc">
-              <i class="fa-solid fa-triangle-exclamation"></i>
-              Ask your admin to configure leave types.
-            </div>
-          {% endif %}
+          <div class="no-alloc">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            Ask your admin to configure leave types.
+          </div>
           {% endif %}
 
         </div>
       </div>
 
-      <!-- Leave Rules -->
+      <!-- ★ Leave Rules — has dynamic-rules slot filled by JS -->
       <div class="al-card">
         <div class="al-card-head">
           <div class="al-card-icon v"><i class="fa-solid fa-shield-halved"></i></div>
           <div class="al-card-title">Leave Rules</div>
         </div>
         <div class="al-card-body" style="padding:.95rem 1.05rem;">
+          <!-- Static always-visible rules -->
           <div class="rule-item">
             <div class="rule-ico" style="background:rgba(0,198,212,.1);color:var(--aqua-deep);"><i class="fa-solid fa-calendar-day"></i></div>
             <div class="rule-txt">
@@ -504,7 +597,6 @@
           <div class="rule-item">
             <div class="rule-ico" style="background:rgba(217,119,6,.1);color:var(--amber);"><i class="fa-solid fa-stopwatch"></i></div>
             <div class="rule-txt">
-              {# ★ Show admin-configured max days from active policy #}
               <strong>Maximum {{ max_days|default:"5" }} days</strong>
               Per single leave application
             </div>
@@ -525,6 +617,8 @@
             </div>
           </div>
           {% endif %}
+          <!-- ★ Dynamic rules injected by JS when leave type changes -->
+          <div id="dynamic-rules"></div>
         </div>
       </div>
 
@@ -565,168 +659,455 @@
 
     </div><!-- end sidebar -->
   </div><!-- end al-grid -->
-</div>
+</div><!-- end al-page-wrap -->
 
 <script>
-/* ── Leave balance data from Django (JSON for JS use) ── */
-const LEAVE_BALANCE = {
-  {% for b in leave_breakdown %}
-  "{{ b.code }}": { remaining: {{ b.remaining }}, allocated: {{ b.allocated }}, used: {{ b.used }}, isPaid: {{ b.is_paid|yesno:'true,false' }} },
-  {% endfor %}
-};
-const MAX_DAYS = {{ max_days|default:5 }};
-const TODAY = new Date().toISOString().split('T')[0];
+$(document).ready(function () {
 
-/* ── Init ── */
-document.addEventListener('DOMContentLoaded', function () {
-  const sd = document.getElementById('start_date');
-  const ed = document.getElementById('end_date');
-  if (sd) { sd.min = TODAY; sd.value = TODAY; }
-  if (ed) { ed.min = TODAY; ed.value = TODAY; }
-  updateDayCounter();
-  // Trigger balance check for the first selected type
-  const first = document.querySelector('input[name="leave_type"]:checked');
-  if (first) onTypeChange(first.value, 0);
-});
+  window.toggleSpecialLeaveGroup = function () {
+    const group = document.getElementById('special-leave-group');
+    if (!group) return;
+    group.classList.toggle('open');
+  };
 
-/* ── Leave type selected → show remaining balance warning ── */
-function onTypeChange(code, maxConsec) {
-  const banner = document.getElementById('zero-balance-banner');
-  const txt    = document.getElementById('zero-balance-text');
-  if (!banner) return;
+  /* ════════════════════════════════════════════════
+     STATE
+  ════════════════════════════════════════════════ */
+  let selectedFiles = [];
+  let leaveTypeConfigs = {};   // populated from API
 
-  const bal = LEAVE_BALANCE[code];
-  if (bal && bal.remaining === 0) {
-    txt.textContent = 'No balance remaining for this leave type — leave will be unpaid and salary will be deducted.';
-    banner.style.display = 'flex';
-  } else if (bal && bal.remaining > 0 && !bal.isPaid) {
-    txt.textContent = 'This is an unpaid leave type — salary will be deducted.';
-    banner.style.display = 'flex';
-  } else {
-    banner.style.display = 'none';
+  /* ════════════════════════════════════════════════
+     LOAD LEAVE TYPE CONFIGS (advance notice, max
+     consecutive days, document required after)
+  ════════════════════════════════════════════════ */
+  function loadLeaveTypeConfigs() {
+    $.ajax({
+      url: "{% url 'api_leave_types' %}",
+      type: 'GET',
+      success: function (response) {
+        if (response.leave_types) {
+          response.leave_types.forEach(function (lt) {
+            leaveTypeConfigs[lt.code] = lt;
+          });
+          // Run initial validation after configs load
+          updateDynamicRules();
+          validateLeaveTypeRules();
+        }
+      },
+      error: function (xhr) {
+        console.warn('Could not load leave type configs:', xhr.status);
+      }
+    });
   }
 
-  // Update max days if this type has a consecutive limit
-  if (maxConsec > 0) {
-    window._typeMaxDays = maxConsec;
-  } else {
-    window._typeMaxDays = null;
+  /* ════════════════════════════════════════════════
+     REAL-TIME VALIDATION AGAINST LEAVE TYPE RULES
+  ════════════════════════════════════════════════ */
+  function validateLeaveTypeRules() {
+    const selectedCode = $('input[name="leave_type"]:checked').val();
+    const config = leaveTypeConfigs[selectedCode];
+
+    // Hide all warnings first
+    $('#advance-notice-warning, #max-days-warning, #document-warning').hide();
+
+    if (!config) return true;
+
+    const startDate  = $('#start_date').val();
+    const endDate    = $('#end_date').val() || startDate;
+    const duration   = $('input[name="duration"]:checked').val();
+    const attachment = $('#attachInput')[0] && $('#attachInput')[0].files[0];
+
+    // Calculate total days
+    let totalDays = 0;
+    if (duration === 'FULL' && startDate && endDate) {
+      const s = new Date(startDate);
+      const e = new Date(endDate);
+      totalDays = Math.max(Math.floor((e - s) / (1000 * 60 * 60 * 24)) + 1, 1);
+    } else if (duration === 'HALF') {
+      totalDays = 0.5;
+    } else if (duration === 'SHORT') {
+      const hours = parseInt($('input[name="short_hours"]:checked').val() || 4);
+      totalDays = hours / 8;
+    }
+
+    let isValid = true;
+
+    // ── Rule 1: Advance notice ──
+    if (config.advance_notice_days > 0 && startDate) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const minDate = new Date(today);
+      minDate.setDate(today.getDate() + config.advance_notice_days);
+      const selected = new Date(startDate);
+
+      if (selected < minDate) {
+        const minStr = minDate.toISOString().split('T')[0];
+        $('#advance-notice-text').html(
+          '<strong>Advance Notice Required:</strong> This leave type needs ' +
+          config.advance_notice_days + ' day(s) advance notice. ' +
+          'Earliest start date: <strong>' + minStr + '</strong>.'
+        );
+        $('#advance-notice-warning').show();
+        isValid = false;
+      }
+    }
+
+    // ── Rule 2: Max consecutive days ──
+    if (config.max_consecutive_days > 0 && totalDays > config.max_consecutive_days) {
+      $('#max-days-text').html(
+        '<strong>Maximum Days Exceeded:</strong> This leave type allows max ' +
+        config.max_consecutive_days + ' consecutive day(s). ' +
+        'You selected <strong>' + totalDays + ' day(s)</strong>.'
+      );
+      $('#max-days-warning').show();
+      isValid = false;
+    }
+
+    // ── Rule 3: Document required ──
+    if (config.document_required_after > 0 && totalDays > config.document_required_after && !attachment) {
+      $('#document-text').html(
+        '<strong>Document Required:</strong> Leaves longer than ' +
+        config.document_required_after + ' day(s) need a supporting document. ' +
+        'Please upload a medical report, marriage card, or other relevant proof.'
+      );
+      $('#document-warning').show();
+      isValid = false;
+    }
+
+    // Enable / disable submit
+    $('#submitBtn').prop('disabled', !isValid);
+
+    return isValid;
   }
-  updateDayCounter();
-}
 
-/* ── Duration toggle ── */
-function setDur(v) {
-  const end  = document.getElementById('end_date');
-  const hint = document.getElementById('lock-hint');
-  const star = document.getElementById('end-star');
-  const panel = document.getElementById('short-panel');
-  const sv   = document.getElementById('start_date').value;
+  /* ════════════════════════════════════════════════
+     UPDATE DYNAMIC RULES IN SIDEBAR
+  ════════════════════════════════════════════════ */
+  function updateDynamicRules() {
+    const selectedCode = $('input[name="leave_type"]:checked').val();
+    const config = leaveTypeConfigs[selectedCode];
+    if (!config) { $('#dynamic-rules').empty(); return; }
 
-  if (v === 'HALF' || v === 'SHORT') {
-    end.readOnly = true;
-    end.style.opacity = '0.5';
-    end.style.cursor  = 'not-allowed';
-    end.value = sv;
-    hint.classList.add('show');
-    star.style.display = 'none';
-  } else {
-    end.readOnly = false;
-    end.style.opacity = '1';
-    end.style.cursor  = '';
-    hint.classList.remove('show');
-    star.style.display = 'inline';
+    let html = '';
+
+    if (config.advance_notice_days > 0) {
+      html += `
+        <div class="rule-item">
+          <div class="rule-ico" style="background:rgba(99,102,241,.1);color:#6366f1;">
+            <i class="fa-solid fa-clock-rotate-left"></i>
+          </div>
+          <div class="rule-txt">
+            <strong>${config.advance_notice_days} day advance notice</strong>
+            Apply before your leave starts
+          </div>
+        </div>`;
+    }
+
+    if (config.max_consecutive_days > 0) {
+      html += `
+        <div class="rule-item">
+          <div class="rule-ico" style="background:rgba(245,158,11,.1);color:var(--amber);">
+            <i class="fa-solid fa-layer-group"></i>
+          </div>
+          <div class="rule-txt">
+            <strong>Max ${config.max_consecutive_days} consecutive days</strong>
+            Per single leave request
+          </div>
+        </div>`;
+    }
+
+    if (config.document_required_after > 0) {
+      html += `
+        <div class="rule-item">
+          <div class="rule-ico" style="background:rgba(220,38,38,.1);color:var(--red);">
+            <i class="fa-solid fa-paperclip"></i>
+          </div>
+          <div class="rule-txt">
+            <strong>Document required after ${config.document_required_after} day(s)</strong>
+            Medical / marriage proof needed
+          </div>
+        </div>`;
+    }
+
+    if (config.is_paid === false) {
+      html += `
+        <div class="rule-item">
+          <div class="rule-ico" style="background:rgba(220,38,38,.1);color:var(--red);">
+            <i class="fa-solid fa-coins"></i>
+          </div>
+          <div class="rule-txt">
+            <strong>Unpaid Leave</strong>
+            Salary will be deducted for this leave
+          </div>
+        </div>`;
+    }
+
+    $('#dynamic-rules').html(html);
   }
-  panel.classList.toggle('show', v === 'SHORT');
-  updateDayCounter();
-}
 
-/* ── Date change ── */
-function onDateChange() {
-  const dur = document.querySelector('input[name="duration"]:checked').value;
-  const sd  = document.getElementById('start_date');
-  const ed  = document.getElementById('end_date');
-  ed.min = sd.value;
-  if (dur === 'HALF' || dur === 'SHORT') {
-    ed.value = sd.value;
-  } else {
-    if (!ed.value || ed.value < sd.value) ed.value = sd.value;
+  /* ════════════════════════════════════════════════
+     ★ SIDEBAR BALANCE HIGHLIGHT
+     Adds .bal-selected to the balance row whose
+     data-code matches the currently selected type,
+     and removes it from all others.
+  ════════════════════════════════════════════════ */
+  function highlightBalanceRow() {
+    const selectedCode = $('input[name="leave_type"]:checked').val();
+    $('.bal-type-item').removeClass('bal-selected');
+    if (selectedCode) {
+      $(`.bal-type-item[data-code="${selectedCode}"]`).addClass('bal-selected');
+    }
   }
-  updateDayCounter();
-}
 
-/* ── Day counter + validation ── */
-function updateDayCounter() {
-  const sd     = document.getElementById('start_date').value;
-  const ed     = document.getElementById('end_date').value;
-  const ctr    = document.getElementById('day-counter');
-  const ctrTxt = document.getElementById('day-counter-txt');
-  const err    = document.getElementById('date-err');
-  const errTxt = document.getElementById('date-err-txt');
-  const btn    = document.getElementById('submitBtn');
+  /* ════════════════════════════════════════════════
+     ZERO BALANCE BANNER
+  ════════════════════════════════════════════════ */
+  function refreshZeroBalanceBanner() {
+    const checked = $('input[name="leave_type"]:checked');
+    const card = checked.closest('.lt-card');
+    const remainingText = card.find('.lt-remaining').first().text() || '';
+    const match = remainingText.match(/-?\d+(\.\d+)?/);
+    const remaining = match ? Number(match[0]) : null;
 
-  err.classList.remove('show');
-  ctr.classList.remove('show', 'warn');
-  btn.disabled = false;
-  if (!sd) return;
-
-  const start = new Date(sd);
-  const end   = ed ? new Date(ed) : start;
-  const days  = Math.round((end - start) / (1000*60*60*24)) + 1;
-  const effectiveMax = window._typeMaxDays || MAX_DAYS;
-
-  ctr.classList.add('show');
-  ctrTxt.textContent = days === 1 ? '1 day selected' : days + ' days selected';
-
-  if (days > effectiveMax) {
-    ctr.classList.add('warn');
-    err.classList.add('show');
-    errTxt.textContent = 'Maximum ' + effectiveMax + ' days allowed for this leave type.';
-    btn.disabled = true;
+    if (remaining !== null && remaining <= 0) {
+      $('#zero-balance-banner').css('display', 'flex');
+      $('#zero-balance-text').text('No balance remaining for this leave type — leave will be unpaid.');
+    } else {
+      $('#zero-balance-banner').hide();
+    }
   }
-}
 
-/* ── File attachment ── */
-let selectedFiles = [];
-function onFileSelect(input) {
-  const files = Array.from(input.files);
-  const dt = new DataTransfer();
-  files.forEach(f => {
-    if (f.size > 5*1024*1024) { alert(f.name + ' exceeds 5MB and was skipped.'); return; }
-    if (!selectedFiles.find(x => x.name === f.name)) selectedFiles.push(f);
+  /* ════════════════════════════════════════════════
+     DAY COUNTER
+  ════════════════════════════════════════════════ */
+  function updateDayCounter() {
+    const duration = $('input[name="duration"]:checked').val() || 'FULL';
+    const start = $('#start_date').val();
+    const end   = $('#end_date').val() || start;
+    let label   = '1 day selected';
+
+    if (duration === 'HALF') {
+      label = '0.5 day selected';
+    } else if (duration === 'SHORT') {
+      const hours = Number($('input[name="short_hours"]:checked').val() || 4);
+      label = `${hours} hour short leave selected`;
+    } else if (start && end) {
+      const days = Math.max(
+        Math.floor((new Date(end) - new Date(start)) / (1000 * 60 * 60 * 24)) + 1,
+        1
+      );
+      label = `${days} day${days > 1 ? 's' : ''} selected`;
+    }
+
+    $('#day-counter-txt').text(label);
+    $('#day-counter').addClass('show');
+  }
+
+  /* ════════════════════════════════════════════════
+     DURATION UI
+  ════════════════════════════════════════════════ */
+  function applyDurationUI(duration) {
+    const lockEnd = duration === 'HALF' || duration === 'SHORT';
+    $('#short-panel').toggle(duration === 'SHORT');
+    $('#lock-hint').toggle(lockEnd);
+    $('#end-star').toggle(!lockEnd);
+
+    if (lockEnd) {
+      const start = $('#start_date').val();
+      if (start) $('#end_date').val(start);
+      $('#end_date').prop('readonly', true);
+    } else {
+      $('#end_date').prop('readonly', false);
+    }
+  }
+
+  /* ════════════════════════════════════════════════
+     DATE VALIDATION
+  ════════════════════════════════════════════════ */
+  function validateDateRange() {
+    const duration = $('input[name="duration"]:checked').val() || 'FULL';
+    const start    = $('#start_date').val();
+    const end      = $('#end_date').val() || start;
+    const today    = new Date().toISOString().split('T')[0];
+
+    $('#date-err').hide();
+    if (!start) return;
+
+    if (start < today) {
+      $('#start_date').val(today);
+      $('#end_date').val(today);
+      $('#date-err-txt').text('Start date cannot be in the past.');
+      $('#date-err').show();
+      return;
+    }
+
+    if (duration === 'FULL' && end && end < start) {
+      $('#end_date').val(start);
+      $('#date-err-txt').text('End date cannot be before start date.');
+      $('#date-err').show();
+    }
+  }
+
+  /* ════════════════════════════════════════════════
+     GLOBAL EVENT HANDLERS
+  ════════════════════════════════════════════════ */
+  window.setDur = function (duration) {
+    $(`input[name="duration"][value="${duration}"]`).prop('checked', true);
+    applyDurationUI(duration);
+    window.onDateChange();
+  };
+
+  window.onDateChange = function () {
+    const start    = $('#start_date').val();
+    const duration = $('input[name="duration"]:checked').val() || 'FULL';
+    if (start) $('#end_date').attr('min', start);
+    if (duration === 'HALF' || duration === 'SHORT') $('#end_date').val(start);
+    validateDateRange();
+    updateDayCounter();
+    validateLeaveTypeRules();   // re-check advance notice when date changes
+  };
+
+  window.onTypeChange = function (_code, _maxConsecutiveDays) {
+    refreshZeroBalanceBanner();
+    highlightBalanceRow();       // ★ live balance highlight
+    updateDynamicRules();
+    validateLeaveTypeRules();
+    updateDayCounter();
+  };
+
+  window.onFileSelect = function (input) {
+    selectedFiles = Array.from((input && input.files) ? input.files : []);
+    const $fl = $('#fileList');
+    $fl.empty();
+    selectedFiles.forEach(function (file) {
+      const tooLarge = file.size > 5 * 1024 * 1024;
+      $fl.append(`<div style="font-size:.8rem;color:${tooLarge ? '#ef4444' : 'var(--text-mid)'};margin-top:.3rem;">${file.name}${tooLarge ? ' (exceeds 5MB)' : ''}</div>`);
+    });
+    validateLeaveTypeRules();    // re-check document requirement
+  };
+
+  // Wire duration + short-hours changes to validation
+  $('input[name="duration"]').on('change', function () {
+    applyDurationUI($(this).val());
+    window.onDateChange();
+    validateLeaveTypeRules();
   });
-  selectedFiles.forEach(f => dt.items.add(f));
-  input.files = dt.files;
-  renderFileList();
-}
-function removeFile(name) {
-  selectedFiles = selectedFiles.filter(f => f.name !== name);
-  const dt = new DataTransfer();
-  selectedFiles.forEach(f => dt.items.add(f));
-  document.getElementById('attachInput').files = dt.files;
-  renderFileList();
-}
-function renderFileList() {
-  const list = document.getElementById('fileList');
-  if (!selectedFiles.length) { list.innerHTML = ''; return; }
-  const icons = { pdf:'fa-file-pdf', doc:'fa-file-word', docx:'fa-file-word', jpg:'fa-file-image', jpeg:'fa-file-image', png:'fa-file-image' };
-  list.innerHTML = selectedFiles.map(f => {
-    const ext  = f.name.split('.').pop().toLowerCase();
-    const ico  = icons[ext] || 'fa-file';
-    const size = f.size > 1024*1024 ? (f.size/(1024*1024)).toFixed(1)+' MB' : Math.round(f.size/1024)+' KB';
-    return `<div class="file-item">
-      <i class="fa-solid ${ico} file-item-ico"></i>
-      <span class="file-item-name">${f.name}</span>
-      <span class="file-item-size">${size}</span>
-      <button type="button" class="file-item-rm" onclick="removeFile('${f.name}')"><i class="fa-solid fa-xmark"></i></button>
-    </div>`;
-  }).join('');
-}
-const zone = document.getElementById('attachZone');
-zone.addEventListener('dragover',  () => zone.classList.add('drag'));
-zone.addEventListener('dragleave', () => zone.classList.remove('drag'));
-zone.addEventListener('drop',      () => zone.classList.remove('drag'));
 
-// Form submit is handled by global .ajax-form handler in base.html
+  $('input[name="short_hours"]').on('change', function () {
+    validateLeaveTypeRules();
+    updateDayCounter();
+  });
+
+  /* ════════════════════════════════════════════════
+     FORM AJAX SUBMIT
+  ════════════════════════════════════════════════ */
+  $('#leaveForm').on('submit', function (e) {
+    e.preventDefault();
+    e.stopImmediatePropagation();
+
+    if (!validateLeaveTypeRules()) {
+      showAlert('error', 'Please fix the validation errors before submitting.');
+      return;
+    }
+
+    const submitBtn     = $('#submitBtn');
+    const originalHtml  = submitBtn.html();
+    submitBtn.prop('disabled', true).html('<i class="fa-solid fa-spinner fa-spin"></i> Submitting…');
+    $('.alert-message').remove();
+
+    $.ajax({
+      url: "{% url 'api_apply_leave' %}",
+      type: 'POST',
+      data: new FormData(this),
+      processData: false,
+      contentType: false,
+      success: function (response) {
+        showAlert('success', response.message || 'Leave application submitted successfully!');
+        setTimeout(function () {
+          window.location.href = response.redirect_url || getRoleHistoryUrl();
+        }, 3000);
+      },
+      error: function (xhr) {
+        let msg = 'An error occurred while submitting your leave application.';
+        if (xhr.responseJSON) {
+          msg = xhr.responseJSON.error || xhr.responseJSON.message || msg;
+        } else if (xhr.responseText) {
+          try { msg = JSON.parse(xhr.responseText).error || msg; } catch (_) {}
+        }
+        showAlert('error', msg);
+      },
+      complete: function () {
+        submitBtn.prop('disabled', false).html(originalHtml);
+      }
+    });
+  });
+
+  /* ════════════════════════════════════════════════
+     ALERT TOAST
+  ════════════════════════════════════════════════ */
+  function showAlert(type, message) {
+    const bg = type === 'success' ? '#10b981' : '#ef4444';
+    const icon = type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle';
+    $('body').append(`
+      <div class="alert-message" style="
+        position:fixed;top:20px;right:20px;z-index:9999;
+        padding:1rem 1.5rem;border-radius:12px;
+        background:${bg};color:white;
+        box-shadow:0 4px 12px rgba(0,0,0,.15);
+        animation:slideDown .3s ease;max-width:420px;">
+        <div style="display:flex;align-items:center;gap:.75rem;">
+          <i class="fa-solid ${icon}"></i>
+          <span>${message}</span>
+          <button onclick="this.parentElement.parentElement.remove()"
+            style="background:none;border:none;color:white;cursor:pointer;margin-left:.5rem;font-size:1.1rem;">×</button>
+        </div>
+      </div>`);
+    setTimeout(function () {
+      $('.alert-message').fadeOut('slow', function () { $(this).remove(); });
+    }, 6000);
+  }
+
+  /* ════════════════════════════════════════════════
+     ROLE-BASED REDIRECT
+  ════════════════════════════════════════════════ */
+  function getRoleHistoryUrl() {
+    {% if request.user.is_superuser or rbac_flags.dashboard_admin %}
+      return "{% url 'admin_dashboard' %}";
+    {% elif rbac_flags.dashboard_hr %}
+      return "{% url 'hr_my_leave_balance' %}";
+    {% elif request.user.role.name == 'TL' and rbac_flags.dashboard_manager %}
+      return "{% url 'tl_dashboard' %}";
+    {% elif request.user.role.name == 'Manager' and rbac_flags.dashboard_manager %}
+      return "{% url 'manager_dashboard' %}";
+    {% else %}
+      return "{% url 'employee_dashboard' %}";
+    {% endif %}
+  }
+
+  /* ════════════════════════════════════════════════
+     INIT
+  ════════════════════════════════════════════════ */
+  const today = new Date().toISOString().split('T')[0];
+  $('#start_date').attr('min', today);
+  $('#end_date').attr('min', today);
+  if (!$('#start_date').val()) $('#start_date').val(today);
+  if (!$('#end_date').val())   $('#end_date').val($('#start_date').val());
+
+  applyDurationUI($('input[name="duration"]:checked').val() || 'FULL');
+  if ($('input[name="leave_type"]:checked').length === 0) {
+    const $first = $('input[name="leave_type"]').first();
+    if ($first.length) {
+      $first.prop('checked', true);
+      onTypeChange($first.val(), Number($first.data('maxConsecutiveDays') || 0));
+    }
+  }
+  refreshZeroBalanceBanner();
+  highlightBalanceRow();   // ★ highlight on page load for whichever type is pre-checked
+  updateDayCounter();
+
+  // Fetch configs (runs validation & dynamic rules after load)
+  loadLeaveTypeConfigs();
+
+}); // end document.ready
 </script>
 {% endblock %}

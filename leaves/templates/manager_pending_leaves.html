@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+{% block title %}Manager Pending Leave - LeaveSetu{% endblock %}
+{% block page_title %}Pending Leave{% endblock %}
+
+{% block content %}
+<style>
+.manager-pending-shell {
+    display: grid;
+    gap: 20px;
+}
+.manager-pending-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+.manager-pending-title {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.manager-pending-title h2 {
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--text);
+}
+.manager-pending-title p {
+    font-size: 13px;
+    color: var(--text-muted);
+}
+.manager-search {
+    position: relative;
+    min-width: min(360px, 100%);
+}
+.manager-search i {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-faint);
+    font-size: 12px;
+}
+.manager-search input {
+    width: 100%;
+    height: 44px;
+    padding: 0 14px 0 38px;
+    border-radius: 14px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    font: inherit;
+    color: var(--text);
+    outline: none;
+}
+.manager-search input:focus {
+    border-color: var(--aqua);
+    box-shadow: 0 0 0 3px rgba(0,198,212,0.12);
+}
+.manager-pending-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 22px;
+    box-shadow: var(--shadow-xs);
+    overflow: hidden;
+}
+.manager-pending-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 18px 22px;
+    border-bottom: 1px solid var(--border);
+    background: linear-gradient(90deg, rgba(0,198,212,0.04), transparent);
+}
+.manager-pending-card-title {
+    font-size: 15px;
+    font-weight: 800;
+    color: var(--text);
+}
+</style>
+
+<div class="manager-pending-shell">
+    <div class="manager-pending-head">
+        <div class="manager-pending-title">
+            <h2>Pending Leave Requests</h2>
+            <p>Review leave requests from your direct team.</p>
+        </div>
+        <label class="manager-search">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input
+                id="managerPendingSearch"
+                type="search"
+                placeholder="Search by name, email, department, leave type"
+                value="{{ search_query }}"
+                autocomplete="off">
+        </label>
+    </div>
+
+    <div class="manager-pending-card">
+        <div class="manager-pending-card-head">
+            <div class="manager-pending-card-title">Requests Awaiting Your Approval</div>
+            <span class="badge badge-pending" id="managerPendingBadge">{{ pending_count }} pending</span>
+        </div>
+        <div id="managerPendingContainer">
+            {% include "partials/manager_pending_leaves_table.html" %}
+        </div>
+    </div>
+</div>
+
+<script>
+(() => {
+    const input = document.getElementById('managerPendingSearch');
+    const container = document.getElementById('managerPendingContainer');
+    const badge = document.getElementById('managerPendingBadge');
+    let timer;
+
+    function loadPending(url) {
+        container.style.opacity = '0.55';
+        $.ajax({
+            url: url,
+            method: 'GET',
+            dataType: 'json',
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .done((data) => {
+            if (!data.success) return;
+            container.innerHTML = data.html;
+            badge.textContent = `${data.pending_count} pending`;
+            window.history.replaceState({}, '', url);
+        })
+        .always(() => {
+            container.style.opacity = '1';
+        });
+    }
+
+    input?.addEventListener('input', function () {
+        clearTimeout(timer);
+        timer = setTimeout(() => {
+            const url = new URL(window.location.href);
+            const value = this.value.trim();
+            if (value) {
+                url.searchParams.set('search', value);
+            } else {
+                url.searchParams.delete('search');
+            }
+            url.searchParams.set('page', '1');
+            loadPending(url.toString());
+        }, 300);
+    });
+
+    document.addEventListener('click', function (event) {
+        const link = event.target.closest('.manager-pending-pagination');
+        if (!link) return;
+        event.preventDefault();
+        loadPending(link.href);
+    });
+})();
+</script>
+{% endblock %}

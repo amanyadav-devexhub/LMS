@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}{{ employee.get_full_name }} — LeaveOS{% endblock %}
+{% block title %}{{ employee.get_full_name }} — LeaveSetu{% endblock %}
 {% block page_title %}Employee Profile{% endblock %}
 
 {% block extra_head %}
@@ -18,12 +18,29 @@
     overflow: hidden;
     position: sticky;
     top: 80px;
+    box-shadow: var(--shadow-xs);
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  
+  .profile-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow);
   }
 
   .profile-banner {
     height: 100px;
-    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    background: linear-gradient(135deg, var(--aqua-deep), var(--aqua));
     position: relative;
+  }
+  
+  .profile-banner::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, rgba(0,198,212,0.2), transparent);
   }
 
   .profile-avatar-wrap {
@@ -35,21 +52,22 @@
   .profile-avatar {
     width: 56px; height: 56px;
     border-radius: 50%;
-    background: var(--surface);
+    background: linear-gradient(135deg, var(--aqua-deep), var(--aqua));
     border: 3px solid var(--surface);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-family: 'Syne', sans-serif;
+    font-family: 'Plus Jakarta Sans', sans-serif;
     font-size: 20px;
     font-weight: 800;
-    color: var(--accent);
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(0,198,212,0.3);
   }
 
   .profile-info { padding: 44px 24px 24px; }
 
   .profile-name {
-    font-family: 'Syne', sans-serif;
+    font-family: 'Plus Jakarta Sans', sans-serif;
     font-size: 20px;
     font-weight: 800;
     color: var(--text);
@@ -72,21 +90,145 @@
   .detail-icon {
     width: 32px; height: 32px;
     border-radius: 8px;
-    background: rgba(108,99,255,0.1);
+    background: var(--aqua-glass);
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 12px;
-    color: var(--accent);
+    color: var(--aqua-deep);
     flex-shrink: 0;
   }
 
-  .detail-label { font-size: 11px; color: var(--text-faint); }
-  .detail-val { color: var(--text); font-weight: 500; }
+  .detail-label { font-size: 11px; color: var(--text-faint); margin-bottom: 2px; }
+  .detail-val { color: var(--text); font-weight: 600; }
 
-  @media (max-width: 900px) {
-    .profile-grid { grid-template-columns: 1fr; }
-    .profile-card { position: static; }
+  /* Action Buttons Container */
+  .action-buttons-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: flex-end;
+    align-items: center;
+  }
+  
+  /* Edit Form Styles */
+  .edit-form-container {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    overflow: hidden;
+    margin-bottom: 24px;
+    box-shadow: var(--shadow-xs);
+  }
+  
+  .edit-form-header {
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border);
+    background: linear-gradient(90deg, rgba(0,198,212,0.04), transparent);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  
+  .edit-form-header i {
+    color: var(--aqua-deep);
+    font-size: 18px;
+  }
+  
+  .edit-form-header h3 {
+    font-size: 15px;
+    font-weight: 800;
+    margin: 0;
+    color: var(--text);
+  }
+  
+  .edit-form-body {
+    padding: 24px;
+  }
+  
+  .edit-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  
+  @media (max-width: 768px) {
+    .profile-grid {
+      grid-template-columns: 1fr;
+    }
+    .profile-card {
+      position: static;
+    }
+    .edit-grid {
+      grid-template-columns: 1fr;
+    }
+    .action-buttons-container {
+      justify-content: flex-start;
+      margin-top: 16px;
+    }
+  }
+  
+  /* Button Styles */
+  .btn-icon {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .btn-edit {
+    background: linear-gradient(135deg, var(--aqua-deep), var(--aqua));
+    color: white;
+    border: none;
+  }
+  
+  .btn-edit:hover {
+    background: linear-gradient(135deg, var(--aqua-darker), var(--aqua-deep));
+    transform: translateY(-2px);
+  }
+  
+  .btn-deactivate {
+    background: rgba(245,166,35,0.1);
+    color: #d97706;
+    border: 1px solid rgba(245,166,35,0.3);
+  }
+  
+  .btn-deactivate:hover {
+    background: rgba(245,166,35,0.2);
+    transform: translateY(-2px);
+  }
+  
+  .btn-activate {
+    background: rgba(5,201,138,0.1);
+    color: #047a52;
+    border: 1px solid rgba(5,201,138,0.3);
+  }
+  
+  .btn-activate:hover {
+    background: rgba(5,201,138,0.2);
+    transform: translateY(-2px);
+  }
+  
+  .btn-delete {
+    background: rgba(240,64,88,0.1);
+    color: #b01530;
+    border: 1px solid rgba(240,64,88,0.3);
+  }
+  
+  .btn-delete:hover {
+    background: rgba(240,64,88,0.2);
+    transform: translateY(-2px);
+  }
+  
+  .btn-back {
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  
+  .btn-back:hover {
+    background: var(--surface);
+    border-color: var(--aqua);
+    transform: translateY(-2px);
   }
 </style>
 {% endblock %}
@@ -98,9 +240,38 @@
       <h1 class="page-title">Employee Profile</h1>
       <p class="page-subtitle">Viewing details for {{ employee.get_full_name|default:employee.username }}</p>
     </div>
-    <a href="javascript:history.back()" class="btn btn-ghost">
-      <i class="fa-solid fa-arrow-left"></i> Back
-    </a>
+    
+    <!-- Action Buttons - Properly Aligned -->
+    <div class="action-buttons-container" style="margin-bottom: 19px;">
+      {% if rbac_flags.user_update %}
+      <a href="?edit=1" class="btn btn-edit btn-icon">
+        <i class="fa-solid fa-pen"></i> Edit
+      </a>
+      {% endif %}
+      
+      {% if employee.is_active and rbac_flags.user_deactivate or not employee.is_active and rbac_flags.user_activate %}
+      <form method="POST" action="{% url 'toggle_employee_status' employee.pk %}" class="ajax-form" style="display:inline; margin:0;">
+        {% csrf_token %}
+        <button type="submit" class="btn {% if employee.is_active %}btn-deactivate{% else %}btn-activate{% endif %} btn-icon">
+          <i class="fa-solid {% if employee.is_active %}fa-user-slash{% else %}fa-user-check{% endif %}"></i>
+          {% if employee.is_active %}Deactivate{% else %}Activate{% endif %}
+        </button>
+      </form>
+      {% endif %}
+      
+      {% if rbac_flags.user_delete %}
+      <form method="POST" action="{% url 'delete_employee' employee.pk %}" class="ajax-form" style="display:inline; margin:0;" onsubmit="return confirm('Delete this employee permanently?');">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-delete btn-icon">
+          <i class="fa-solid fa-trash"></i> Delete
+        </button>
+      </form>
+      {% endif %}
+      
+      <a href="javascript:history.back()" class="btn btn-back btn-icon">
+        <i class="fa-solid fa-arrow-left"></i> Back
+      </a>
+    </div>
   </div>
 </div>
 
@@ -144,7 +315,7 @@
         <div class="detail-icon"><i class="fa-solid fa-building"></i></div>
         <div>
           <div class="detail-label">Department</div>
-          <div class="detail-val">{{ employee.department|default:"Not Assigned" }}</div>
+          <div class="detail-val">{{ employee.department.name|default:"Not Assigned" }}</div>
         </div>
       </div>
       <div class="detail-row">
@@ -161,59 +332,160 @@
           <div class="detail-val">{{ employee.date_joined|date:"M d, Y" }}</div>
         </div>
       </div>
+      <!-- <div class="detail-row">
+        <div class="detail-icon"><i class="fa-solid fa-phone"></i></div>
+        <div>
+          <div class="detail-label">Phone</div>
+          <div class="detail-val">{{ employee.phone|default:"Not Provided" }}</div>
+        </div>
+      </div>
+      <div class="detail-row">
+        <div class="detail-icon"><i class="fa-solid fa-briefcase"></i></div>
+        <div>
+          <div class="detail-label">Designation</div>
+          <div class="detail-val">{{ employee.designation|default:"Not Assigned" }}</div>
+        </div>
+      </div> -->
     </div>
   </div>
 
-  <!-- Leave History -->
+  <!-- Right Column - Edit Form -->
   <div class="animate-in delay-2">
-    <div class="table-container">
-      <div class="table-header">
-        <h2 class="table-title"><i class="fa-solid fa-calendar-days" style="color:var(--accent);margin-right:8px;"></i>Leave History</h2>
+    {% if edit_mode and rbac_flags.user_update %}
+    <div class="edit-form-container">
+      <div class="edit-form-header">
+        <i class="fa-solid fa-user-pen"></i>
+        <h3>Edit Employee Details</h3>
       </div>
-
-      {% with leaves=employee.leaverequest_set.all %}
-      {% if leaves %}
-      <table>
-        <thead>
-          <tr>
-            <th>Type</th>
-            <th>Duration</th>
-            <th>From</th>
-            <th>To</th>
-            <th>Reason</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for leave in leaves %}
-          <tr>
-            <td><span class="badge badge-info">{{ leave.leave_type }}</span></td>
-            <td>{{ leave.duration }}</td>
-            <td>{{ leave.start_date }}</td>
-            <td>{{ leave.end_date }}</td>
-            <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ leave.reason|truncatechars:40 }}</td>
-            <td>
-              {% if leave.status == 'APPROVED' %}
-                <span class="badge badge-approved">Approved</span>
-              {% elif leave.status == 'REJECTED' %}
-                <span class="badge badge-rejected">Rejected</span>
-              {% else %}
-                <span class="badge badge-pending">Pending</span>
-              {% endif %}
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-      {% else %}
-      <div class="empty-state">
-        <div class="empty-icon"><i class="fa-solid fa-calendar-xmark"></i></div>
-        <div class="empty-title">No Leave History</div>
-        <p>This employee hasn't applied for any leave yet.</p>
+      <div class="edit-form-body">
+        <form method="POST" action="{% url 'update_employee' employee.pk %}" class="ajax-form">
+          {% csrf_token %}
+          <div class="edit-grid">
+            <div class="form-group">
+              <label class="form-label">First Name <span style="color: var(--danger);">*</span></label>
+              <input type="text" name="first_name" value="{{ employee.first_name }}" class="form-control" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Last Name</label>
+              <input type="text" name="last_name" value="{{ employee.last_name }}" class="form-control">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Username <span style="color: var(--danger);">*</span></label>
+              <input type="text" name="username" value="{{ employee.username }}" class="form-control" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Email <span style="color: var(--danger);">*</span></label>
+              <input type="email" name="email" value="{{ employee.email }}" class="form-control" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Designation</label>
+              <input type="text" name="designation" value="{{ employee.designation|default:'' }}" class="form-control" placeholder="e.g., Software Engineer">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Phone</label>
+              <input type="text" name="phone" value="{{ employee.phone|default:'' }}" class="form-control" placeholder="+91 9876543210">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Department</label>
+              <select name="department_id" class="form-control">
+                <option value="">Select Department</option>
+                {% for dept in departments %}
+                <option value="{{ dept.pk }}" {% if employee.department_id == dept.pk %}selected{% endif %}>{{ dept.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Role</label>
+              <select name="role_id" class="form-control">
+                <option value="">Select Role</option>
+                {% for role in roles %}
+                <option value="{{ role.pk }}" {% if employee.role_id == role.pk %}selected{% endif %}>{{ role.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Reporting Manager</label>
+              <select name="reporting_manager_id" class="form-control">
+                <option value="">Select Reporting Manager</option>
+                {% for manager in managers %}
+                <option value="{{ manager.pk }}" {% if employee.reporting_manager_id == manager.pk %}selected{% endif %}>{{ manager.get_full_name|default:manager.username }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Date of Joining</label>
+              <input type="date" name="date_of_joining" value="{{ employee.date_of_joining|date:'Y-m-d'|default:'' }}" class="form-control">
+            </div>
+            <div class="form-group">
+              <label class="form-label">New Password (optional)</label>
+              <input type="password" name="password" placeholder="Leave blank to keep current" class="form-control">
+              <small style="font-size: 11px; color: var(--text-muted);">Minimum 6 characters</small>
+            </div>
+          </div>
+          <div style="display:flex; gap:12px; justify-content:flex-end; margin-top:24px; padding-top:16px; border-top:1px solid var(--border);">
+            <a href="?edit=0" class="btn btn-back btn-icon">
+              <i class="fa-solid fa-times"></i> Cancel
+            </a>
+            <button type="submit" class="btn btn-edit btn-icon">
+              <i class="fa-solid fa-floppy-disk"></i> Save Changes
+            </button>
+          </div>
+        </form>
       </div>
-      {% endif %}
-      {% endwith %}
     </div>
+    {% else %}
+    <!-- Info Card when not in edit mode -->
+    <div class="edit-form-container">
+      <div class="edit-form-header">
+        <i class="fa-solid fa-circle-info"></i>
+        <h3>Employee Information</h3>
+      </div>
+      <div class="edit-form-body">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+          <div>
+            <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Full Name</div>
+            <div style="font-weight: 600; color: var(--text);">{{ employee.get_full_name|default:employee.username }}</div>
+          </div>
+          <div>
+            <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Email</div>
+            <div style="font-weight: 600; color: var(--text);">{{ employee.email }}</div>
+          </div>
+          <div>
+            <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Department</div>
+            <div style="font-weight: 600; color: var(--text);">{{ employee.department.name|default:"Not Assigned" }}</div>
+          </div>
+          <div>
+            <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Role</div>
+            <div style="font-weight: 600; color: var(--text);">{{ employee.role.name|default:"Employee" }}</div>
+          </div>
+          <div>
+            <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Designation</div>
+            <div style="font-weight: 600; color: var(--text);">{{ employee.designation|default:"Not Assigned" }}</div>
+          </div>
+          <div>
+            <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Phone</div>
+            <div style="font-weight: 600; color: var(--text);">{{ employee.phone|default:"Not Provided" }}</div>
+          </div>
+          <div>
+            <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Reporting Manager</div>
+            <div style="font-weight: 600; color: var(--text);">{{ employee.reporting_manager.get_full_name|default:"Not Assigned" }}</div>
+          </div>
+          <div>
+            <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Date of Joining</div>
+            <div style="font-weight: 600; color: var(--text);">{{ employee.date_of_joining|date:"d M Y"|default:"Not Set" }}</div>
+          </div>
+        </div>
+        
+        {% if rbac_flags.user_update %}
+        <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border); text-align: right;">
+          <!-- <a href="?edit=1" class="btn btn-edit btn-icon">
+            <i class="fa-solid fa-pen"></i> Edit Employee
+          </a> -->
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
   </div>
 </div>
 {% endblock %}

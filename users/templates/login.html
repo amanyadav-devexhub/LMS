@@ -654,7 +654,7 @@
                     <div class="form-group">
                         <label class="form-label" for="password">Password</label>
                         <div class="password-wrapper">
-                            <i class="fa-regular fa-lock input-icon"></i>
+                            <i class="fa-solid fa-lock input-icon"></i>
                             <input 
                                 type="password" 
                                 id="password" 
@@ -687,7 +687,7 @@
                     </div>
                     
                     <button type="submit" class="login-btn" id="loginBtn">
-                        <i class="fa-regular fa-arrow-right-to-bracket"></i>
+                        <i class="fa-solid fa-arrow-right-to-bracket"></i>
                         Sign in to dashboard
                     </button>
                 </form>
@@ -700,7 +700,7 @@
                 
                 <!-- Security Badge -->
                 <div class="security-badge">
-                    <i class="fa-regular fa-lock"></i>
+                    <i class="fa-solid fa-lock"></i>
                     <span>Enterprise-grade security • 256-bit encryption</span>
                 </div>
             </div>
@@ -752,7 +752,7 @@
             
             // Show loading state
             loginBtn.classList.add('loading');
-            loginBtn.innerHTML = '<i class="fa-regular fa-circle-notch"></i> Signing in...';
+            loginBtn.innerHTML = '<i class="fa-solid fa-circle-notch"></i> Signing in...';
             
             try {
                 const res = await axios.post('/login/', {

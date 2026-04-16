@@ -1,10 +1,9 @@
 {% extends "base.html" %}
-{% block title %}Employees — LeaveSetu{% endblock %}
+{% block title %}Employees - LeaveSetu{% endblock %}
 {% block page_title %}Employee Management{% endblock %}
 
 {% block extra_head %}
 <style>
-/* ── Employee List Page ── */
 .emp-list-header {
   display: flex; align-items: flex-start;
   justify-content: space-between; gap: 16px;
@@ -78,36 +77,6 @@ table.full tbody tr:hover .emp-avatar-lg {
   box-shadow: 0 4px 16px rgba(0,198,212,0.5);
 }
 
-.tab-bar-pro {
-  display: flex; gap: 2px;
-  background: var(--bg2);
-  border-bottom: 1px solid var(--border);
-  padding: 10px 20px 0;
-}
-.tab-pro {
-  padding: 8px 16px 10px;
-  font-size: 12.5px; font-weight: 700;
-  color: var(--text-muted);
-  text-decoration: none;
-  border-bottom: 2px solid transparent;
-  transition: all 0.18s ease;
-  display: flex; align-items: center; gap: 6px;
-}
-.tab-pro:hover { color: var(--aqua-deep); }
-.tab-pro.active { color: var(--aqua-deep); border-bottom-color: var(--aqua); }
-.tab-count {
-  background: var(--aqua-glass);
-  color: var(--aqua-deep);
-  border: 1px solid var(--border-mid);
-  font-size: 10px; font-weight: 800;
-  padding: 1px 7px; border-radius: 20px;
-}
-.tab-pro.active .tab-count {
-  background: var(--aqua); color: #fff;
-  border-color: transparent;
-  box-shadow: 0 0 10px rgba(0,198,212,0.4);
-}
-
 .pagination-bar {
   padding: 14px 20px;
   border-top: 1px solid var(--border);
@@ -164,87 +133,65 @@ table.full tbody tr:hover .row-actions { opacity: 1; }
 <div class="emp-list-header animate-in">
   <div>
     <h1 class="page-title">Employee Management</h1>
-    <p class="page-subtitle">
-      Manage all staff — activate, deactivate, and view profiles.
-    </p>
   </div>
-  <button onclick="document.getElementById('create-modal').style.display='flex'"
-          class="btn btn-primary">
+  <button onclick="document.getElementById('create-modal').style.display='flex'" class="btn btn-primary">
     <i class="fa-solid fa-user-plus"></i> Add Employee
   </button>
 </div>
 
-<!-- ── Filter Bar ── -->
-<form method="GET" class="filter-bar animate-in delay-1">
-  <!-- Search -->
+<form id="employeeFilterForm" class="filter-bar animate-in delay-1">
   <div class="search-pro">
     <i class="fa-solid fa-magnifying-glass search-pro-icon"></i>
-    <input type="text" name="search" class="search-pro-input"
-           placeholder="Search by name, email, role…"
-           value="{{ search_query }}" autocomplete="off" id="empSearchInput">
+    <input type="text" name="search" class="search-pro-input" placeholder="Search by name, email, role..." autocomplete="off" id="empSearchInput">
   </div>
 
-  <!-- Department filter -->
-  <select name="dept" class="form-control" style="width:180px;" onchange="this.form.submit()">
+  <select id="deptFilterSelect" name="dept" class="form-control" style="width:180px;">
     <option value="">All Departments</option>
     {% for dept in departments %}
-    <option value="{{ dept.id }}" {% if dept_filter == dept.id|stringformat:"s" %}selected{% endif %}>
-      {{ dept.name }} ({{ dept.employee_count }})
-    </option>
+    <option value="{{ dept.id }}">{{ dept.name }}</option>
     {% endfor %}
   </select>
 
-  <input type="hidden" name="tab" value="{{ current_tab }}">
+  <select id="roleFilterSelect" name="role" class="form-control" style="width:180px;">
+    <option value="">All Roles</option>
+    {% for role in roles %}
+    <option value="{{ role.id }}">{{ role.name }}</option>
+    {% endfor %}
+  </select>
+
+  <input type="hidden" name="tab" id="tabInput" value="all">
 
   <button type="submit" class="btn btn-ghost">
     <i class="fa-solid fa-filter"></i> Filter
   </button>
 
-  {% if search_query or dept_filter %}
-  <a href="?tab={{ current_tab }}" class="btn btn-ghost" style="color:var(--danger);">
+  <button type="button" id="clearFiltersBtn" class="btn btn-ghost" style="color:var(--danger);display:none;">
     <i class="fa-solid fa-xmark"></i> Clear
-  </a>
-  {% endif %}
+  </button>
 </form>
 
-<!-- ── Stat pills ── -->
 <div style="display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap;" class="animate-in delay-1">
-  <a href="?tab=all{% if search_query %}&search={{ search_query }}{% endif %}"
-     class="btn {% if current_tab == 'all' %}btn-primary{% else %}btn-ghost{% endif %} btn-sm">
-    <i class="fa-solid fa-users"></i> All ({{ total_employees }})
+  <a href="#" class="btn btn-primary btn-sm employee-tab-btn" data-tab="all" id="tabBtnAll">
+    <i class="fa-solid fa-users"></i> All (<span id="totalEmployeesCount">0</span>)
   </a>
-  <a href="?tab=active{% if search_query %}&search={{ search_query }}{% endif %}"
-     class="btn {% if current_tab == 'active' %}btn-success{% else %}btn-ghost{% endif %} btn-sm">
-    <i class="fa-solid fa-user-check"></i> Active ({{ active_count }})
+  <a href="#" class="btn btn-ghost btn-sm employee-tab-btn" data-tab="active" id="tabBtnActive">
+    <i class="fa-solid fa-user-check"></i> Active (<span id="activeEmployeesCount">0</span>)
   </a>
-  <a href="?tab=inactive{% if search_query %}&search={{ search_query }}{% endif %}"
-     class="btn {% if current_tab == 'inactive' %}btn-danger{% else %}btn-ghost{% endif %} btn-sm">
-    <i class="fa-solid fa-user-slash"></i> Inactive ({{ inactive_count }})
+  <a href="#" class="btn btn-ghost btn-sm employee-tab-btn" data-tab="inactive" id="tabBtnInactive">
+    <i class="fa-solid fa-user-slash"></i> Inactive (<span id="inactiveEmployeesCount">0</span>)
   </a>
 </div>
 
-<!-- ── Full Table ── -->
 <div class="emp-full-table animate-in delay-2">
   <div class="emp-full-table-header">
-    <div style="font-size:15px;font-weight:800;color:var(--text);">
-      {% if search_query %}
-        Search results for "<em style="color:var(--aqua-deep);">{{ search_query }}</em>"
-      {% elif current_tab == 'active' %}Active Employees
-      {% elif current_tab == 'inactive' %}Inactive Employees
-      {% else %}All Employees
-      {% endif %}
-    </div>
-    <div style="font-size:12px;color:var(--text-muted);">
-      {% if page_obj %}
-        {{ page_obj.start_index }}–{{ page_obj.end_index }} of {{ page_obj.paginator.count }}
-      {% endif %}
-    </div>
+    <div id="employeeTableTitle" style="font-size:15px;font-weight:800;color:var(--text);">All Employees</div>
+    <div id="employeeTableMeta" style="font-size:12px;color:var(--text-muted);">Loading...</div>
   </div>
 
   <table class="full">
     <thead>
       <tr>
-        <th>#</th>
+        <th></th>
         <th>Employee</th>
         <th>Role</th>
         <th>Department</th>
@@ -253,142 +200,12 @@ table.full tbody tr:hover .row-actions { opacity: 1; }
         <th>Actions</th>
       </tr>
     </thead>
-    <tbody id="empTableBody">
-      {% for emp in employees %}
-      <tr>
-        <td style="color:var(--text-faint);font-size:12px;">
-          {{ forloop.counter|add:page_obj.start_index|add:"-1" }}
-        </td>
-        <td>
-          <div style="display:flex;align-items:center;gap:12px;">
-            <div class="emp-avatar-lg {% if not emp.is_active %}inactive{% endif %}">
-              {{ emp.first_name|first|upper }}{{ emp.last_name|first|upper }}
-            </div>
-            <div>
-              <div style="font-weight:700;color:var(--text);">
-                {{ emp.get_full_name|default:emp.username }}
-              </div>
-              <div style="font-size:11px;color:var(--text-faint);">{{ emp.email }}</div>
-            </div>
-          </div>
-        </td>
-        <td>
-          <span class="badge badge-info" style="font-size:10.5px;">
-            {{ emp.role.name|default:"—" }}
-          </span>
-        </td>
-        <td>
-          {% if emp.department %}
-          <span style="display:inline-flex;align-items:center;gap:5px;font-size:12.5px;color:var(--text-mid);">
-            <i class="fa-solid fa-building" style="font-size:10px;color:var(--aqua-deep);"></i>
-            {{ emp.department.name }}
-          </span>
-          {% else %}
-          <span style="color:var(--text-faint);font-size:12px;">—</span>
-          {% endif %}
-        </td>
-        <td style="font-size:12px;color:var(--text-muted);">
-          {{ emp.date_joined|date:"d M Y" }}
-        </td>
-        <td>
-          {% if emp.is_active %}
-            <span class="badge badge-approved">
-              <i class="fa-solid fa-circle" style="font-size:6px;"></i> Active
-            </span>
-          {% else %}
-            <span class="badge badge-rejected">
-              <i class="fa-solid fa-circle" style="font-size:6px;"></i> Inactive
-            </span>
-          {% endif %}
-        </td>
-        <td>
-          <div class="row-actions">
-            <a href="{% url 'employee_detail' emp.pk %}"
-               class="btn btn-ghost btn-sm" title="View Profile">
-              <i class="fa-solid fa-eye"></i>
-            </a>
-            <form method="POST" action="{% url 'toggle_employee_status' emp.id %}" class="ajax-form" style="margin:0;">
-              {% csrf_token %}
-              <button type="submit"
-                      class="btn btn-sm {% if emp.is_active %}btn-danger{% else %}btn-success{% endif %}"
-                      title="{% if emp.is_active %}Deactivate{% else %}Activate{% endif %}">
-                <i class="fa-solid {% if emp.is_active %}fa-user-slash{% else %}fa-user-check{% endif %}"></i>
-                {% if emp.is_active %}Deactivate{% else %}Activate{% endif %}
-              </button>
-            </form>
-          </div>
-        </td>
-      </tr>
-      {% empty %}
-      <tr>
-        <td colspan="7">
-          <div class="empty-state" style="padding:60px;">
-            <div class="empty-icon"><i class="fa-solid fa-users-slash"></i></div>
-            <div class="empty-title">No employees found</div>
-            <p style="font-size:13px;color:var(--text-muted);margin-top:6px;">
-              Try adjusting your search or filters.
-            </p>
-          </div>
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
+    <tbody id="empTableBody"></tbody>
   </table>
 
-  <!-- Pagination -->
-  {% if page_obj and page_obj.paginator.num_pages > 1 %}
-  <div class="pagination-bar">
-    <div class="pagination-info">
-      Showing <strong>{{ page_obj.start_index }}–{{ page_obj.end_index }}</strong>
-      of <strong>{{ page_obj.paginator.count }}</strong> employees
-    </div>
-    <div class="pagination-pages">
-
-      <a href="?tab={{ current_tab }}&page=1{% if search_query %}&search={{ search_query }}{% endif %}{% if dept_filter %}&dept={{ dept_filter }}{% endif %}"
-         class="page-btn {% if not page_obj.has_previous %}disabled{% endif %}" title="First">
-        <i class="fa-solid fa-angles-left" style="font-size:9px;"></i>
-      </a>
-
-      {% if page_obj.has_previous %}
-      <a href="?tab={{ current_tab }}&page={{ page_obj.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if dept_filter %}&dept={{ dept_filter }}{% endif %}"
-         class="page-btn">
-        <i class="fa-solid fa-chevron-left" style="font-size:9px;"></i>
-      </a>
-      {% else %}
-      <span class="page-btn disabled"><i class="fa-solid fa-chevron-left" style="font-size:9px;"></i></span>
-      {% endif %}
-
-      {% for num in page_obj.paginator.page_range %}
-        {% if page_obj.number == num %}
-          <span class="page-btn active">{{ num }}</span>
-        {% elif num >= page_obj.number|add:"-2" and num <= page_obj.number|add:"2" %}
-          <a href="?tab={{ current_tab }}&page={{ num }}{% if search_query %}&search={{ search_query }}{% endif %}{% if dept_filter %}&dept={{ dept_filter }}{% endif %}"
-             class="page-btn">{{ num }}</a>
-        {% endif %}
-      {% endfor %}
-
-      {% if page_obj.has_next %}
-      <a href="?tab={{ current_tab }}&page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if dept_filter %}&dept={{ dept_filter }}{% endif %}"
-         class="page-btn">
-        <i class="fa-solid fa-chevron-right" style="font-size:9px;"></i>
-      </a>
-      {% else %}
-      <span class="page-btn disabled"><i class="fa-solid fa-chevron-right" style="font-size:9px;"></i></span>
-      {% endif %}
-
-      <a href="?tab={{ current_tab }}&page={{ page_obj.paginator.num_pages }}{% if search_query %}&search={{ search_query }}{% endif %}{% if dept_filter %}&dept={{ dept_filter }}{% endif %}"
-         class="page-btn {% if not page_obj.has_next %}disabled{% endif %}" title="Last">
-        <i class="fa-solid fa-angles-right" style="font-size:9px;"></i>
-      </a>
-
-    </div>
-  </div>
-  {% endif %}
-
+  <div class="pagination-bar" id="employeePagination"></div>
 </div>
 
-
-<!-- ══════════ CREATE EMPLOYEE MODAL ══════════ -->
 <div id="create-modal"
      style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:999;
             align-items:center;justify-content:center;backdrop-filter:blur(6px);padding:20px;">
@@ -408,8 +225,7 @@ table.full tbody tr:hover .row-actions { opacity: 1; }
           <div style="font-size:12px;color:var(--text-muted);">Fill in the details below</div>
         </div>
       </div>
-      <button onclick="document.getElementById('create-modal').style.display='none'"
-              class="icon-btn"><i class="fa-solid fa-xmark"></i></button>
+      <button onclick="document.getElementById('create-modal').style.display='none'" class="icon-btn"><i class="fa-solid fa-xmark"></i></button>
     </div>
 
     <form method="POST" action="{% url 'create_employee' %}" class="ajax-form refresh-on-success">
@@ -434,179 +250,446 @@ table.full tbody tr:hover .row-actions { opacity: 1; }
       </div>
       <div class="form-group">
         <label class="form-label">Password</label>
-        <input type="password" name="password" class="form-control" required placeholder="••••••••">
+        <input type="password" name="password" class="form-control" required placeholder="********">
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
         <div class="form-group">
           <label class="form-label">Department</label>
-          <select name="department_id" class="form-control">
+          <select name="department_id" id="createDepartmentSelect" class="form-control">
             <option value="">Select Department</option>
             {% for dept in departments %}
-              <option value="{{ dept.id }}">{{ dept.name }}</option>
+            <option value="{{ dept.id }}">{{ dept.name }}</option>
             {% endfor %}
           </select>
         </div>
         <div class="form-group">
           <label class="form-label">Role</label>
-          <select name="role_id" class="form-control" required>
+          <select name="role_id" id="createRoleSelect" class="form-control" required>
             <option value="">Select Role</option>
             {% for role in roles %}
-              <option value="{{ role.id }}">{{ role.name }}</option>
+            <option value="{{ role.id }}">{{ role.name }}</option>
             {% endfor %}
           </select>
         </div>
       </div>
       <div class="form-group">
         <label class="form-label">Reporting Manager Email (optional)</label>
-        <input type="email" name="reporting_manager_email" class="form-control"
-               placeholder="manager@company.com">
+        <input type="email" name="reporting_manager_email" class="form-control" placeholder="manager@company.com">
       </div>
       <div style="display:flex;gap:10px;margin-top:6px;">
         <button type="submit" class="btn btn-primary">
           <i class="fa-solid fa-user-plus"></i> Create Employee
         </button>
-        <button type="button"
-                onclick="document.getElementById('create-modal').style.display='none'"
-                class="btn btn-ghost">Cancel</button>
+        <button type="button" onclick="document.getElementById('create-modal').style.display='none'" class="btn btn-ghost">Cancel</button>
       </div>
     </form>
   </div>
 </div>
 
 <script>
-/* ── Live Search ── */
+const employeeApiUrl = "{% url 'employee_list_page' %}";
+const employeeDetailUrlTemplate = "{% url 'employee_detail' 0 %}";
+const toggleEmployeeUrlTemplate = "{% url 'toggle_employee_status' 0 %}";
 const searchInput = document.getElementById('empSearchInput');
+const deptFilterSelect = document.getElementById('deptFilterSelect');
+const roleFilterSelect = document.getElementById('roleFilterSelect');
+const createDepartmentSelect = document.getElementById('createDepartmentSelect');
+const createRoleSelect = document.getElementById('createRoleSelect');
+const tabInput = document.getElementById('tabInput');
+const clearFiltersBtn = document.getElementById('clearFiltersBtn');
 const empTableBody = document.getElementById('empTableBody');
+const employeePagination = document.getElementById('employeePagination');
+const employeeTableTitle = document.getElementById('employeeTableTitle');
+const employeeTableMeta = document.getElementById('employeeTableMeta');
+const csrfTokenInput = document.querySelector('[name=csrfmiddlewaretoken]');
+const csrfToken = csrfTokenInput ? csrfTokenInput.value : '';
+
 let searchTimer;
+let employeeState = { search: '', dept: '', role: '', tab: 'all', page: 1 };
 
 function renderSkeleton() {
   let html = '';
-  for (let i = 0; i < 8; i++) {
-    html += `<tr><td colspan="7" style="padding:13px 20px;">
-      <div class="skeleton-box" style="width:${60+Math.random()*30}%;"></div>
-    </td></tr>`;
+  for (let i = 0; i < 10; i++) {
+    html += `
+      <tr>
+        <td colspan="7" style="padding:13px 20px;">
+          <div class="skeleton-box" style="width:${60 + Math.random() * 30}%;"></div>
+        </td>
+      </tr>`;
   }
   return html;
 }
 
-if (searchInput) {
-  searchInput.addEventListener('input', function () {
-    clearTimeout(searchTimer);
-    const query = this.value.trim();
+function getEmployeeInitials(emp) {
+  if (emp.initials) return emp.initials;
+  const name = (emp.name || '').trim();
+  if (!name) return '--';
+  const parts = name.split(/\s+/).filter(Boolean);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0] || ''}${parts[1][0] || ''}`.toUpperCase();
+}
 
-    if (query.length < 2) return;
+function formatDate(dateValue) {
+  if (!dateValue) return '-';
+  const date = new Date(dateValue);
+  if (Number.isNaN(date.getTime())) return '-';
+  return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
 
-    empTableBody.innerHTML = renderSkeleton();
+function buildApiUrl() {
+  const url = new URL(employeeApiUrl, window.location.origin);
+  if (employeeState.search) url.searchParams.set('search', employeeState.search);
+  if (employeeState.dept) url.searchParams.set('dept', employeeState.dept);
+  if (employeeState.role) url.searchParams.set('role', employeeState.role);
+  if (employeeState.tab && employeeState.tab !== 'all') url.searchParams.set('status', employeeState.tab);
+  if (employeeState.page && employeeState.page !== 1) url.searchParams.set('page', String(employeeState.page));
+  
+  // Set 10 employees per page
+  url.searchParams.set('per_page', '10');
+  
+  // Force JSON response
+  url.searchParams.set('format', 'json');
+  
+  return url;
+}
 
-    searchTimer = setTimeout(() => {
-      const tab = new URLSearchParams(window.location.search).get('tab') || 'all';
-      fetch(`/leave/admin/employees/search/?q=${encodeURIComponent(query)}&tab=${tab}`)
-        .then(res => res.json())
-        .then(data => {
-          empTableBody.innerHTML = '';
-          if (!data.employees || data.employees.length === 0) {
-            empTableBody.innerHTML = `
-              <tr><td colspan="7">
-                <div class="empty-state" style="padding:50px;">
-                  <div class="empty-icon"><i class="fa-solid fa-magnifying-glass"></i></div>
-                  <div class="empty-title">No results for "${query}"</div>
-                </div>
-              </td></tr>`;
-          } else {
-            data.employees.forEach((emp, i) => {
-              const initials = (emp.first_name_initial || '') + (emp.last_name_initial || '');
-              const deptHtml = emp.department
-                ? `<span style="display:inline-flex;align-items:center;gap:5px;font-size:12.5px;">
-                    <i class="fa-solid fa-building" style="font-size:10px;color:var(--aqua-deep);"></i>
-                    ${emp.department}
-                   </span>`
-                : '<span style="color:var(--text-faint);font-size:12px;">—</span>';
+function updateHistoryUrl() {
+  const url = new URL(window.location.href);
+  if (employeeState.search) url.searchParams.set('search', employeeState.search);
+  else url.searchParams.delete('search');
+  if (employeeState.dept) url.searchParams.set('dept', employeeState.dept);
+  else url.searchParams.delete('dept');
+  if (employeeState.role) url.searchParams.set('role', employeeState.role);
+  else url.searchParams.delete('role');
+  if (employeeState.tab && employeeState.tab !== 'all') url.searchParams.set('tab', employeeState.tab);
+  else url.searchParams.delete('tab');
+  if (employeeState.page && employeeState.page !== 1) url.searchParams.set('page', String(employeeState.page));
+  else url.searchParams.delete('page');
+  window.history.replaceState({}, '', url.toString());
+}
 
-              empTableBody.innerHTML += `
-                <tr>
-                  <td style="color:var(--text-faint);font-size:12px;">${i+1}</td>
-                  <td>
-                    <div style="display:flex;align-items:center;gap:12px;">
-                      <div class="emp-avatar-lg ${emp.is_active?'':'inactive'}">${initials}</div>
-                      <div>
-                        <div style="font-weight:700;color:var(--text);">${emp.name}</div>
-                        <div style="font-size:11px;color:var(--text-faint);">${emp.email}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td><span class="badge badge-info" style="font-size:10.5px;">${emp.role}</span></td>
-                  <td>${deptHtml}</td>
-                  <td style="font-size:12px;color:var(--text-muted);">—</td>
-                  <td>
-                    ${emp.is_active
-                      ? '<span class="badge badge-approved"><i class="fa-solid fa-circle" style="font-size:6px;"></i> Active</span>'
-                      : '<span class="badge badge-rejected"><i class="fa-solid fa-circle" style="font-size:6px;"></i> Inactive</span>'
-                    }
-                  </td>
-                  <td>
-                    <div style="display:flex;gap:6px;">
-                      <a href="/leave/employee/${emp.id}/" class="btn btn-ghost btn-sm">
-                        <i class="fa-solid fa-eye"></i>
-                      </a>
-                    </div>
-                  </td>
-                </tr>`;
-            });
-          }
-        })
-        .catch(() => {
-          empTableBody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--danger);">
-            <i class="fa-solid fa-triangle-exclamation"></i> Search failed. Please try again.
-          </td></tr>`;
-        });
-    }, 350);
+function setTabButtons() {
+  document.querySelectorAll('.employee-tab-btn').forEach((btn) => {
+    const isActive = btn.dataset.tab === employeeState.tab;
+    btn.classList.toggle('btn-primary', isActive && btn.dataset.tab === 'all');
+    btn.classList.toggle('btn-success', isActive && btn.dataset.tab === 'active');
+    btn.classList.toggle('btn-danger', isActive && btn.dataset.tab === 'inactive');
+    btn.classList.toggle('btn-ghost', !isActive);
   });
 }
 
-/* Modal close handlers */
+function renderSelectOptions(select, items, placeholder, selectedValue) {
+  if (!select) return;
+  const options = [`<option value="">${placeholder}</option>`];
+  items.forEach((item) => {
+    const isSelected = String(selectedValue || '') === String(item.id) ? ' selected' : '';
+    options.push(`<option value="${item.id}"${isSelected}>${item.name}</option>`);
+  });
+  select.innerHTML = options.join('');
+}
+
+function renderEmployeeRow(emp, index) {
+  const initials = getEmployeeInitials(emp);
+  const deptHtml = emp.department
+    ? `<span style="display:inline-flex;align-items:center;gap:5px;font-size:12.5px;color:var(--text-mid);"><i class="fa-solid fa-building" style="font-size:10px;color:var(--aqua-deep);"></i>${emp.department}</span>`
+    : '<span style="color:var(--text-faint);font-size:12px;">-</span>';
+  const detailUrl = employeeDetailUrlTemplate.replace('/0/', `/${emp.id}/`);
+  const toggleUrl = toggleEmployeeUrlTemplate.replace('/0/', `/${emp.id}/`);
+  const joined = formatDate(emp.date_joined);
+
+  return `
+    <tr>
+      <td style="color:var(--text-faint);font-size:12px;">${index}</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div class="emp-avatar-lg ${emp.is_active ? '' : 'inactive'}">${initials}</div>
+          <div>
+            <div style="font-weight:700;color:var(--text);">${escapeHtml(emp.name)}</div>
+            <div style="font-size:11px;color:var(--text-faint);">${escapeHtml(emp.email)}</div>
+          </div>
+        </div>
+      </td>
+      <td><span class="badge badge-info" style="font-size:10.5px;">${escapeHtml(emp.role)}</span></td>
+      <td>${deptHtml}</td>
+      <td style="font-size:12px;color:var(--text-muted);">${joined}</td>
+      <td>
+        ${emp.is_active
+          ? '<span class="badge badge-approved"><i class="fa-solid fa-circle" style="font-size:6px;"></i> Active</span>'
+          : '<span class="badge badge-rejected"><i class="fa-solid fa-circle" style="font-size:6px;"></i> Inactive</span>'
+        }
+      </td>
+      <td>
+        <div class="row-actions">
+          <a href="${detailUrl}" class="btn btn-ghost btn-sm" title="View Profile">
+            <i class="fa-solid fa-eye"></i>
+          </a>
+          <form method="POST" action="${toggleUrl}" class="ajax-form" style="margin:0;">
+            <input type="hidden" name="csrfmiddlewaretoken" value="${csrfToken}">
+            <button type="submit"
+                    class="btn btn-sm ${emp.is_active ? 'btn-danger' : 'btn-success'}"
+                    title="${emp.is_active ? 'Deactivate' : 'Activate'}">
+              <i class="fa-solid ${emp.is_active ? 'fa-user-slash' : 'fa-user-check'}"></i>
+              ${emp.is_active ? 'Deactivate' : 'Activate'}
+            </button>
+          </form>
+        </div>
+      </td>
+    </tr>`;
+}
+
+function escapeHtml(text) {
+  if (!text) return '';
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+function renderEmptyState(message) {
+  empTableBody.innerHTML = `
+    <tr>
+      <td colspan="7">
+        <div class="empty-state" style="padding:60px;">
+          <div class="empty-icon"><i class="fa-solid fa-users-slash"></i></div>
+          <div class="empty-title">No employees found</div>
+          <p style="font-size:13px;color:var(--text-muted);margin-top:6px;">${escapeHtml(message)}</p>
+        </div>
+      </td>
+    </tr>`;
+}
+
+function renderPagination(pagination) {
+  if (!pagination || pagination.num_pages <= 1) {
+    employeePagination.innerHTML = '';
+    return;
+  }
+
+  let links = '';
+  const current = pagination.page;
+  const totalPages = pagination.num_pages;
+
+  links += current > 1
+    ? `<a href="#" class="page-btn" data-page="1" title="First"><i class="fa-solid fa-angles-left" style="font-size:9px;"></i></a>`
+    : `<span class="page-btn disabled"><i class="fa-solid fa-angles-left" style="font-size:9px;"></i></span>`;
+
+  links += pagination.has_previous
+    ? `<a href="#" class="page-btn" data-page="${current - 1}"><i class="fa-solid fa-chevron-left" style="font-size:9px;"></i></a>`
+    : `<span class="page-btn disabled"><i class="fa-solid fa-chevron-left" style="font-size:9px;"></i></span>`;
+
+  for (let page = 1; page <= totalPages; page++) {
+    if (page === current) links += `<span class="page-btn active">${page}</span>`;
+    else if (page >= current - 2 && page <= current + 2) links += `<a href="#" class="page-btn" data-page="${page}">${page}</a>`;
+  }
+
+  links += pagination.has_next
+    ? `<a href="#" class="page-btn" data-page="${current + 1}"><i class="fa-solid fa-chevron-right" style="font-size:9px;"></i></a>`
+    : `<span class="page-btn disabled"><i class="fa-solid fa-chevron-right" style="font-size:9px;"></i></span>`;
+
+  links += current < totalPages
+    ? `<a href="#" class="page-btn" data-page="${totalPages}" title="Last"><i class="fa-solid fa-angles-right" style="font-size:9px;"></i></a>`
+    : `<span class="page-btn disabled"><i class="fa-solid fa-angles-right" style="font-size:9px;"></i></span>`;
+
+  employeePagination.innerHTML = `
+    <div class="pagination-info">
+      Showing <strong>${pagination.start_index}-${pagination.end_index}</strong>
+      of <strong>${pagination.total_count}</strong> employees
+    </div>
+    <div class="pagination-pages">${links}</div>`;
+}
+
+function renderTitleAndMeta(data) {
+  if (employeeState.search) {
+    employeeTableTitle.innerHTML = `Search results for "<em style="color:var(--aqua-deep);">${escapeHtml(employeeState.search)}</em>"`;
+  } else if (employeeState.tab === 'active') {
+    employeeTableTitle.textContent = 'Active Employees';
+  } else if (employeeState.tab === 'inactive') {
+    employeeTableTitle.textContent = 'Inactive Employees';
+  } else {
+    employeeTableTitle.textContent = 'All Employees';
+  }
+
+  const pagination = data.employees || {};
+  if (pagination.total_count) {
+    employeeTableMeta.textContent = `${pagination.start_index}-${pagination.end_index} of ${pagination.total_count}`;
+  } else {
+    employeeTableMeta.textContent = '0 employees';
+  }
+}
+
+function updateCounts(data) {
+  document.getElementById('totalEmployeesCount').textContent = data.total_count || 0;
+  document.getElementById('activeEmployeesCount').textContent = data.active_count || 0;
+  document.getElementById('inactiveEmployeesCount').textContent = data.inactive_count || 0;
+}
+
+function updateFilterUi(data) {
+  renderSelectOptions(deptFilterSelect, data.departments || [], 'All Departments', employeeState.dept);
+  renderSelectOptions(roleFilterSelect, data.roles || [], 'All Roles', employeeState.role);
+  renderSelectOptions(createDepartmentSelect, data.departments || [], 'Select Department', '');
+  renderSelectOptions(createRoleSelect, data.roles || [], 'Select Role', '');
+  searchInput.value = employeeState.search;
+  tabInput.value = employeeState.tab;
+  clearFiltersBtn.style.display = (employeeState.search || employeeState.dept || employeeState.role) ? '' : 'none';
+  setTabButtons();
+}
+
+async function fetchEmployeeData() {
+  empTableBody.innerHTML = renderSkeleton();
+  employeeTableMeta.textContent = 'Loading...';
+
+  try {
+    const response = await fetch(buildApiUrl().toString(), {
+      method: 'GET',
+      credentials: 'include',
+      headers: { 
+        'Accept': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest'
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const contentType = response.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) {
+      throw new Error('Response is not JSON');
+    }
+
+    const data = await response.json();
+    
+    if (!data.success) {
+      throw new Error(data.error || 'Failed to load data');
+    }
+    
+    const employees = data.employees && data.employees.results ? data.employees.results : [];
+    const pagination = data.employees || {};
+
+    updateCounts(data);
+    updateFilterUi(data);
+    renderTitleAndMeta(data);
+    renderPagination(pagination);
+
+    empTableBody.innerHTML = '';
+    if (!employees.length) {
+      renderEmptyState('Try adjusting your search or filters.');
+    } else {
+      employees.forEach((emp, idx) => {
+        const rowIndex = (pagination.start_index || 1) + idx;
+        empTableBody.insertAdjacentHTML('beforeend', renderEmployeeRow(emp, rowIndex));
+      });
+    }
+
+    updateHistoryUrl();
+  } catch (error) {
+    console.error('Fetch error:', error);
+    handleFetchError(error);
+  }
+}
+
+function loadStateFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const tab = params.get('tab');
+  const page = Number(params.get('page'));
+  employeeState.search = (params.get('search') || '').trim();
+  employeeState.dept = (params.get('dept') || '').trim();
+  employeeState.role = (params.get('role') || '').trim();
+  employeeState.tab = ['all', 'active', 'inactive'].includes(tab) ? tab : 'all';
+  employeeState.page = Number.isFinite(page) && page > 0 ? page : 1;
+}
+
+document.getElementById('employeeFilterForm').addEventListener('submit', function (event) {
+  event.preventDefault();
+  employeeState.search = searchInput.value.trim();
+  employeeState.dept = deptFilterSelect.value;
+  employeeState.role = roleFilterSelect.value;
+  employeeState.page = 1;
+  fetchEmployeeData();
+});
+
+searchInput.addEventListener('input', function () {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => {
+    employeeState.search = searchInput.value.trim();
+    employeeState.page = 1;
+    fetchEmployeeData();
+  }, 350);
+});
+
+deptFilterSelect.addEventListener('change', function () {
+  employeeState.dept = this.value;
+  employeeState.page = 1;
+  fetchEmployeeData();
+});
+
+roleFilterSelect.addEventListener('change', function () {
+  employeeState.role = this.value;
+  employeeState.page = 1;
+  fetchEmployeeData();
+});
+
+clearFiltersBtn.addEventListener('click', function () {
+  employeeState.search = '';
+  employeeState.dept = '';
+  employeeState.role = '';
+  employeeState.tab = 'all';
+  employeeState.page = 1;
+  fetchEmployeeData();
+});
+
+document.querySelectorAll('.employee-tab-btn').forEach((btn) => {
+  btn.addEventListener('click', function (event) {
+    event.preventDefault();
+    employeeState.tab = this.dataset.tab;
+    employeeState.page = 1;
+    fetchEmployeeData();
+  });
+});
+
+employeePagination.addEventListener('click', function (event) {
+  const link = event.target.closest('[data-page]');
+  if (!link) return;
+  event.preventDefault();
+  employeeState.page = Number(link.dataset.page);
+  fetchEmployeeData();
+});
+
+function handleFetchError(error) {
+  console.error('Employee list fetch failed:', error);
+  renderEmptyState('Unable to load employee data right now. Please refresh the page.');
+  employeePagination.innerHTML = '';
+  employeeTableMeta.textContent = 'Unable to load data';
+}
+
 document.getElementById('create-modal').addEventListener('click', function(e) {
   if (e.target === this) this.style.display = 'none';
 });
+
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') document.getElementById('create-modal').style.display = 'none';
+  if (e.key === 'Escape') {
+    document.getElementById('create-modal').style.display = 'none';
+  }
 });
 
-// Handle AJAX success updates
 $(document).on('ajax:success', '.ajax-form', function(e, data) {
-    if (data.success) {
-        const form = $(this);
-        
-        // Handle Toggle Updates (Active/Inactive)
-        if (data.hasOwnProperty('is_active')) {
-            const isActive = data.is_active;
-            const row = form.closest('tr');
-            
-            // Update Avatar
-            row.find('.emp-avatar-lg').toggleClass('inactive', !isActive);
-            
-            // Update Toggle Button
-            const btn = form.find('button[type="submit"]');
-            btn.removeClass('btn-danger btn-success').addClass(isActive ? 'btn-danger' : 'btn-success');
-            btn.find('i').removeClass('fa-user-slash fa-user-check').addClass(isActive ? 'fa-user-slash' : 'fa-user-check');
-            btn.html(`<i class="fa-solid ${isActive ? 'fa-user-slash' : 'fa-user-check'}"></i> ${isActive ? 'Deactivate' : 'Activate'}`);
-            
-            // Update Status Badge
-            const badge = row.find('.badge-approved, .badge-rejected');
-            if (isActive) {
-                badge.removeClass('badge-rejected').addClass('badge-approved').html('<i class="fa-solid fa-circle" style="font-size:6px;"></i> Active');
-            } else {
-                badge.removeClass('badge-approved').addClass('badge-rejected').html('<i class="fa-solid fa-circle" style="font-size:6px;"></i> Inactive');
-            }
-        }
-        
-        // Handle Page Refresh for complex saves
-        if (form.hasClass('refresh-on-success')) {
-            setTimeout(() => {
-                window.location.reload();
-            }, 1000);
-        }
-    }
+  if (!data || !data.success) return;
+
+  const form = $(this);
+  if (form.hasClass('refresh-on-success')) {
+    document.getElementById('create-modal').style.display = 'none';
+    form[0].reset();
+    employeeState.page = 1;
+    fetchEmployeeData();
+    return;
+  }
+
+  if (data.hasOwnProperty('is_active')) {
+    fetchEmployeeData();
+  }
+});
+
+document.addEventListener('DOMContentLoaded', function () {
+  loadStateFromUrl();
+  fetchEmployeeData();
 });
 </script>
-
 {% endblock %}

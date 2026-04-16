@@ -289,11 +289,54 @@
         <i class="fa-solid fa-xmark"></i> Clear
     </a>
     {% endif %}
+
+    {% if rbac_flags.user_create %}
+    <button type="button" class="btn-search" onclick="document.getElementById('createEmployeeModal').style.display='flex';">
+        <i class="fa-solid fa-user-plus"></i> Add Employee
+    </button>
+    {% endif %}
 </form>
 
 <div id="employee-list-container" class="animate-in delay-2">
     {% include "partials/hr_employee_table.html" %}
 </div>
+
+{% if rbac_flags.user_create %}
+<div id="createEmployeeModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:1200;align-items:center;justify-content:center;padding:20px;">
+    <div style="width:min(760px,100%);background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:24px;box-shadow:var(--shadow-lg);max-height:90vh;overflow:auto;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px;">
+            <h3 style="margin:0;font-size:20px;font-weight:800;">Create Employee</h3>
+            <button type="button" class="btn-clear" onclick="document.getElementById('createEmployeeModal').style.display='none';">Close</button>
+        </div>
+        <form method="POST" action="{% url 'create_employee' %}" class="ajax-form" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+            {% csrf_token %}
+            <input type="text" name="first_name" class="search-input" placeholder="First name" required>
+            <input type="text" name="last_name" class="search-input" placeholder="Last name" required>
+            <input type="text" name="username" class="search-input" placeholder="Username" required>
+            <input type="email" name="email" class="search-input" placeholder="Email" required>
+            <input type="password" name="password" class="search-input" placeholder="Temporary password" required>
+            <input type="text" name="designation" class="search-input" placeholder="Designation">
+            <select name="department_id" class="filter-select">
+                <option value="">Select Department</option>
+                {% for dept in departments %}
+                <option value="{{ dept.pk }}">{{ dept.name }}</option>
+                {% endfor %}
+            </select>
+            <select name="role_id" class="filter-select">
+                <option value="">Select Role</option>
+                {% for role in roles %}
+                <option value="{{ role.pk }}">{{ role.name }}</option>
+                {% endfor %}
+            </select>
+            <input type="email" name="reporting_manager_email" class="search-input" placeholder="Reporting manager email" style="grid-column:1 / -1;">
+            <div style="grid-column:1 / -1;display:flex;justify-content:flex-end;gap:10px;">
+                <button type="button" class="btn-clear" onclick="document.getElementById('createEmployeeModal').style.display='none';">Cancel</button>
+                <button type="submit" class="btn-search"><i class="fa-solid fa-floppy-disk"></i> Create</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
 
 <script>
 $(document).ready(function() {
@@ -335,6 +378,15 @@ $(document).ready(function() {
     $(document).on('click', '.ajax-pagination', function(e) {
         e.preventDefault();
         updateResults($(this).attr('href'));
+    });
+
+    $('#createEmployeeModal').on('click', function(e) {
+        if (e.target === this) this.style.display = 'none';
+    });
+
+    $(document).on('employee:created', '.ajax-form', function() {
+        $('#createEmployeeModal').hide();
+        window.location.reload();
     });
 });
 </script>

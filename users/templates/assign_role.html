@@ -14,48 +14,109 @@
     border: 1px solid var(--border);
     border-radius: var(--radius);
     padding: 20px 24px;
-    display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
     margin-bottom: 22px;
     box-shadow: var(--shadow-xs);
-    position: relative; overflow: hidden;
+    position: relative;
+    overflow: hidden;
 }
+
 .filter-bar::before {
     content: '';
-    position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
     background: linear-gradient(90deg, var(--aqua-deep), var(--aqua-light));
 }
-.filter-group { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 160px; }
-.filter-label { font-size: 11px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.7px; }
 
-/* Bulk assign card */
-.bulk-card {
-    background: linear-gradient(135deg, rgba(0,198,212,0.06), rgba(0,122,138,0.04));
-    border: 1px solid var(--border-mid);
-    border-radius: var(--radius);
-    padding: 22px 26px;
-    margin-bottom: 24px;
-    display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
-    position: relative; overflow: hidden;
+.filter-header {
+    font-size: 14px;
+    font-weight: 800;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
-.bulk-card::before {
-    content: '';
-    position: absolute; top: 0; left: 0; bottom: 0; width: 4px;
-    background: linear-gradient(180deg, var(--aqua-deep), var(--aqua-light));
-    border-radius: 4px 0 0 4px;
-}
-.bulk-card-icon {
-    width: 50px; height: 50px; border-radius: 14px;
-    background: linear-gradient(135deg, var(--ink), #1a2332);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 20px; color: var(--aqua-light);
-    box-shadow: 0 4px 16px rgba(0,0,0,0.2);
-    flex-shrink: 0;
-}
-.bulk-card-text h3 { font-size: 15px; font-weight: 800; color: var(--text); margin-bottom: 3px; }
-.bulk-card-text p  { font-size: 12.5px; color: var(--text-muted); margin: 0; }
-.bulk-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-left: auto; }
 
-/* User table */
+.filter-controls {
+    display: flex;
+    align-items: flex-end;
+    gap: 14px;
+    flex-wrap: wrap;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: 1;
+    min-width: 160px;
+}
+
+.filter-label {
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.7px;
+}
+
+.filter-group input,
+.filter-group select {
+    height: 38px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 8px;
+    padding: 0 12px;
+    font-size: 13px;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
+.filter-group input:focus,
+.filter-group select:focus {
+    outline: none;
+    border-color: var(--aqua);
+}
+
+.btn-filter {
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 9px 18px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    transition: all 0.18s;
+}
+
+.btn-filter:hover {
+    border-color: var(--aqua);
+    color: var(--aqua-deep);
+}
+
+.btn-filter-primary {
+    background: linear-gradient(135deg, var(--aqua-deep), var(--aqua));
+    color: #fff;
+    border-color: transparent;
+    box-shadow: 0 3px 12px rgba(0, 198, 212, 0.35);
+}
+
+.btn-filter-primary:hover {
+    box-shadow: 0 6px 18px rgba(0, 198, 212, 0.5);
+    color: #fff;
+}
+
+/* Users table */
 .users-table-wrap {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -63,154 +124,365 @@
     overflow: hidden;
     box-shadow: var(--shadow);
 }
+
 .users-table-header {
     padding: 18px 24px;
     border-bottom: 1px solid var(--border);
-    display: flex; align-items: center; justify-content: space-between;
-    background: linear-gradient(90deg, rgba(0,198,212,0.04), transparent);
-}
-.users-table-title {
-    font-size: 15px; font-weight: 800; color: var(--text);
-    display: flex; align-items: center; gap: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: linear-gradient(90deg, rgba(0, 198, 212, 0.04), transparent);
 }
 
-table.assign-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.users-table-title {
+    font-size: 15px;
+    font-weight: 800;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.user-actions {
+    margin-top: 6px;
+}
+.profile-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--aqua-deep);
+    text-decoration: none;
+    border: 1px solid var(--border);
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: var(--surface2);
+    transition: all 0.18s;
+}
+.profile-link:hover {
+    border-color: var(--aqua);
+    color: var(--aqua-deep);
+}
+
+.total-badge {
+    background: var(--aqua-glass);
+    border: 1px solid var(--border-mid);
+    border-radius: 20px;
+    padding: 3px 12px;
+    font-size: 12px;
+    color: var(--aqua-deep);
+}
+
+table.assign-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
 table.assign-table thead th {
-    background: #0a0e14; color: var(--text-muted);
-    padding: 12px 16px; text-align: left;
-    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.7px;
+    background: #0a0e14;
+    color: var(--text-muted);
+    padding: 12px 16px;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.7px;
     border-bottom: 1px solid var(--border);
 }
+
 table.assign-table tbody td {
     padding: 14px 16px;
     border-bottom: 1px solid var(--border);
     vertical-align: middle;
     color: var(--text-mid);
 }
-table.assign-table tbody tr:last-child td { border-bottom: none; }
-table.assign-table tbody tr:hover td { background: var(--surface2); }
+
+table.assign-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+table.assign-table tbody tr:hover td {
+    background: var(--surface2);
+}
 
 /* Avatar */
 .user-avatar {
-    width: 36px; height: 36px; border-radius: 10px;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
     background: linear-gradient(135deg, var(--aqua-deep), var(--aqua));
-    display: flex; align-items: center; justify-content: center;
-    font-size: 13px; font-weight: 800; color: #fff;
-    flex-shrink: 0; box-shadow: 0 3px 10px rgba(0,198,212,0.35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 800;
+    color: #fff;
+    flex-shrink: 0;
+    box-shadow: 0 3px 10px rgba(0, 198, 212, 0.35);
 }
 
-.user-cell { display: flex; align-items: center; gap: 12px; }
-.user-name  { font-weight: 700; color: var(--text); font-size: 13.5px; }
-.user-email { font-size: 11.5px; color: var(--text-muted); margin-top: 1px; }
+.user-cell {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.user-name {
+    font-weight: 700;
+    color: var(--text);
+    font-size: 13.5px;
+}
+
+.user-email {
+    font-size: 11.5px;
+    color: var(--text-muted);
+    margin-top: 1px;
+}
 
 /* Role badge */
 .role-badge {
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 4px 12px; border-radius: 20px;
-    font-size: 11.5px; font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 11.5px;
+    font-weight: 700;
 }
-.badge-admin   { background: rgba(218,165,32,0.12); color: #b8860b; border: 1px solid rgba(218,165,32,0.3); }
-.badge-hr      { background: rgba(139,92,246,0.12); color: #7c3aed; border: 1px solid rgba(139,92,246,0.3); }
-.badge-manager { background: rgba(59,130,246,0.12); color: #1d4ed8; border: 1px solid rgba(59,130,246,0.3); }
-.badge-tl      { background: rgba(20,184,166,0.12); color: #0f766e; border: 1px solid rgba(20,184,166,0.3); }
-.badge-default { background: var(--aqua-glass);      color: var(--aqua-deep); border: 1px solid var(--border-mid); }
-.badge-none    { background: rgba(255,255,255,0.05); color: var(--text-faint); border: 1px solid var(--border); }
+
+.badge-admin {
+    background: rgba(218, 165, 32, 0.12);
+    color: #b8860b;
+    border: 1px solid rgba(218, 165, 32, 0.3);
+}
+
+.badge-hr {
+    background: rgba(139, 92, 246, 0.12);
+    color: #7c3aed;
+    border: 1px solid rgba(139, 92, 246, 0.3);
+}
+
+.badge-manager {
+    background: rgba(59, 130, 246, 0.12);
+    color: #1d4ed8;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.badge-tl {
+    background: rgba(20, 184, 166, 0.12);
+    color: #0f766e;
+    border: 1px solid rgba(20, 184, 166, 0.3);
+}
+
+.badge-default {
+    background: var(--aqua-glass);
+    color: var(--aqua-deep);
+    border: 1px solid var(--border-mid);
+}
+
+.badge-none {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-faint);
+    border: 1px solid var(--border);
+}
 
 /* Inline role select */
 .role-select-inline {
-    display: flex; align-items: center; gap: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
 }
+
 .role-select-inline select {
-    flex: 1; min-width: 130px;
+    flex: 1;
+    min-width: 130px;
     background: var(--surface2);
     border: 1px solid var(--border);
     color: var(--text);
-    border-radius: 8px; padding: 7px 10px;
-    font-size: 12.5px; font-family: 'Plus Jakarta Sans', sans-serif;
-    cursor: pointer; transition: border-color 0.18s;
+    border-radius: 8px;
+    padding: 7px 10px;
+    font-size: 12.5px;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    cursor: pointer;
+    transition: border-color 0.18s;
 }
-.role-select-inline select:focus { outline: none; border-color: var(--aqua); }
+
+.role-select-inline select:focus {
+    outline: none;
+    border-color: var(--aqua);
+}
 
 .btn-assign {
     background: linear-gradient(135deg, var(--aqua-deep), var(--aqua));
-    color: #fff; border: none;
-    padding: 7px 14px; border-radius: 8px;
-    font-size: 12px; font-weight: 700; cursor: pointer;
-    display: inline-flex; align-items: center; gap: 7px;
-    box-shadow: 0 3px 12px rgba(0,198,212,0.35);
-    font-family: 'Plus Jakarta Sans', sans-serif;
-    transition: all 0.18s; white-space: nowrap;
-}
-.btn-assign:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(0,198,212,0.5); }
-
-/* Filters apply button */
-.btn-filter {
-    background: var(--surface2); color: var(--text);
-    border: 1px solid var(--border);
-    padding: 9px 18px; border-radius: var(--radius-sm);
-    font-size: 13px; font-weight: 600; cursor: pointer;
-    display: inline-flex; align-items: center; gap: 8px;
+    color: #fff;
+    border: none;
+    padding: 7px 14px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    box-shadow: 0 3px 12px rgba(0, 198, 212, 0.35);
     font-family: 'Plus Jakarta Sans', sans-serif;
     transition: all 0.18s;
+    white-space: nowrap;
 }
-.btn-filter:hover { border-color: var(--aqua); color: var(--aqua-deep); }
-.btn-filter-primary {
-    background: linear-gradient(135deg, var(--aqua-deep), var(--aqua));
-    color: #fff; border-color: transparent;
-    box-shadow: 0 3px 12px rgba(0,198,212,0.35);
-}
-.btn-filter-primary:hover { box-shadow: 0 6px 18px rgba(0,198,212,0.5); color: #fff; }
 
-/* Bulk role select */
-.bulk-select {
-    min-width: 180px;
+.btn-assign:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(0, 198, 212, 0.5);
+}
+
+/* Pagination */
+.pagination {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 24px;
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+}
+
+.pagination-info {
+    font-size: 13px;
+    color: var(--text-muted);
+}
+
+.pagination-buttons {
+    display: flex;
+    gap: 8px;
+}
+
+.pagination-btn {
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.18s;
     background: var(--surface2);
     border: 1px solid var(--border);
     color: var(--text);
-    border-radius: 9px; padding: 9px 12px;
-    font-size: 13px; font-family: 'Plus Jakarta Sans', sans-serif;
-    cursor: pointer;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
 }
-.bulk-select:focus { outline: none; border-color: var(--aqua); }
 
-.btn-bulk {
-    background: linear-gradient(135deg, #16a34a, #22c55e);
-    color: #fff; border: none;
-    padding: 10px 20px; border-radius: 9px;
-    font-size: 13px; font-weight: 700; cursor: pointer;
-    display: inline-flex; align-items: center; gap: 8px;
-    box-shadow: 0 3px 14px rgba(34,197,94,0.4);
-    font-family: 'Plus Jakarta Sans', sans-serif;
-    transition: all 0.2s;
+.pagination-btn:hover {
+    border-color: var(--aqua);
+    color: var(--aqua-deep);
 }
-.btn-bulk:hover { transform: translateY(-2px); box-shadow: 0 6px 22px rgba(34,197,94,0.55); }
+
+.pagination-btn.active {
+    background: linear-gradient(135deg, var(--aqua-deep), var(--aqua));
+    color: #fff;
+    border-color: transparent;
+}
+
+.pagination-btn.disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+/* Loading overlay */
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 9998;
+    display: none;
+    justify-content: center;
+    align-items: center;
+}
+
+.loading-spinner {
+    background: white;
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.spinner-border {
+    width: 40px;
+    height: 40px;
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #3498db;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto;
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
 
 /* Empty state */
-.assign-empty { text-align: center; padding: 60px 24px; color: var(--text-muted); }
-.assign-empty-icon { font-size: 48px; color: var(--aqua-light); opacity: 0.28; margin-bottom: 16px; }
+.assign-empty {
+    text-align: center;
+    padding: 60px 24px;
+    color: var(--text-muted);
+}
+
+.assign-empty-icon {
+    font-size: 48px;
+    color: var(--aqua-light);
+    opacity: 0.28;
+    margin-bottom: 16px;
+}
+
+/* Toast notifications */
+.toast-notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 9999;
+    animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
 </style>
 {% endblock %}
-
 
 {% block content %}
 
 <!-- Filters -->
 <div class="filter-bar animate-in">
-    <div style="font-size:14px; font-weight:800; color:var(--text); width:100%; margin-bottom:4px; display:flex; align-items:center; gap:10px;">
+    <div class="filter-header">
         <i class="fa-solid fa-filter" style="color:var(--aqua);"></i>
         Filter Employees
     </div>
-    <form method="get" style="display:flex; align-items:flex-end; gap:14px; flex-wrap:wrap; width:100%;">
-
+    <div class="filter-controls">
         <div class="filter-group">
             <span class="filter-label"><i class="fa-solid fa-magnifying-glass"></i> Search</span>
-            <input type="text" name="q" value="{{ search }}"
-                   class="form-control" placeholder="Name or email…" style="height:38px;">
+            <input type="text" id="searchInput" name="q" value="{{ search }}" placeholder="Name or email…" autocomplete="off">
         </div>
 
         <div class="filter-group">
             <span class="filter-label"><i class="fa-solid fa-building"></i> Department</span>
-            <select name="dept" class="form-control" style="height:38px;">
+            <select id="deptSelect" name="dept">
                 <option value="">All Departments</option>
                 {% for dept in departments %}
                 <option value="{{ dept.pk }}" {% if dept_id == dept.pk|stringformat:"s" %}selected{% endif %}>
@@ -222,7 +494,7 @@ table.assign-table tbody tr:hover td { background: var(--surface2); }
 
         <div class="filter-group">
             <span class="filter-label"><i class="fa-solid fa-shield-halved"></i> Role</span>
-            <select name="role" class="form-control" style="height:38px;">
+            <select id="roleSelect" name="role">
                 <option value="">All Roles</option>
                 {% for role in roles %}
                 <option value="{{ role.pk }}" {% if filter_role == role.pk|stringformat:"s" %}selected{% endif %}>
@@ -232,46 +504,13 @@ table.assign-table tbody tr:hover td { background: var(--surface2); }
             </select>
         </div>
 
-        <div style="display:flex; gap:8px; padding-bottom:0;">
-            <button type="submit" class="btn-filter btn-filter-primary">
-                <i class="fa-solid fa-filter"></i> Apply
-            </button>
-            <a href="{% url 'assign_role' %}" class="btn-filter">
+        <div style="display: flex; gap: 8px;">
+            <button id="clearFiltersBtn" class="btn-filter">
                 <i class="fa-solid fa-xmark"></i> Clear
-            </a>
+            </button>
         </div>
-
-    </form>
-</div>
-
-
-<!-- Bulk Assign Card -->
-<div class="bulk-card animate-in delay-1">
-    <div class="bulk-card-icon"><i class="fa-solid fa-users-gear"></i></div>
-    <div class="bulk-card-text">
-        <h3>Bulk Assign by Department</h3>
-        <p>Assign a role to all employees in a department at once. Admin users will be skipped.</p>
     </div>
-    <form method="post" action="{% url 'assign_role_bulk' %}" class="bulk-controls ajax-form redirect-on-success">
-        {% csrf_token %}
-        <select name="department_id" class="bulk-select" required>
-            <option value="">Select Department</option>
-            {% for dept in departments %}
-            <option value="{{ dept.pk }}">{{ dept.name }}</option>
-            {% endfor %}
-        </select>
-        <select name="role_id" class="bulk-select" required>
-            <option value="">Select Role</option>
-            {% for role in roles %}
-            <option value="{{ role.pk }}">{{ role.name }}</option>
-            {% endfor %}
-        </select>
-        <button type="submit" class="btn-bulk">
-            <i class="fa-solid fa-bolt"></i> Bulk Assign
-        </button>
-    </form>
 </div>
-
 
 <!-- Users Table -->
 <div class="users-table-wrap animate-in delay-2">
@@ -279,9 +518,7 @@ table.assign-table tbody tr:hover td { background: var(--surface2); }
         <div class="users-table-title">
             <i class="fa-solid fa-users" style="color:var(--aqua);"></i>
             Employees
-            <span style="background:var(--aqua-glass); border:1px solid var(--border-mid); border-radius:20px; padding:3px 12px; font-size:12px; color:var(--aqua-deep);">
-                {{ total_users }}
-            </span>
+            <span class="total-badge" id="totalUsersCount">{{ total_users }}</span>
         </div>
         <a href="{% url 'role_list' %}" style="font-size:13px; color:var(--text-muted); display:flex; align-items:center; gap:7px; text-decoration:none;">
             <i class="fa-solid fa-shield-halved" style="font-size:11px;"></i> Manage Roles
@@ -298,12 +535,10 @@ table.assign-table tbody tr:hover td { background: var(--surface2); }
                 <th>Management (Role, Dept, TL)</th>
             </tr>
         </thead>
-        <tbody>
-            {% for user in users %}
-            <tr>
-                <td style="color:var(--text-faint); width:40px;">{{ forloop.counter }}</td>
-
-                <!-- Employee info -->
+        <tbody id="usersTableBody">
+            {% for user in paginated_users %}
+            <tr data-user-id="{{ user.id }}">
+                <td style="color:var(--text-faint); width:40px;">{{ forloop.counter0|add:start_index }}</td>
                 <td>
                     <div class="user-cell">
                         <div class="user-avatar">
@@ -319,11 +554,16 @@ table.assign-table tbody tr:hover td { background: var(--surface2); }
                                 {% endif %}
                             </div>
                             <div class="user-email">{{ user.email }}</div>
+                            {% if can_profile_view %}
+                            <div class="user-actions">
+                                <a class="profile-link" href="{% url 'profile_detail' user.id %}">
+                                    <i class="fa-solid fa-pen-to-square"></i> Edit Profile
+                                </a>
+                            </div>
+                            {% endif %}
                         </div>
                     </div>
                 </td>
-
-                <!-- Department -->
                 <td>
                     {% if user.department %}
                     <span style="display:flex; align-items:center; gap:6px; font-weight:600; color:var(--text-mid);">
@@ -334,8 +574,6 @@ table.assign-table tbody tr:hover td { background: var(--surface2); }
                     <span style="color:var(--text-faint);">—</span>
                     {% endif %}
                 </td>
-
-                <!-- Current role badge -->
                 <td>
                     {% if user.role %}
                         {% if user.role.name == "Admin" %}
@@ -353,55 +591,56 @@ table.assign-table tbody tr:hover td { background: var(--surface2); }
                     <span class="role-badge badge-none"><i class="fa-solid fa-user-slash" style="font-size:10px;"></i> No Role</span>
                     {% endif %}
                 </td>
-
-                <!-- Assign new role -->
-               <td>
-                    <form method="post" action="{% url 'assign_role' %}" class="ajax-form redirect-on-success">
-                    {% csrf_token %}
-
-                    <input type="hidden" name="user_id" value="{{ user.pk }}">
-
-                    <div class="role-select-inline">
-
-                    <!-- Department Select -->
-                    <select name="department_id">
-                    <option value="">Department</option>
-                    {% for dept in departments %}
-                    <option value="{{ dept.pk }}"
-                    {% if user.department and user.department.pk == dept.pk %}selected{% endif %}>
-                    {{ dept.name }}
-                    </option>
-                    {% endfor %}
-                    </select>
-
-                    <!-- Role Select -->
-                    <select name="role_id" required>
-                    <option value="">— Role —</option>
-                    {% for role in roles %}
-                    <option value="{{ role.pk }}"
-                    {% if user.role and user.role.pk == role.pk %}selected{% endif %}>
-                    {{ role.name }}
-                    </option>
-                    {% endfor %}
-                    </select>
-
-                    <!-- Reporting TL Select -->
-                    <select name="reporting_manager_id">
-                    <option value="">— Reporting TL —</option>
-                    {% for tl in tl_users %}
-                    <option value="{{ tl.pk }}"
-                    {% if user.reporting_manager and user.reporting_manager.pk == tl.pk %}selected{% endif %}>
-                    {{ tl.get_full_name|default:tl.username }}
-                    </option>
-                    {% endfor %}
-                    </select>
-
-                    <button type="submit" class="btn-assign">
-                    <i class="fa-solid fa-check"></i> Assign
-                    </button>
-
-                    </div>
-
+                <td>
+                    <form method="post" action="{% url 'assign_role_api' %}" class="ajax-form">
+                        {% csrf_token %}
+                        <input type="hidden" name="user_id" value="{{ user.pk }}">
+                        <div class="role-select-inline" style="flex-direction: column; gap: 10px; align-items: flex-start;">
+                            
+                            <!-- HR Access Checkbox -->
+                            <!-- <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px 12px; background: rgba(139, 92, 246, 0.06); border-radius: 8px; border: 1px solid rgba(139, 92, 246, 0.15); font-size: 12.5px; font-weight: 600; color: var(--text); transition: all 0.18s;">
+                                <input 
+                                    type="checkbox" 
+                                    name="give_hr_access" 
+                                    class="hr-access-checkbox"
+                                    data-user-id="{{ user.pk }}"
+                                    {% if user.role and user.role.name == "HR" %}checked{% endif %}
+                                    onchange="onHRAccessChange(this)"
+                                    style="width: 16px; height: 16px; cursor: pointer;">
+                                <i class="fa-solid fa-users-gear" style="color: #7c3aed; font-size: 11px;"></i>
+                                Give HR Access
+                            </label> -->
+                            
+                            <div style="display: flex; gap: 8px; flex-wrap: wrap; width: 100%;">
+                                <select name="department_id">
+                                    <option value="">Department</option>
+                                    {% for dept in departments %}
+                                    <option value="{{ dept.pk }}" {% if user.department and user.department.pk == dept.pk %}selected{% endif %}>
+                                        {{ dept.name }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                                <select name="role_id" required class="role-select-dropdown" data-user-id="{{ user.pk }}">
+                                    <option value="">— Role —</option>
+                                    {% for role in roles %}
+                                    <option value="{{ role.pk }}" {% if user.role and user.role.pk == role.pk %}selected{% endif %}>
+                                        {{ role.name }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                                <select name="reporting_manager_id">
+                                    <option value="">— Reporting TL —</option>
+                                    {% for tl in tl_users %}
+                                    <option value="{{ tl.pk }}" {% if user.reporting_manager and user.reporting_manager.pk == tl.pk %}selected{% endif %}>
+                                        {{ tl.get_full_name|default:tl.username }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                                <button type="submit" class="btn-assign">
+                                    <i class="fa-solid fa-check"></i> Assign
+                                </button>
+                            </div>
+                        </div>
                     </form>
                 </td>
             </tr>
@@ -411,13 +650,368 @@ table.assign-table tbody tr:hover td { background: var(--surface2); }
                     <div class="assign-empty">
                         <div class="assign-empty-icon"><i class="fa-solid fa-users"></i></div>
                         <div style="font-size:17px; font-weight:800; color:var(--text); margin-bottom:8px;">No Employees Found</div>
-                        <p>{% if search or dept_id or filter_role %}Try adjusting your filters.{% else %}No users exist yet.{% endif %}</p>
+                        <p>Try adjusting your filters.</p>
                     </div>
                 </td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
+
+    <!-- Pagination -->
+    <div class="pagination" id="paginationContainer">
+        <div class="pagination-info">
+            Showing <span id="showingStart">{{ start_index }}</span> to <span id="showingEnd">{{ end_index }}</span> of <span id="totalItems">{{ total_users }}</span> employees
+        </div>
+        <div class="pagination-buttons" id="paginationButtons">
+            <button class="pagination-btn" id="prevPageBtn" data-page="{{ current_page|add:-1 }}" {% if current_page == 1 %}disabled{% endif %}>
+                <i class="fa-solid fa-chevron-left"></i> Previous
+            </button>
+            <span id="pageInfo" style="padding: 6px 12px; font-size: 13px; color: var(--text-mid);">
+                Page {{ current_page }} of {{ total_pages }}
+            </span>
+            <button class="pagination-btn" id="nextPageBtn" data-page="{{ current_page|add:1 }}" {% if current_page == total_pages %}disabled{% endif %}>
+                Next <i class="fa-solid fa-chevron-right"></i>
+            </button>
+        </div>
+    </div>
 </div>
 
+<!-- Loading Overlay -->
+<div class="loading-overlay" id="loadingOverlay">
+    <div class="loading-spinner">
+        <div class="spinner-border"></div>
+        <p style="margin-top: 10px; text-align: center;">Loading...</p>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+// Global variables
+let currentPage = {{ current_page }};
+let searchTimeout;
+let isLoading = false;
+
+// Role data for JavaScript
+const roleData = {
+    roles: [
+        {% for role in roles %}
+        { id: {{ role.pk }}, name: "{{ role.name|escapejs }}" }{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    ],
+    departments: [
+        {% for dept in departments %}
+        { id: {{ dept.pk }}, name: "{{ dept.name|escapejs }}" }{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    ],
+    tlUsers: [
+        {% for tl in tl_users %}
+        { id: {{ tl.pk }}, name: "{{ tl.get_full_name|default:tl.username|escapejs }}" }{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    ]
+};
+const canProfileView = {{ can_profile_view|yesno:"true,false" }};
+const profileBaseUrl = "{% url 'profile_dashboard' %}";
+
+// Initialize event listeners
+$(document).ready(function() {
+    // Real-time search with debounce
+    $('#searchInput').on('input', function() {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(function() {
+            currentPage = 1;
+            loadUsers();
+        }, 500);
+    });
+    
+    // Filter change events
+    $('#deptSelect, #roleSelect').on('change', function() {
+        currentPage = 1;
+        loadUsers();
+    });
+    
+    // Clear filters
+    $('#clearFiltersBtn').on('click', function() {
+        $('#searchInput').val('');
+        $('#deptSelect').val('');
+        $('#roleSelect').val('');
+        currentPage = 1;
+        loadUsers();
+    });
+    
+    // Pagination buttons
+    $('#prevPageBtn').on('click', function() {
+        if (currentPage > 1) {
+            currentPage--;
+            loadUsers();
+        }
+    });
+    
+    $('#nextPageBtn').on('click', function() {
+        currentPage++;
+        loadUsers();
+    });
+    
+    // Handle form submissions (role assignment)
+    $(document).on('submit', '.ajax-form', function(e) {
+        e.preventDefault();
+        const form = $(this);
+        const formData = form.serialize();
+        
+        showLoading();
+        
+        $.ajax({
+            url: form.attr('action'),
+            type: 'POST',
+            data: formData,
+            dataType: 'json',
+            success: function(response) {
+                if (response.success) {
+                    showToast(response.message || 'Assignment successful', 'success');
+                    // Reload current page to show updated data
+                    loadUsers();
+                } else {
+                    showToast(response.error || 'Assignment failed', 'error');
+                }
+            },
+            error: function(xhr) {
+                let errorMsg = 'An error occurred';
+                if (xhr.responseJSON && xhr.responseJSON.error) {
+                    errorMsg = xhr.responseJSON.error;
+                }
+                showToast(errorMsg, 'error');
+            },
+            complete: function() {
+                hideLoading();
+            }
+        });
+    });
+});
+
+function loadUsers() {
+    if (isLoading) return;
+    isLoading = true;
+    showLoading();
+    
+    const params = {
+        format: 'json',
+        page: currentPage,
+        q: $('#searchInput').val(),
+        dept: $('#deptSelect').val(),
+        role: $('#roleSelect').val()
+    };
+    
+    $.ajax({
+        url: window.location.pathname,
+        type: 'GET',
+        data: params,
+        dataType: 'json',
+        success: function(response) {
+            if (response.success) {
+                updateTable(response);
+                updatePagination(response.stats);
+            } else {
+                showToast('Failed to load users', 'error');
+            }
+        },
+        error: function() {
+            showToast('Error loading users', 'error');
+        },
+        complete: function() {
+            isLoading = false;
+            hideLoading();
+        }
+    });
+}
+
+function updateTable(data) {
+    const tbody = $('#usersTableBody');
+    
+    if (!data.users || data.users.length === 0) {
+        tbody.html(`
+            <tr>
+                <td colspan="5">
+                    <div class="assign-empty">
+                        <div class="assign-empty-icon"><i class="fa-solid fa-users"></i></div>
+                        <div style="font-size:17px; font-weight:800; color:var(--text); margin-bottom:8px;">No Employees Found</div>
+                        <p>Try adjusting your filters.</p>
+                    </div>
+                </td>
+            </tr>
+        `);
+        $('#totalUsersCount').text('0');
+        return;
+    }
+    
+    let html = '';
+    const startIndex = data.stats.start;
+    
+    data.users.forEach((user, index) => {
+        const rowNumber = startIndex + index;
+        const initials = (user.full_name || 'U').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+        const profileActionHtml = canProfileView
+            ? `<div class="user-actions"><a class="profile-link" href="${profileBaseUrl}${user.id}/"><i class="fa-solid fa-pen-to-square"></i> Edit Profile</a></div>`
+            : '';
+        
+        // Department HTML
+        const deptHtml = user.department 
+            ? `<span style="display:flex; align-items:center; gap:6px; font-weight:600; color:var(--text-mid);">
+                <i class="fa-solid fa-building" style="color:var(--aqua); font-size:11px;"></i>
+                ${escapeHtml(user.department.name)}
+               </span>`
+            : '<span style="color:var(--text-faint);">—</span>';
+        
+        // Role badge HTML
+        const roleBadge = getRoleBadgeHtml(user.role ? user.role.name : null);
+        
+        // Department options
+        let deptOptions = '<option value="">Department</option>';
+        roleData.departments.forEach(dept => {
+            deptOptions += `<option value="${dept.id}" ${user.department && user.department.id === dept.id ? 'selected' : ''}>${escapeHtml(dept.name)}</option>`;
+        });
+        
+        // Role options
+        let roleOptions = '<option value="">— Role —</option>';
+        roleData.roles.forEach(role => {
+            roleOptions += `<option value="${role.id}" ${user.role && user.role.id === role.id ? 'selected' : ''}>${escapeHtml(role.name)}</option>`;
+        });
+        
+        // TL options
+        let tlOptions = '<option value="">— Reporting TL —</option>';
+        roleData.tlUsers.forEach(tl => {
+            tlOptions += `<option value="${tl.id}" ${user.reporting_manager && user.reporting_manager.id === tl.id ? 'selected' : ''}>${escapeHtml(tl.name)}</option>`;
+        });
+        
+        html += `
+            <tr>
+                <td style="color:var(--text-faint); width:40px;">${rowNumber}</td>
+                <td>
+                    <div class="user-cell">
+                        <div class="user-avatar">${escapeHtml(initials)}</div>
+                        <div>
+                            <div class="user-name">
+                                ${escapeHtml(user.full_name)}
+                                ${user.is_senior ? '<span style="font-size:10px; color:var(--aqua); margin-left:4px;"><i class="fa-solid fa-star"></i> Senior</span>' : ''}
+                            </div>
+                            <div class="user-email">${escapeHtml(user.email)}</div>
+                            ${profileActionHtml}
+                        </div>
+                    </div>
+                </td>
+                <td>${deptHtml}</td>
+                <td>${roleBadge}</td>
+                <td>
+                    <form method="post" action="{% url 'assign_role_api' %}" class="ajax-form">
+                        <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+                        <input type="hidden" name="user_id" value="${user.id}">
+                        <div class="role-select-inline">
+                            <select name="department_id">${deptOptions}</select>
+                            <select name="role_id" required>${roleOptions}</select>
+                            <select name="reporting_manager_id">${tlOptions}</select>
+                            <button type="submit" class="btn-assign">
+                                <i class="fa-solid fa-check"></i> Assign
+                            </button>
+                        </div>
+                    </form>
+                </td>
+            </tr>
+        `;
+    });
+    
+    tbody.html(html);
+    $('#totalUsersCount').text(data.stats.total_users);
+}
+
+function updatePagination(stats) {
+    $('#showingStart').text(stats.start);
+    $('#showingEnd').text(stats.end);
+    $('#totalItems').text(stats.total_users);
+    $('#pageInfo').text(`Page ${stats.page} of ${stats.total_pages}`);
+    
+    $('#prevPageBtn').prop('disabled', stats.page === 1);
+    $('#nextPageBtn').prop('disabled', stats.page === stats.total_pages);
+}
+
+function getRoleBadgeHtml(roleName) {
+    if (!roleName) {
+        return '<span class="role-badge badge-none"><i class="fa-solid fa-user-slash" style="font-size:10px;"></i> No Role</span>';
+    }
+    if (roleName === 'Admin') return `<span class="role-badge badge-admin"><i class="fa-solid fa-crown" style="font-size:10px;"></i> ${escapeHtml(roleName)}</span>`;
+    if (roleName === 'HR') return `<span class="role-badge badge-hr"><i class="fa-solid fa-users-gear" style="font-size:10px;"></i> ${escapeHtml(roleName)}</span>`;
+    if (roleName === 'Manager') return `<span class="role-badge badge-manager"><i class="fa-solid fa-briefcase" style="font-size:10px;"></i> ${escapeHtml(roleName)}</span>`;
+    if (roleName === 'TL') return `<span class="role-badge badge-tl"><i class="fa-solid fa-code-branch" style="font-size:10px;"></i> ${escapeHtml(roleName)}</span>`;
+    return `<span class="role-badge badge-default"><i class="fa-solid fa-user-tie" style="font-size:10px;"></i> ${escapeHtml(roleName)}</span>`;
+}
+
+function showLoading() {
+    $('#loadingOverlay').fadeIn(200);
+}
+
+function hideLoading() {
+    $('#loadingOverlay').fadeOut(200);
+}
+
+function showToast(message, type = 'success', duration = 3000) {
+    $('.toast-notification').remove();
+    
+    const bgColor = type === 'success' ? '#10b981' : (type === 'error' ? '#ef4444' : '#3b82f6');
+    const icon = type === 'success' ? 'fa-check-circle' : (type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle');
+    
+    const toast = $(`
+        <div class="toast-notification" style="background: ${bgColor}; color: white; padding: 12px 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); min-width: 250px;">
+            <i class="fas ${icon}" style="margin-right: 10px;"></i>
+            <span>${escapeHtml(message)}</span>
+        </div>
+    `);
+    
+    $('body').append(toast);
+    
+    setTimeout(() => {
+        toast.fadeOut(300, () => toast.remove());
+    }, duration);
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+    };
+    return String(text).replace(/[&<>"']/g, m => map[m]);
+}
+
+/* HR Access Checkbox Handler */
+function onHRAccessChange(checkbox) {
+    const userId = checkbox.getAttribute('data-user-id');
+    const form = checkbox.closest('form');
+    const roleSelect = form.querySelector('.role-select-dropdown');
+    
+    if (!roleSelect) return;
+    
+    // Find HR role ID
+    const hrRole = roleData.roles.find(r => r.name.toLowerCase() === 'hr');
+    
+    if (checkbox.checked) {
+        // When checked, set HR role and disable the dropdown (read-only effect)
+        if (hrRole) {
+            roleSelect.value = hrRole.id;
+        }
+        roleSelect.style.opacity = '0.6';
+        roleSelect.style.pointerEvents = 'none';
+        roleSelect.style.cursor = 'not-allowed';
+    } else {
+        // When unchecked, clear selection and enable dropdown
+        roleSelect.value = '';
+        roleSelect.style.opacity = '1';
+        roleSelect.style.pointerEvents = 'auto';
+        roleSelect.style.cursor = 'pointer';
+    }
+}
+</script>
 {% endblock %}

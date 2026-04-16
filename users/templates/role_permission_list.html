@@ -87,9 +87,9 @@
 
 /* Panel header (when role selected) */
 .perm-panel-head {
-    background: linear-gradient(135deg, #0d1117, #141b24);
-    padding: 20px 24px;
-    border-bottom: 1px solid #1e2733;
+    background: var(--surface);
+    padding: 18px 22px;
+    border-bottom: 1px solid var(--border);
     display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;
 }
 .pph-left { display: flex; align-items: center; gap: 14px; }
@@ -97,8 +97,9 @@
     width: 46px; height: 46px; border-radius: 13px;
     display: flex; align-items: center; justify-content: center; font-size: 18px;
 }
-.pph-role-name  { font-size: 17px; font-weight: 800; color: #f1f5f9; }
-.pph-role-lbl   { font-size: 10.5px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.7px; margin-top: 2px; }
+.pph-role-name  { font-size: 17px; font-weight: 800; color: var(--text); }
+.pph-role-lbl   { font-size: 12px; font-weight: 700; color: var(--text); margin-top: 1px; }
+.pph-role-sub   { font-size: 11px; color: var(--text-muted); margin-top: 3px; }
 
 .btn-save-perm {
     background: linear-gradient(135deg, #15803d, #22c55e);
@@ -112,6 +113,13 @@
 
 /* Permission table */
 .perm-table { width: 100%; border-collapse: collapse; }
+.perm-table-wrap {
+    width: 100%;
+    overflow-x: auto;
+}
+.perm-table {
+    min-width: 760px;
+}
 
 .perm-table thead th {
     background: #f8fafc;
@@ -191,11 +199,157 @@
 .perm-footer {
     padding: 16px 22px; background: #f8fafc;
     border-top: 1px solid #e2e8f0;
-    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;
+    text-align: right;
 }
-.legend { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
-.leg-item { display: flex; align-items: center; gap: 7px; font-size: 11.5px; font-weight: 600; color: #64748b; }
-.leg-dot  { width: 12px; height: 12px; border-radius: 3px; }
+
+/* ══════════════════════════════════════════════════════
+   PERMISSION LIST BY CODENAME (NEW LAYOUT)
+══════════════════════════════════════════════════════ */
+.perm-list-wrap {
+    padding: 14px;
+}
+
+.perm-group {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 0;
+    margin-bottom: 12px;
+}
+
+.perm-group-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px 10px;
+    background: transparent;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.perm-group-header i {
+    font-size: 16px;
+    color: #0891b2;
+    flex-shrink: 0;
+}
+
+.perm-group-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.perm-group-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #2563eb;
+}
+
+.perm-group-count {
+    font-size: 11px;
+    color: #94a3b8;
+    margin-top: 2px;
+}
+
+.perm-items {
+    padding: 12px 14px 14px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 10px 16px;
+}
+
+.perm-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 6px 4px;
+    border-radius: 8px;
+}
+
+.perm-checkbox {
+    flex-shrink: 0;
+    padding-top: 3px;
+}
+
+.perm-checkbox input[type="checkbox"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 2px;
+    border: 2px solid #cbd5e1;
+    background: #fff;
+    cursor: pointer;
+    position: relative;
+    transition: all 0.18s ease;
+    display: block;
+}
+.perm-checkbox input[type="checkbox"]::after {
+    content: '';
+    position: absolute;
+    left: 3px;
+    top: 0px;
+    width: 3px;
+    height: 7px;
+    border: 1.5px solid #fff;
+    border-top: none;
+    border-left: none;
+    transform: rotate(45deg);
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+.perm-checkbox input[type="checkbox"]:checked::after {
+    opacity: 1;
+}
+.perm-checkbox input[type="checkbox"]:hover {
+    border-color: #94a3b8;
+    transform: scale(1.08);
+}
+.perm-checkbox input[type="checkbox"]:checked {
+    background: #10b981;
+    border-color: #059669;
+    box-shadow: 0 0 0 2px rgba(16,185,129,0.15);
+}
+.perm-checkbox input[type="checkbox"]:checked:hover {
+    transform: scale(1.05);
+}
+
+.perm-details {
+    flex: 1;
+    min-width: 0;
+}
+
+.perm-name {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1.3;
+}
+
+.perm-codename {
+    font-size: 10px;
+    color: var(--text-muted);
+    margin-top: 1px;
+    font-family: 'Monaco', 'Courier New', monospace;
+    display: block;
+}
+
+.perm-desc {
+    font-size: 11px;
+    color: #94a3b8;
+    margin-top: 3px;
+    line-height: 1.4;
+}
+
+@media (max-width: 900px) {
+    .perm-items {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+@media (max-width: 640px) {
+    .perm-items {
+        grid-template-columns: 1fr;
+    }
+}
 
 /* Toast */
 .rp-toast {
@@ -212,6 +366,10 @@
     pointer-events: none;
 }
 .rp-toast.show { transform: translateY(0); opacity: 1; }
+.rp-toast.is-error {
+    background: #450a0a;
+    border-color: #7f1d1d;
+}
 </style>
 {% endblock %}
 
@@ -225,7 +383,7 @@
             <i class="fa-solid fa-key" style="color:var(--aqua);margin-right:10px;"></i>Role Permissions
         </div>
         <div style="font-size:13px;color:var(--text-muted);margin-top:4px;">
-            Select a role to view and edit its module-level access rights.
+            Select a role to edit both the quick module matrix and the full RBAC permission catalog.
         </div>
     </div>
     <a href="{% url 'role_list' %}"
@@ -289,68 +447,57 @@
                     {% elif selected_role.name == "TL" %}<i class="fa-solid fa-code-branch"></i>
                     {% else %}<i class="fa-solid fa-user-tie"></i>{% endif %}
                 </div>
-                <div>
-                    <div class="pph-role-name">{{ selected_role.name }}</div>
-                    <div class="pph-role-lbl">Module Permissions</div>
+                    <div>
+                        <div class="pph-role-name">Access Permissions</div>
+                        <div class="pph-role-lbl">{{ selected_role.name }}</div>
+                        <div class="pph-role-sub">Select what users with this role can do or see</div>
+                    </div>
                 </div>
-            </div>
             <button form="permForm" type="submit" class="btn-save-perm">
                 <i class="fa-solid fa-floppy-disk"></i> Save Permissions
             </button>
         </div>
 
-        <form method="post" action="{% url 'role_permission_save' %}" id="permForm">
+        <form method="post" action="{% url 'role_permission_save_api' %}" id="permForm">
             {% csrf_token %}
             <input type="hidden" name="role_id" value="{{ selected_role.pk }}">
 
-            <table class="perm-table">
-                <thead>
-                    <tr>
-                        <th style="text-align:left;">Module</th>
-                        <th class="th-view"><i class="fa-solid fa-eye" style="margin-right:5px;"></i>View</th>
-                        <th class="th-create"><i class="fa-solid fa-plus" style="margin-right:5px;"></i>Create</th>
-                        <th class="th-edit"><i class="fa-solid fa-pen" style="margin-right:5px;"></i>Edit</th>
-                        <th class="th-delete"><i class="fa-solid fa-trash" style="margin-right:5px;"></i>Delete</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <!-- Select all row -->
-                    <tr class="pt-select">
-                        <td><div class="sel-lbl"><i class="fa-solid fa-wand-magic-sparkles"></i> Select All</div></td>
-                        <td><div class="cb-cell"><input type="checkbox" class="perm-cb cb-view"   onchange="toggleAllCol('view',   this.checked)" title="Toggle all View"></div></td>
-                        <td><div class="cb-cell"><input type="checkbox" class="perm-cb cb-create" onchange="toggleAllCol('create', this.checked)" title="Toggle all Create"></div></td>
-                        <td><div class="cb-cell"><input type="checkbox" class="perm-cb cb-edit"   onchange="toggleAllCol('edit',   this.checked)" title="Toggle all Edit"></div></td>
-                        <td><div class="cb-cell"><input type="checkbox" class="perm-cb cb-delete" onchange="toggleAllCol('delete', this.checked)" title="Toggle all Delete"></div></td>
-                    </tr>
-
-                    {% for row in perm_rows %}
-                    <tr class="pt-row">
-                        <td>
-                            <div class="mod-cell">
-                                <div class="mod-icon"><i class="fa-solid {{ row.icon }}"></i></div>
-                                <div>
-                                    <div class="mod-name">{{ row.label }}</div>
-                                    <div class="mod-key">{{ row.key }}</div>
-                                </div>
+            <!-- Permission list by codename -->
+            <div class="perm-list-wrap">
+                {% for group in permission_groups %}
+                <div class="perm-group">
+                    <div class="perm-group-header">
+                        <i class="fa-solid {{ group.icon }}"></i>
+                        <div class="perm-group-info">
+                            <div class="perm-group-title">{{ group.label }} Permissions</div>
+                            <div class="perm-group-count" id="count-{{ group.key }}">0 permissions</div>
+                        </div>
+                    </div>
+                    
+                    <div class="perm-items">
+                        {% for perm in group.permissions %}
+                        <div class="perm-item">
+                            <div class="perm-checkbox">
+                                <input type="checkbox" 
+                                       class="perm-cb" 
+                                       name="permission_{{ perm.codename }}" 
+                                       value="{{ perm.codename }}" 
+                                       data-module="{{ group.key }}"
+                                       {% if perm.enabled %}checked{% endif %}>
                             </div>
-                        </td>
-                        <td><div class="cb-cell"><input type="checkbox" class="perm-cb cb-view"   name="{{ row.key }}_view"   data-action="view"   {% if row.perm and row.perm.can_view   %}checked{% endif %}></div></td>
-                        <td><div class="cb-cell"><input type="checkbox" class="perm-cb cb-create" name="{{ row.key }}_create" data-action="create" {% if row.perm and row.perm.can_create %}checked{% endif %}></div></td>
-                        <td><div class="cb-cell"><input type="checkbox" class="perm-cb cb-edit"   name="{{ row.key }}_edit"   data-action="edit"   {% if row.perm and row.perm.can_edit   %}checked{% endif %}></div></td>
-                        <td><div class="cb-cell"><input type="checkbox" class="perm-cb cb-delete" name="{{ row.key }}_delete" data-action="delete" {% if row.perm and row.perm.can_delete %}checked{% endif %}></div></td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+                            <div class="perm-details">
+                                <div class="perm-name">{{ perm.name }}</div>
+                                <div class="perm-codename">{{ perm.codename }}</div>
+                                {% if perm.description %}<div class="perm-desc">{{ perm.description }}</div>{% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
 
             <div class="perm-footer">
-                <div class="legend">
-                    <div class="leg-item"><div class="leg-dot" style="background:#0891b2;"></div>View</div>
-                    <div class="leg-item"><div class="leg-dot" style="background:#16a34a;"></div>Create</div>
-                    <div class="leg-item"><div class="leg-dot" style="background:#d97706;"></div>Edit</div>
-                    <div class="leg-item"><div class="leg-dot" style="background:#dc2626;"></div>Delete</div>
-                    <div class="leg-item"><div class="leg-dot" style="background:#e2e8f0;border:1px solid #cbd5e1;"></div>No Access</div>
-                </div>
                 <button type="submit" class="btn-save-perm">
                     <i class="fa-solid fa-floppy-disk"></i> Save Permissions
                 </button>
@@ -372,17 +519,96 @@
 
 {% block extra_scripts %}
 <script>
-function toggleAllCol(action, checked) {
-    document.querySelectorAll(`input.perm-cb[data-action="${action}"]`)
-            .forEach(cb => cb.checked = checked);
+function showPermissionToast(message, isError = false) {
+    const toast = document.getElementById('rpToast');
+    const icon = toast.querySelector('i');
+    document.getElementById('rpToastMsg').textContent = message;
+    toast.classList.toggle('is-error', isError);
+    icon.className = isError
+        ? 'fa-solid fa-circle-exclamation'
+        : 'fa-solid fa-circle-check';
+    icon.style.color = isError ? '#fca5a5' : '#4ade80';
+
+    toast.classList.add('show');
+    clearTimeout(toast._hideTimer);
+    toast._hideTimer = setTimeout(() => toast.classList.remove('show'), 3500);
+}
+
+function updatePermissionCounts() {
+    document.querySelectorAll('.perm-group').forEach(group => {
+        const countEl = group.querySelector('[id^="count-"]');
+        const items = group.querySelector('.perm-items');
+        if (!countEl || !items) return;
+
+        const count = items.querySelectorAll('input[type="checkbox"].perm-cb:checked').length;
+        countEl.textContent = `${count} permission${count !== 1 ? 's' : ''}`;
+    });
+}
+
+const permForm = document.getElementById('permForm');
+if (permForm) {
+    document.querySelectorAll('input[type="checkbox"].perm-cb').forEach(checkbox => {
+        checkbox.addEventListener('change', updatePermissionCounts);
+    });
+    updatePermissionCounts();
+
+    permForm.addEventListener('submit', async function (e) {
+        e.preventDefault();
+
+        const submitButtons = Array.from(permForm.querySelectorAll('button[type="submit"], .btn-save-perm'));
+        submitButtons.forEach(btn => {
+            btn.disabled = true;
+            btn.dataset.originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
+        });
+
+        const roleId = permForm.querySelector('input[name="role_id"]').value;
+        
+        // Collect checked permission codenames
+        const permissions = [];
+        document.querySelectorAll('input[type="checkbox"].perm-cb:checked').forEach(checkbox => {
+            permissions.push(checkbox.value);
+        });
+
+        try {
+            const response = await fetch(permForm.action, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRFToken': permForm.querySelector('[name=csrfmiddlewaretoken]').value,
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify({
+                    role_id: roleId,
+                    permissions: permissions,
+                }),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok || !data.success) {
+                throw new Error(data.error || data.message || 'Failed to save permissions.');
+            }
+
+            showPermissionToast(data.message || 'Permissions saved successfully.');
+            window.setTimeout(() => window.location.reload(), 450);
+        } catch (error) {
+            showPermissionToast(error.message || 'Unable to save permissions.', true);
+        } finally {
+            submitButtons.forEach(btn => {
+                btn.disabled = false;
+                if (btn.dataset.originalText) {
+                    btn.innerHTML = btn.dataset.originalText;
+                }
+            });
+        }
+    });
 }
 
 {% if messages %}{% for message in messages %}{% if 'success' in message.tags %}
 window.addEventListener('DOMContentLoaded', () => {
-    const t = document.getElementById('rpToast');
-    document.getElementById('rpToastMsg').textContent = "{{ message|escapejs }}";
-    t.classList.add('show');
-    setTimeout(() => t.classList.remove('show'), 3500);
+    showPermissionToast("{{ message|escapejs }}");
 });
 {% endif %}{% endfor %}{% endif %}
 </script>

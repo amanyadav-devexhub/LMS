@@ -23,7 +23,7 @@
                         <th>Period</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="on-leave-tbody">
                     {% for leave in on_leave %}
                     <tr>
                         <td>
@@ -56,16 +56,120 @@
     
     <div>
         <div class="card">
+            <div id="dept-breakdown">
             <h3 style="margin-bottom: 20px;">By Department</h3>
             {% for dept in dept_breakdown %}
             <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border);">
-                <span style="font-weight: 600;">{{ dept.employee__department__name|default:"No Department" }}</span>
+                <div>
+                    <span style="font-weight: 600;">{{ dept.department }}</span>
+                    {% if dept.employees %}
+                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">
+                        {{ dept.employees|join:", " }}
+                    </div>
+                    {% endif %}
+                </div>
                 <span class="badge badge-info">{{ dept.count }}</span>
             </div>
             {% empty %}
             <p style="text-align: center; color: var(--text-muted);">No breakdown available</p>
             {% endfor %}
+            </div>
         </div>
     </div>
 </div>
+<script>
+const API_URL = '{% url "api_hr_on_leave_today" %}';
+
+function esc(str) {
+    const m = {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'};
+    return String(str ?? '').replace(/[&<>"']/g, c => m[c]);
+}
+
+function buildLeaveRow(leave) {
+    const emp = leave.employee;
+    const fullName = [emp.first_name, emp.last_name].filter(Boolean).join(' ') || emp.username;
+    const dept = emp.department || emp.department_name || '—';
+    const role = emp.role || emp.role_name || 'Employee';
+    const leaveData = leave.leave; // make sure keys match your _serialize_leave output
+
+    const start = leaveData.start_date ? new Date(leaveData.start_date) : null;
+    const end   = leaveData.end_date ? new Date(leaveData.end_date) : null;
+
+    const period = start ? 
+        `${start.getDate().toString().padStart(2,'0')} ${start.toLocaleString('default',{month:'short'})}` +
+        ((end && end.getTime() !== start.getTime()) ? ` → ${end.getDate().toString().padStart(2,'0')} ${end.toLocaleString('default',{month:'short'})} ${end.getFullYear()}` : '')
+        : '—';
+
+    return `<tr>
+        <td>
+            <div style="display:flex;align-items:center;gap:10px;">
+                <div class="avatar">${(emp.first_name?.[0]||'?')}${(emp.last_name?.[0]||'')}</div>
+                <div>
+                    <div style="font-weight:700;">${esc(fullName)}</div>
+                    <div style="font-size:11px;color:var(--text-muted);">${esc(role)}</div>
+                </div>
+            </div>
+        </td>
+        <td>${esc(dept)}</td>
+        <td><span class="badge badge-info">${esc(leaveData.leave_type)}</span></td>
+        <td>${esc(leaveData.duration)}</td>
+        <td>${period}</td>
+    </tr>`;
+}
+
+function buildDeptBreakdown(departments) {
+    if (!departments.length) return '<p style="text-align:center;color:var(--text-muted)">No breakdown available</p>';
+    return departments.map(d => `
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border);">
+            <div>
+                <span style="font-weight:600;">${esc(d.department)}</span>
+                ${Array.isArray(d.employees) && d.employees.length ? `<div style="font-size:11px;color:var(--text-muted);margin-top:4px;">${esc(d.employees.join(', '))}</div>` : ''}
+            </div>
+            <span class="badge badge-info">${d.count}</span>
+        </div>
+    `).join('');
+}
+
+function loadOnLeave() {
+    const tbody = document.getElementById('on-leave-tbody');
+    const deptWrap = document.getElementById('dept-breakdown');
+    const jsonDebug = document.getElementById('json-debug');
+
+    tbody.innerHTML = `<tr><td colspan="5" style="padding:30px;text-align:center;">Loading…</td></tr>`;
+    deptWrap.innerHTML = 'Loading…';
+
+    fetch(API_URL, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+        .then(r => r.json())
+        .then(json => {
+            if (jsonDebug) jsonDebug.textContent = JSON.stringify(json, null, 2);
+
+            const leaves = json.on_leave ?? [];
+            const depts  = json.department_breakdown ?? [];
+
+            tbody.innerHTML = leaves.length
+                ? leaves.map(buildLeaveRow).join('')
+                : `<tr><td colspan="5" style="padding:60px;text-align:center;color:var(--text-muted);">
+                       <div class="empty-icon"><i class="fa-solid fa-sun"></i></div>
+                       <div class="empty-title">Everyone's Present!</div>
+                       <p>No employees are on leave today.</p>
+                   </td></tr>`;
+
+            deptWrap.innerHTML = buildDeptBreakdown(depts);
+
+            document.title = `On Leave Today — LeaveSetu HR (${leaves.length})`;
+            const pageTitle = document.querySelector('[block="page_title"]');
+            if (pageTitle) pageTitle.textContent = `On Leave Today (${leaves.length})`;
+        })
+        .catch(err => {
+            console.error(err);
+            tbody.innerHTML = `<tr><td colspan="5" style="padding:30px;text-align:center;color:red;">
+                                   Failed to load data. <button onclick="loadOnLeave()">Retry</button>
+                               </td></tr>`;
+            deptWrap.innerHTML = '';
+        });
+}
+
+document.addEventListener('DOMContentLoaded', loadOnLeave);
+</script>
+
 {% endblock %}

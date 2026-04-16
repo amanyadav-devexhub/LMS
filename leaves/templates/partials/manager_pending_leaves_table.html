@@ -1,0 +1,95 @@
+<div class="table-container">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Employee</th>
+                <th>Department</th>
+                <th>Leave Type</th>
+                <th>Dates</th>
+                <th>Reason</th>
+                <th>Applied On</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for leave in pending_page %}
+            <tr class="clickable-row" onclick="window.location.href='{% url 'leave_detail' leave.id %}'">
+                <td>
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <div class="avatar">{{ leave.employee.first_name|first|upper }}{{ leave.employee.last_name|first|upper }}</div>
+                        <div>
+                            <div style="font-weight:700;">{{ leave.employee.get_full_name|default:leave.employee.username }}</div>
+                            <div style="font-size:11px;color:var(--text-muted);">{{ leave.employee.email }}</div>
+                        </div>
+                    </div>
+                </td>
+                <td>{{ leave.employee.department.name|default:"-" }}</td>
+                <td><span class="badge badge-info">{{ leave.leave_type }}</span></td>
+                <td>{{ leave.start_date|date:"d M Y" }}{% if leave.end_date and leave.end_date != leave.start_date %} to {{ leave.end_date|date:"d M Y" }}{% endif %}</td>
+                <td style="max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ leave.reason|default:"-" }}</td>
+                <td>{{ leave.created_at|date:"d M Y" }}</td>
+                <td>
+                    <div style="display:flex;gap:6px;" onclick="event.stopPropagation()">
+                        <form method="POST" action="{% url 'approve_leave' leave.id %}" class="ajax-form" style="margin:0;">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-success btn-sm">
+                                <i class="fa-solid fa-check"></i> Approve
+                            </button>
+                        </form>
+                        <form method="POST" action="{% url 'reject_leave' leave.id %}" class="ajax-form" style="margin:0;">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-danger btn-sm">
+                                <i class="fa-solid fa-xmark"></i> Reject
+                            </button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="7">
+                    <div class="empty-state" style="padding:40px;">
+                        <div class="empty-icon"><i class="fa-solid fa-circle-check"></i></div>
+                        <div class="empty-title">No pending leave requests</div>
+                        <p style="margin-top:6px;color:var(--text-muted);font-size:13px;">You're all caught up.</p>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% if pending_page.paginator.num_pages > 1 %}
+<div class="pagination-bar">
+    <div class="pagination-info">
+        Showing <strong>{{ pending_page.start_index }}-{{ pending_page.end_index }}</strong>
+        of <strong>{{ pending_page.paginator.count }}</strong> requests
+    </div>
+    <div class="pagination-pages">
+        {% if pending_page.has_previous %}
+            <a class="page-btn manager-pending-pagination" href="?page={{ pending_page.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}">
+                <i class="fa-solid fa-chevron-left" style="font-size:10px;"></i>
+            </a>
+        {% else %}
+            <span class="page-btn disabled"><i class="fa-solid fa-chevron-left" style="font-size:10px;"></i></span>
+        {% endif %}
+
+        {% for num in pending_page.paginator.page_range %}
+            {% if pending_page.number == num %}
+                <span class="page-btn active">{{ num }}</span>
+            {% elif num > pending_page.number|add:'-3' and num < pending_page.number|add:'3' %}
+                <a class="page-btn manager-pending-pagination" href="?page={{ num }}{% if search_query %}&search={{ search_query }}{% endif %}">{{ num }}</a>
+            {% endif %}
+        {% endfor %}
+
+        {% if pending_page.has_next %}
+            <a class="page-btn manager-pending-pagination" href="?page={{ pending_page.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}">
+                <i class="fa-solid fa-chevron-right" style="font-size:10px;"></i>
+            </a>
+        {% else %}
+            <span class="page-btn disabled"><i class="fa-solid fa-chevron-right" style="font-size:10px;"></i></span>
+        {% endif %}
+    </div>
+</div>
+{% endif %}

@@ -4,7 +4,8 @@ from . import views
 from django.conf import settings
 from django.conf.urls.static import static
 
-
+from django.contrib import admin
+from django.urls import path, include
 
 urlpatterns = [
     path('', views.home_view, name='home'),  # Root URL
@@ -16,17 +17,22 @@ urlpatterns = [
     path('forgot-password/', views.forgot_password, name='forgot_password'),
     path('reset-password/<uidb64>/<token>/', views.ResetPasswordAPIView.as_view(), name='reset_password'),
     # ── Dashboard / Profile page (renders dashboard.html) ──
-    path('dashboard/',         views.dashboard_template_view, name='dashboard'),
-    path('profile/<int:user_id>/', views.dashboard_template_view, name='profile_detail'),
+    # path('profile/',           views.dashboard_template_view, name='profile_dashboard'),
+    # path('profile/<int:user_id>/', views.dashboard_template_view, name='profile_detail'),
+    path('profile/', views.profile_api, name='profile_dashboard'),
+    path('profile/<int:user_id>/', views.profile_api, name='profile_detail'),
 
     # ── Profile form POST handler ──
-    path('dashboard/update/',  views.update_profile,          name='update_profile'),
+    path('profile/update/',    views.profile_api,          name='update_profile'),
 
-    # ── REST API endpoints (used by JS / mobile) ──
-    path('api/dashboard/data/',   views.dashboard_data_api,   name='dashboard_data_api'),
-    path('api/dashboard/update/', views.dashboard_update_api, name='dashboard_update_api'),
+    # # ── REST API endpoints (used by JS / mobile) ──
+    
+    path('api/departments/<int:pk>/', views.department_detail, name='department_detail_api'),
+    path('api/permissions/',      views.role_permission_list, name='role_permission_list_api'),
+    path('api/permissions/save/', views.role_permission_save, name='role_permission_save_api'),
+    path('api/assign-role/',      views.assign_role,          name='assign_role_api'),
+    path('api/assign-role/bulk/', views.assign_role_bulk,     name='assign_role_bulk_api'),
 
-    path('departments/',                views.department_list,   name='department_list'),
     path('departments/create/',         views.department_create, name='department_create'),
     path('departments/<int:pk>/edit/',  views.department_edit,   name='department_edit'),
     path('departments/<int:pk>/delete/',views.department_delete, name='department_delete'),
@@ -43,6 +49,7 @@ urlpatterns = [
 
     # ── Assign Roles (Admin only) ────────────────────────────────
     path('assign-role/',          views.assign_role,      name='assign_role'),
+    path('assign-role/page/',     views.assign_role_page, name='assign_role_page'),
     path('assign-role/bulk/',     views.assign_role_bulk, name='assign_role_bulk'),
 
  
