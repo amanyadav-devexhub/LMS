@@ -133,7 +133,6 @@ table.full tbody tr:hover .row-actions { opacity: 1; }
 <div class="emp-list-header animate-in">
   <div>
     <h1 class="page-title">Employee Management</h1>
-    <p class="page-subtitle">Manage all staff - activate, deactivate, and view profiles.</p>
   </div>
   <button onclick="document.getElementById('create-modal').style.display='flex'" class="btn btn-primary">
     <i class="fa-solid fa-user-plus"></i> Add Employee
@@ -148,6 +147,16 @@ table.full tbody tr:hover .row-actions { opacity: 1; }
 
   <select id="deptFilterSelect" name="dept" class="form-control" style="width:180px;">
     <option value="">All Departments</option>
+    {% for dept in departments %}
+    <option value="{{ dept.id }}">{{ dept.name }}</option>
+    {% endfor %}
+  </select>
+
+  <select id="roleFilterSelect" name="role" class="form-control" style="width:180px;">
+    <option value="">All Roles</option>
+    {% for role in roles %}
+    <option value="{{ role.id }}">{{ role.name }}</option>
+    {% endfor %}
   </select>
 
   <input type="hidden" name="tab" id="tabInput" value="all">
@@ -248,12 +257,18 @@ table.full tbody tr:hover .row-actions { opacity: 1; }
           <label class="form-label">Department</label>
           <select name="department_id" id="createDepartmentSelect" class="form-control">
             <option value="">Select Department</option>
+            {% for dept in departments %}
+            <option value="{{ dept.id }}">{{ dept.name }}</option>
+            {% endfor %}
           </select>
         </div>
         <div class="form-group">
           <label class="form-label">Role</label>
           <select name="role_id" id="createRoleSelect" class="form-control" required>
             <option value="">Select Role</option>
+            {% for role in roles %}
+            <option value="{{ role.id }}">{{ role.name }}</option>
+            {% endfor %}
           </select>
         </div>
       </div>
@@ -272,11 +287,12 @@ table.full tbody tr:hover .row-actions { opacity: 1; }
 </div>
 
 <script>
-const employeeApiUrl = "{% url 'api_hr_employees' %}";
+const employeeApiUrl = "{% url 'employee_list_page' %}";
 const employeeDetailUrlTemplate = "{% url 'employee_detail' 0 %}";
 const toggleEmployeeUrlTemplate = "{% url 'toggle_employee_status' 0 %}";
 const searchInput = document.getElementById('empSearchInput');
 const deptFilterSelect = document.getElementById('deptFilterSelect');
+const roleFilterSelect = document.getElementById('roleFilterSelect');
 const createDepartmentSelect = document.getElementById('createDepartmentSelect');
 const createRoleSelect = document.getElementById('createRoleSelect');
 const tabInput = document.getElementById('tabInput');
@@ -289,11 +305,11 @@ const csrfTokenInput = document.querySelector('[name=csrfmiddlewaretoken]');
 const csrfToken = csrfTokenInput ? csrfTokenInput.value : '';
 
 let searchTimer;
-let employeeState = { search: '', dept: '', tab: 'all', page: 1 };
+let employeeState = { search: '', dept: '', role: '', tab: 'all', page: 1 };
 
 function renderSkeleton() {
   let html = '';
-  for (let i = 0; i < 8; i++) {
+  for (let i = 0; i < 10; i++) {
     html += `
       <tr>
         <td colspan="7" style="padding:13px 20px;">
@@ -323,9 +339,17 @@ function formatDate(dateValue) {
 function buildApiUrl() {
   const url = new URL(employeeApiUrl, window.location.origin);
   if (employeeState.search) url.searchParams.set('search', employeeState.search);
-  if (employeeState.dept) url.searchParams.set('department', employeeState.dept);
+  if (employeeState.dept) url.searchParams.set('dept', employeeState.dept);
+  if (employeeState.role) url.searchParams.set('role', employeeState.role);
   if (employeeState.tab && employeeState.tab !== 'all') url.searchParams.set('status', employeeState.tab);
   if (employeeState.page && employeeState.page !== 1) url.searchParams.set('page', String(employeeState.page));
+  
+  // Set 10 employees per page
+  url.searchParams.set('per_page', '10');
+  
+  // Force JSON response
+  url.searchParams.set('format', 'json');
+  
   return url;
 }
 
@@ -335,6 +359,8 @@ function updateHistoryUrl() {
   else url.searchParams.delete('search');
   if (employeeState.dept) url.searchParams.set('dept', employeeState.dept);
   else url.searchParams.delete('dept');
+  if (employeeState.role) url.searchParams.set('role', employeeState.role);
+  else url.searchParams.delete('role');
   if (employeeState.tab && employeeState.tab !== 'all') url.searchParams.set('tab', employeeState.tab);
   else url.searchParams.delete('tab');
   if (employeeState.page && employeeState.page !== 1) url.searchParams.set('page', String(employeeState.page));
@@ -378,12 +404,12 @@ function renderEmployeeRow(emp, index) {
         <div style="display:flex;align-items:center;gap:12px;">
           <div class="emp-avatar-lg ${emp.is_active ? '' : 'inactive'}">${initials}</div>
           <div>
-            <div style="font-weight:700;color:var(--text);">${emp.name || emp.username || '-'}</div>
-            <div style="font-size:11px;color:var(--text-faint);">${emp.email || '-'}</div>
+            <div style="font-weight:700;color:var(--text);">${escapeHtml(emp.name)}</div>
+            <div style="font-size:11px;color:var(--text-faint);">${escapeHtml(emp.email)}</div>
           </div>
         </div>
       </td>
-      <td><span class="badge badge-info" style="font-size:10.5px;">${emp.role || '-'}</span></td>
+      <td><span class="badge badge-info" style="font-size:10.5px;">${escapeHtml(emp.role)}</span></td>
       <td>${deptHtml}</td>
       <td style="font-size:12px;color:var(--text-muted);">${joined}</td>
       <td>
@@ -411,6 +437,13 @@ function renderEmployeeRow(emp, index) {
     </tr>`;
 }
 
+function escapeHtml(text) {
+  if (!text) return '';
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
 function renderEmptyState(message) {
   empTableBody.innerHTML = `
     <tr>
@@ -418,7 +451,7 @@ function renderEmptyState(message) {
         <div class="empty-state" style="padding:60px;">
           <div class="empty-icon"><i class="fa-solid fa-users-slash"></i></div>
           <div class="empty-title">No employees found</div>
-          <p style="font-size:13px;color:var(--text-muted);margin-top:6px;">${message}</p>
+          <p style="font-size:13px;color:var(--text-muted);margin-top:6px;">${escapeHtml(message)}</p>
         </div>
       </td>
     </tr>`;
@@ -465,7 +498,7 @@ function renderPagination(pagination) {
 
 function renderTitleAndMeta(data) {
   if (employeeState.search) {
-    employeeTableTitle.innerHTML = `Search results for "<em style="color:var(--aqua-deep);">${employeeState.search}</em>"`;
+    employeeTableTitle.innerHTML = `Search results for "<em style="color:var(--aqua-deep);">${escapeHtml(employeeState.search)}</em>"`;
   } else if (employeeState.tab === 'active') {
     employeeTableTitle.textContent = 'Active Employees';
   } else if (employeeState.tab === 'inactive') {
@@ -490,11 +523,12 @@ function updateCounts(data) {
 
 function updateFilterUi(data) {
   renderSelectOptions(deptFilterSelect, data.departments || [], 'All Departments', employeeState.dept);
+  renderSelectOptions(roleFilterSelect, data.roles || [], 'All Roles', employeeState.role);
   renderSelectOptions(createDepartmentSelect, data.departments || [], 'Select Department', '');
   renderSelectOptions(createRoleSelect, data.roles || [], 'Select Role', '');
   searchInput.value = employeeState.search;
   tabInput.value = employeeState.tab;
-  clearFiltersBtn.style.display = (employeeState.search || employeeState.dept) ? '' : 'none';
+  clearFiltersBtn.style.display = (employeeState.search || employeeState.dept || employeeState.role) ? '' : 'none';
   setTabButtons();
 }
 
@@ -502,41 +536,54 @@ async function fetchEmployeeData() {
   empTableBody.innerHTML = renderSkeleton();
   employeeTableMeta.textContent = 'Loading...';
 
-  const response = await fetch(buildApiUrl().toString(), {
-    method: 'GET',
-    credentials: 'include',
-    headers: { 'Accept': 'application/json' }
-  });
-
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}`);
-  }
-
-  const contentType = response.headers.get('content-type') || '';
-  if (!contentType.includes('application/json')) {
-    throw new Error('Response is not JSON');
-  }
-
-  const data = await response.json();
-  const employees = data.employees && data.employees.results ? data.employees.results : [];
-  const pagination = data.employees || {};
-
-  updateCounts(data);
-  updateFilterUi(data);
-  renderTitleAndMeta(data);
-  renderPagination(pagination);
-
-  empTableBody.innerHTML = '';
-  if (!employees.length) {
-    renderEmptyState('Try adjusting your search or filters.');
-  } else {
-    employees.forEach((emp, idx) => {
-      const rowIndex = (pagination.start_index || 1) + idx;
-      empTableBody.insertAdjacentHTML('beforeend', renderEmployeeRow(emp, rowIndex));
+  try {
+    const response = await fetch(buildApiUrl().toString(), {
+      method: 'GET',
+      credentials: 'include',
+      headers: { 
+        'Accept': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest'
+      }
     });
-  }
 
-  updateHistoryUrl();
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const contentType = response.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) {
+      throw new Error('Response is not JSON');
+    }
+
+    const data = await response.json();
+    
+    if (!data.success) {
+      throw new Error(data.error || 'Failed to load data');
+    }
+    
+    const employees = data.employees && data.employees.results ? data.employees.results : [];
+    const pagination = data.employees || {};
+
+    updateCounts(data);
+    updateFilterUi(data);
+    renderTitleAndMeta(data);
+    renderPagination(pagination);
+
+    empTableBody.innerHTML = '';
+    if (!employees.length) {
+      renderEmptyState('Try adjusting your search or filters.');
+    } else {
+      employees.forEach((emp, idx) => {
+        const rowIndex = (pagination.start_index || 1) + idx;
+        empTableBody.insertAdjacentHTML('beforeend', renderEmployeeRow(emp, rowIndex));
+      });
+    }
+
+    updateHistoryUrl();
+  } catch (error) {
+    console.error('Fetch error:', error);
+    handleFetchError(error);
+  }
 }
 
 function loadStateFromUrl() {
@@ -545,6 +592,7 @@ function loadStateFromUrl() {
   const page = Number(params.get('page'));
   employeeState.search = (params.get('search') || '').trim();
   employeeState.dept = (params.get('dept') || '').trim();
+  employeeState.role = (params.get('role') || '').trim();
   employeeState.tab = ['all', 'active', 'inactive'].includes(tab) ? tab : 'all';
   employeeState.page = Number.isFinite(page) && page > 0 ? page : 1;
 }
@@ -553,8 +601,9 @@ document.getElementById('employeeFilterForm').addEventListener('submit', functio
   event.preventDefault();
   employeeState.search = searchInput.value.trim();
   employeeState.dept = deptFilterSelect.value;
+  employeeState.role = roleFilterSelect.value;
   employeeState.page = 1;
-  fetchEmployeeData().catch(handleFetchError);
+  fetchEmployeeData();
 });
 
 searchInput.addEventListener('input', function () {
@@ -562,22 +611,29 @@ searchInput.addEventListener('input', function () {
   searchTimer = setTimeout(() => {
     employeeState.search = searchInput.value.trim();
     employeeState.page = 1;
-    fetchEmployeeData().catch(handleFetchError);
+    fetchEmployeeData();
   }, 350);
 });
 
 deptFilterSelect.addEventListener('change', function () {
   employeeState.dept = this.value;
   employeeState.page = 1;
-  fetchEmployeeData().catch(handleFetchError);
+  fetchEmployeeData();
+});
+
+roleFilterSelect.addEventListener('change', function () {
+  employeeState.role = this.value;
+  employeeState.page = 1;
+  fetchEmployeeData();
 });
 
 clearFiltersBtn.addEventListener('click', function () {
   employeeState.search = '';
   employeeState.dept = '';
+  employeeState.role = '';
   employeeState.tab = 'all';
   employeeState.page = 1;
-  fetchEmployeeData().catch(handleFetchError);
+  fetchEmployeeData();
 });
 
 document.querySelectorAll('.employee-tab-btn').forEach((btn) => {
@@ -585,7 +641,7 @@ document.querySelectorAll('.employee-tab-btn').forEach((btn) => {
     event.preventDefault();
     employeeState.tab = this.dataset.tab;
     employeeState.page = 1;
-    fetchEmployeeData().catch(handleFetchError);
+    fetchEmployeeData();
   });
 });
 
@@ -594,12 +650,12 @@ employeePagination.addEventListener('click', function (event) {
   if (!link) return;
   event.preventDefault();
   employeeState.page = Number(link.dataset.page);
-  fetchEmployeeData().catch(handleFetchError);
+  fetchEmployeeData();
 });
 
 function handleFetchError(error) {
   console.error('Employee list fetch failed:', error);
-  renderEmptyState('Unable to load employee data right now.');
+  renderEmptyState('Unable to load employee data right now. Please refresh the page.');
   employeePagination.innerHTML = '';
   employeeTableMeta.textContent = 'Unable to load data';
 }
@@ -622,19 +678,18 @@ $(document).on('ajax:success', '.ajax-form', function(e, data) {
     document.getElementById('create-modal').style.display = 'none';
     form[0].reset();
     employeeState.page = 1;
-    fetchEmployeeData().catch(handleFetchError);
+    fetchEmployeeData();
     return;
   }
 
   if (data.hasOwnProperty('is_active')) {
-    fetchEmployeeData().catch(handleFetchError);
+    fetchEmployeeData();
   }
 });
 
 document.addEventListener('DOMContentLoaded', function () {
   loadStateFromUrl();
-  fetchEmployeeData().catch(handleFetchError);
+  fetchEmployeeData();
 });
 </script>
-
 {% endblock %}

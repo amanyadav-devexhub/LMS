@@ -281,7 +281,6 @@
         <div class="hero-left">
             <div class="hero-label">Total available</div>
             <div class="hero-total-val" id="total-val">0</div>
-            <div class="hero-sub">Paid leave quota across all configured types</div>
         </div>
         
         <div class="hero-right">
@@ -446,26 +445,34 @@ document.addEventListener("DOMContentLoaded", () => {
         method: "GET",
         headers: { "Accept": "application/json" },
     })
-    .then(response => {
-        if (!response.ok) throw new Error("Network error");
-        return response.json();
-    })
+    .then(response => response.json())
     .then(data => {
-        console.log("API Response:", data);
-
+        // Get remaining balance
+        let totalRemaining = 0;
+        if (data.leave_summary && data.leave_summary.breakdown) {
+            data.leave_summary.breakdown.forEach(item => {
+                if (item.code === "CASUAL" || item.name === "Casual Leave") {
+                    totalRemaining = item.remaining || 0;
+                }
+            });
+        }
+        
+        if (totalRemaining === 0) {
+            totalRemaining = parseFloat(data.available_balance || 0);
+        }
+        
+        // Update hero total
         const totalValEl = document.getElementById("total-val");
-        const totalRemaining = parseFloat(data.available_balance || 0);
         totalValEl.innerHTML = totalRemaining.toFixed(1) + "<span>days</span>";
-
-        const totalAllocated = parseFloat(data.total_accrued || 40);
-        const used = totalAllocated - totalRemaining;
-        const pct = Math.min(Math.max((used / totalAllocated) * 100, 0), 100);
-        const circumference = 389.5;
-        const offset = circumference - (pct / 100) * circumference;
-        document.getElementById("main-ring").style.strokeDashoffset = offset;
-        document.getElementById("ring-pct").innerText = Math.round(pct) + "%";
+        
+        // Hide the entire ring chart section
+        const heroRight = document.querySelector(".hero-right");
+        if (heroRight) {
+            heroRight.style.display = "none";
+        }
     })
     .catch(err => console.error("Fetch error:", err));
 });
 </script>
+
 {% endblock %}

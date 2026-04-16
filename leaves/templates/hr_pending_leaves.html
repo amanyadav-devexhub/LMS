@@ -444,8 +444,7 @@ document.addEventListener('submit', function(e) {
     };
 
     if (action === 'approve') {
-        toast(`Approving ${employeeName}'s leave in 5 seconds...`, 'info');
-        setTimeout(runRequest, 5000);
+        setTimeout(runRequest, 1000);
     } else {
         runRequest();
     }

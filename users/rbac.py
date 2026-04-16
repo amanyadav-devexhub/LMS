@@ -19,6 +19,7 @@ PERMISSION_SEEDS: tuple[PermissionSeed, ...] = (
     PermissionSeed("dashboard", "view", "dashboard_admin", "Admin dashboard"),
     PermissionSeed("dashboard", "view", "dashboard_hr", "HR dashboard"),
     PermissionSeed("dashboard", "view", "dashboard_manager", "Manager dashboard"),
+    PermissionSeed("dashboard", "view", "dashboard_tl", "TL dashboard"),
     PermissionSeed("dashboard", "view", "dashboard_employee", "Employee dashboard"),
     PermissionSeed("user", "view", "user_view", "View users"),
     PermissionSeed("user", "add", "user_create", "Create users"),
@@ -71,7 +72,7 @@ PERMISSION_SEEDS: tuple[PermissionSeed, ...] = (
 LEGACY_MATRIX_ACTIONS = {
     # Active matrix modules (must match users.views.MODULES keys)
     "dashboard": {
-        "can_view": ["dashboard_admin", "dashboard_hr", "dashboard_manager", "dashboard_employee"],
+        "can_view": ["dashboard_admin", "dashboard_hr"  , "dashboard_manager", "dashboard_tl", "dashboard_employee"],
         "can_create": [],
         "can_edit": [],
         "can_delete": [],
@@ -242,10 +243,12 @@ DEFAULT_ROLE_PERMISSION_CODES = {
     "Employee": {
         "dashboard_employee",
         "leave_apply", "leave_view_own", "leave_balance_view", "notification_view",
+        "salary_view","bank_view","verification_view"
     },
     "Staff": {
         "dashboard_employee",
         "leave_apply", "leave_view_own", "leave_balance_view", "notification_view",
+        "salary_view","bank_view","verification_view"
     },
 }
 
@@ -394,6 +397,7 @@ def menu_permission_flags(user):
         "dashboard_admin",
         "dashboard_hr",
         "dashboard_manager",
+        "dashboard_tl",
         "dashboard_employee",
         "user_view",
         "role_view",

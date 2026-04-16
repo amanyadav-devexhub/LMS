@@ -69,6 +69,35 @@
 }
 .breadcrumb a { color: var(--aqua-deep); text-decoration: none; font-weight: 600; }
 .breadcrumb a:hover { text-decoration: underline; }
+
+/* Date range preview */
+.date-range-preview {
+  background: rgba(0,198,212,0.08);
+  border: 1px solid rgba(0,198,212,0.2);
+  border-radius: 12px;
+  padding: 12px 16px;
+  margin-top: 12px;
+  display: none;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+}
+.date-range-preview.show {
+  display: flex;
+}
+.date-range-preview i {
+  color: var(--aqua-deep);
+  font-size: 16px;
+}
+.date-range-text {
+  font-weight: 600;
+  color: var(--text);
+}
+.date-range-days {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-left: 8px;
+}
 </style>
 {% endblock %}
 
@@ -99,7 +128,6 @@
     </div>
   </div>
 
-  <!-- ✅ FIX: form action points to JSON API endpoints, not the HTML view -->
   <form method="POST"
         action="{% if holiday %}{% url 'api_holiday_edit' holiday.id %}{% else %}{% url 'api_holiday_create' %}{% endif %}"
         class="ajax-form redirect-on-success">
@@ -124,7 +152,6 @@
     <div class="form-row-2">
       <div class="form-group">
         <label class="form-label">Holiday Type <span style="color:var(--danger);">*</span></label>
-        <!-- ✅ FIX: holiday_types from context, holiday.holiday_type (no extra 's') for selected -->
         <select name="holiday_type" class="form-control" required>
           {% for val, label in holiday_types %}
           <option value="{{ val }}"
@@ -150,15 +177,25 @@
     <div class="form-row-2">
       <div class="form-group">
         <label class="form-label">Start Date <span style="color:var(--danger);">*</span></label>
-        <!-- ✅ FIX: falls back to today (passed from view context) -->
-        <input type="date" name="date" class="form-control" required
-               value="{{ holiday.date|date:'Y-m-d'|default:today|date:'Y-m-d' }}">
+        <input type="date" name="date" id="start_date" class="form-control" required
+               value="{{ holiday.date|date:'Y-m-d'|default:today|date:'Y-m-d' }}"
+               onchange="updateDateRangePreview()">
       </div>
       <div class="form-group">
         <label class="form-label">End Date <span style="color:var(--text-faint);">(multi-day)</span></label>
-        <input type="date" name="end_date" class="form-control"
+        <input type="date" name="end_date" id="end_date" class="form-control"
                value="{{ holiday.end_date|date:'Y-m-d'|default:'' }}"
-               placeholder="Leave blank for single-day">
+               placeholder="Leave blank for single-day"
+               onchange="updateDateRangePreview()">
+      </div>
+    </div>
+
+    <!-- Date Range Preview -->
+    <div id="dateRangePreview" class="date-range-preview">
+      <i class="fa-solid fa-calendar-week"></i>
+      <div>
+        <span class="date-range-text" id="dateRangeText"></span>
+        <span class="date-range-days" id="dateRangeDays"></span>
       </div>
     </div>
 
@@ -259,21 +296,131 @@
   </form>
 </div>
 
-{% endblock %}
-
-
-{% block extra_scripts %}
 <script>
+// Initialize date range preview on page load
+document.addEventListener('DOMContentLoaded', function() {
+    const startDateInput = document.getElementById('start_date');
+    const endDateInput = document.getElementById('end_date');
+    
+    // Set min date for end date based on start date
+    if (startDateInput && startDateInput.value) {
+        if (endDateInput) {
+            endDateInput.min = startDateInput.value;
+            // If end date is earlier than start date, update it
+            if (endDateInput.value && endDateInput.value < startDateInput.value) {
+                endDateInput.value = startDateInput.value;
+            }
+        }
+    }
+    
+    updateDateRangePreview();
+});
+
 function toggleRow(rowEl, checkId) {
-  const chk = document.getElementById(checkId);
-  chk.checked = !chk.checked;
-  rowEl.classList.toggle('on', chk.checked);
+    const chk = document.getElementById(checkId);
+    chk.checked = !chk.checked;
+    rowEl.classList.toggle('on', chk.checked);
 }
 
 function toggleHalfDayType() {
-  const chk = document.getElementById('chk-halfday');
-  document.getElementById('half-day-type-row').style.display =
-    chk.checked ? 'block' : 'none';
+    const chk = document.getElementById('chk-halfday');
+    const halfDayRow = document.getElementById('half-day-type-row');
+    if (halfDayRow) {
+        halfDayRow.style.display = chk.checked ? 'block' : 'none';
+    }
+}
+
+function updateDateRangePreview() {
+    const startDateInput = document.getElementById('start_date');
+    const endDateInput = document.getElementById('end_date');
+    const previewDiv = document.getElementById('dateRangePreview');
+    const rangeTextSpan = document.getElementById('dateRangeText');
+    const rangeDaysSpan = document.getElementById('dateRangeDays');
+    
+    if (!startDateInput || !previewDiv) return;
+    
+    let startDate = startDateInput.value;
+    let endDate = endDateInput ? endDateInput.value : startDate;
+    
+    // If end date is empty or earlier than start date, use start date
+    if (!endDate || (startDate && endDate < startDate)) {
+        endDate = startDate;
+        if (endDateInput) {
+            endDateInput.value = startDate;
+        }
+    }
+    
+    if (startDate) {
+        previewDiv.classList.add('show');
+        
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        
+        // Format dates
+        const options = { year: 'numeric', month: 'short', day: 'numeric' };
+        const startFormatted = start.toLocaleDateString('en-US', options);
+        const endFormatted = end.toLocaleDateString('en-US', options);
+        
+        if (startDate === endDate) {
+            rangeTextSpan.innerHTML = `<i class="fa-solid fa-calendar-day"></i> ${startFormatted}`;
+            rangeDaysSpan.innerHTML = '(Single day)';
+        } else {
+            // Calculate number of days
+            const diffTime = Math.abs(end - start);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+            rangeTextSpan.innerHTML = `<i class="fa-regular fa-calendar-range"></i> ${startFormatted} → ${endFormatted}`;
+            rangeDaysSpan.innerHTML = `(${diffDays} days)`;
+        }
+    } else {
+        previewDiv.classList.remove('show');
+    }
+}
+
+// Handle start date change
+function onStartDateChange() {
+    const startDateInput = document.getElementById('start_date');
+    const endDateInput = document.getElementById('end_date');
+    
+    if (startDateInput && startDateInput.value) {
+        // Set min attribute for end date
+        endDateInput.min = startDateInput.value;
+        
+        // If end date is empty or less than start date, set it to start date
+        if (!endDateInput.value || endDateInput.value < startDateInput.value) {
+            endDateInput.value = startDateInput.value;
+        }
+    }
+    
+    updateDateRangePreview();
+}
+
+// Handle end date change
+function onEndDateChange() {
+    const startDateInput = document.getElementById('start_date');
+    const endDateInput = document.getElementById('end_date');
+    
+    if (startDateInput && startDateInput.value && endDateInput.value) {
+        // If end date is earlier than start date, set it to start date
+        if (endDateInput.value < startDateInput.value) {
+            endDateInput.value = startDateInput.value;
+        }
+    }
+    
+    updateDateRangePreview();
+}
+
+// Attach event listeners
+const startDateField = document.getElementById('start_date');
+if (startDateField) {
+    startDateField.addEventListener('change', onStartDateChange);
+    startDateField.addEventListener('input', onStartDateChange);
+}
+
+const endDateField = document.getElementById('end_date');
+if (endDateField) {
+    endDateField.addEventListener('change', onEndDateChange);
+    endDateField.addEventListener('input', onEndDateChange);
 }
 </script>
+
 {% endblock %}
