@@ -54,10 +54,12 @@
 # ═══════════════════════════════════════════════════════════════════
 
 from __future__ import annotations
-
+from django.utils import timezone
+import pytz
 # ── Standard library ─────────────────────────────────────────────────
 import json
 from datetime import date, datetime, timedelta
+from django.utils import timezone 
 from calendar import month_name
 import calendar
 from decimal import Decimal, ROUND_HALF_UP
@@ -118,15 +120,76 @@ def get_user_role(user):
 # This is a helper function used internally only.
 # Can be removed in a future cleanup if no internal dependencies exist.
 def calculate_leave_days(leave):
+    """Calculate leave days considering policy rules"""
     if getattr(leave, "duration", "FULL") == "HALF":
         return 0.5
     if getattr(leave, "duration", "FULL") == "SHORT":
         return round(float(getattr(leave, "short_hours", 4) or 4) / 8, 2)
+    
     start_date = getattr(leave, "start_date", None)
     end_date = getattr(leave, "end_date", None) or start_date
     if not start_date:
         return 0
-    return (end_date - start_date).days + 1
+    
+    # Get policy for this leave
+    policy = None
+    try:
+        from .models import LeavePolicy
+        if POLICY_ENABLED:
+            employee = getattr(leave, 'employee', None)
+            if employee:
+                department = getattr(employee, 'department', None)
+                active_policies = LeavePolicy.objects.filter(is_active=True)
+                if department:
+                    policy = active_policies.filter(
+                        applicable_departments=department
+                    ).order_by('-is_default', 'name').first()
+                if not policy:
+                    policy = active_policies.filter(is_default=True).first()
+                if not policy:
+                    policy = active_policies.first()
+    except Exception:
+        pass
+    
+    # Calculate days with policy rules
+    total_days = 0
+    current_date = start_date
+
+    # Get holiday ranges if needed
+    holiday_ranges = []
+    if policy and not policy.holiday_counts_as_leave:
+        try:
+            from .models import Holiday
+            holidays = list(Holiday.objects.filter(
+                is_active=True
+            ).filter(
+                Q(end_date__isnull=True, date__range=(start_date, end_date))
+                | Q(end_date__isnull=False, date__lte=end_date, end_date__gte=start_date)
+            ))
+            holiday_ranges = [(h.date, h.end_date or h.date) for h in holidays]
+        except Exception:
+            pass
+    
+    while current_date <= end_date:
+        is_weekend = current_date.weekday() >= 5
+        
+        if is_weekend and policy and not policy.weekend_counts_as_leave:
+            current_date += timedelta(days=1)
+            continue
+
+        if policy and not policy.holiday_counts_as_leave and holiday_ranges:
+            is_holiday = any(h_start <= current_date <= h_end for h_start, h_end in holiday_ranges)
+            if is_holiday:
+                current_date += timedelta(days=1)
+                continue
+
+        total_days += 1
+        
+        current_date += timedelta(days=1)
+    
+    return total_days
+
+
 
 
 # ⚠️  DEPRECATED (v2.0+): Not exposed via any URL endpoint
@@ -144,15 +207,29 @@ def send_notification(users, message, link=None):
 
 
 def _get_active_policy_for_employee(employee):
+    """Get the active policy for an employee with proper fallback"""
     if not POLICY_ENABLED:
         return None
+    
     department = getattr(employee, "department", None)
     active_policies = LeavePolicy.objects.filter(is_active=True)
+    
+    # First try department-specific policy
     if department:
-        department_policy = active_policies.filter(applicable_departments=department).order_by("-is_default", "name").first()
+        department_policy = active_policies.filter(
+            applicable_departments=department
+        ).order_by("-is_default", "name").first()
         if department_policy:
             return department_policy
-    return active_policies.filter(is_default=True).first() or active_policies.order_by("-is_default", "name").first()
+    
+    # Then try default policy
+    default_policy = active_policies.filter(is_default=True).first()
+    if default_policy:
+        return default_policy
+    
+    # Fallback to any active policy
+    return active_policies.order_by("-is_default", "name").first()
+
 
 
 def _get_applicable_leave_types_for_employee(employee):
@@ -961,6 +1038,7 @@ def _paginate(queryset_or_list, request, page_param: str = "page", per_page: int
 # ════════════════════════════════════════════════════════════════════
 
 @login_required
+@role_required()
 def unified_dashboard_api(request):
     """
     Returns the role of the logged-in user so the frontend can decide
@@ -1002,6 +1080,7 @@ def unified_dashboard_api(request):
 # ════════════════════════════════════════════════════════════════════
 
 @login_required
+@role_required()
 def employee_dashboard_api(request):
     today = timezone.now().date()
     current_year = today.year
@@ -1102,8 +1181,9 @@ def employee_dashboard_api(request):
 # ════════════════════════════════════════════════════════════════════
 
 @login_required
+@role_required()
 def employee_leave_balance_api(request):
-    today = date.today()
+    today = timezone.now().date()
     current_year = today.year
     current_month = today.month
 
@@ -1431,6 +1511,7 @@ def ajax_login_required(view_func):
 
 @csrf_exempt
 @login_required
+@role_required()
 def apply_leave_api(request):
     """
     GET  → returns form metadata (leave types, policy rules, current balance).
@@ -1595,7 +1676,65 @@ def apply_leave_api(request):
         if end_date < start_date:
             end_date = start_date
 
-    total_days = (end_date - start_date).days + 1 if duration == "FULL" else 1
+        # If user selected only Friday and weekend counting is enabled,
+        # extend to Sunday so Sat/Sun are included in counted leave days.
+        if POLICY_ENABLED and not end_date_str:
+            active_policy = _get_active_policy_for_employee(request.user)
+            if active_policy and active_policy.weekend_counts_as_leave and start_date.weekday() == 4:
+                end_date = start_date + timedelta(days=2)
+
+    preview_leave = LeaveRequest(
+        employee=request.user,
+        leave_type=leave_type,
+        duration=duration,
+        start_date=start_date,
+        end_date=end_date,
+        short_hours=short_hours if duration == "SHORT" else None,
+    )
+    total_days = calculate_leave_days(preview_leave)
+
+        # ── Policy validation for weekends and holidays ──
+    applied_policy = None
+    if POLICY_ENABLED:
+        policy = _get_active_policy_for_employee(request.user)
+        applied_policy = policy
+        
+        if policy:
+            # Validate max days per request
+            if duration == "FULL":
+                temp_leave = LeaveRequest(
+                    employee=request.user,
+                    leave_type=leave_type,
+                    duration="FULL",
+                    start_date=start_date,
+                    end_date=end_date,
+                )
+                temp_total_days = calculate_leave_days(temp_leave)
+                
+                if temp_total_days > policy.max_days_per_request:
+                    return _err(
+                        f"Maximum {policy.max_days_per_request} days allowed per application. "
+                        f"Your selected dates cover {temp_total_days} day(s) as per policy.",
+                        status=400
+                    )
+            
+            # Validate minimum advance days
+            if policy.min_advance_days > 0:
+                today = date.today()
+                min_allowed_date = today + timedelta(days=policy.min_advance_days)
+                if start_date < min_allowed_date:
+                    return _err(
+                        f"Policy requires {policy.min_advance_days} days advance notice. "
+                        f"Earliest start date is {min_allowed_date.strftime('%Y-%m-%d')}.",
+                        status=400
+                    )
+            
+            # Validate half day and short leave permissions
+            if duration == "HALF" and not policy.allow_half_day:
+                return _err("Half day leave is not allowed by company policy.", status=400)
+            
+            if duration == "SHORT" and not policy.allow_short_leave:
+                return _err("Short leave is not allowed by company policy.", status=400)
 
     # Policy max days check (YOUR EXISTING CODE - UNCHANGED)
     max_days = 5
@@ -1713,6 +1852,20 @@ def apply_leave_api(request):
         else f"Leave submitted! {leave_obj.paid_days} days PAID. Awaiting 2 approvals."
     )
 
+    weekend_policy_warning = ""
+    if (
+        duration == "FULL"
+        and applied_policy
+        and applied_policy.weekend_counts_as_leave
+        and start_date.weekday() in (0, 4)
+    ):
+        day_name = "Monday" if start_date.weekday() == 0 else "Friday"
+        weekend_policy_warning = (
+            f"Policy note: Weekend days are counted as leave. Since your leave starts on {day_name}, "
+            "weekend days may be included in your leave day count."
+        )
+        msg = f"{msg} {weekend_policy_warning}"
+
     role_name = get_user_role(request.user)
     if role_name == "HR":
         redirect_url = reverse("hr_my_leave_balance")
@@ -1727,6 +1880,7 @@ def apply_leave_api(request):
 
     return _ok({
         "message": msg,
+        "policy_warning": weekend_policy_warning,
         "leave": _serialize_leave(leave_obj),
         "has_unpaid": leave_obj.unpaid_days > 0,
         "redirect_url": redirect_url,
@@ -1740,6 +1894,7 @@ def apply_leave_api(request):
 
 # 2. REPLACE the existing approve_leave_api function with this updated version
 @login_required
+@role_required()
 def approve_leave_api(request, leave_id):
     if request.method != "POST":
         return _err("Method not allowed.", status=405)
@@ -1804,6 +1959,8 @@ def approve_leave_api(request, leave_id):
         leave.manager_rejected = False
         leave.manager_voted = True
         leave.manager_acted_at = timezone.now()
+        print("time ==============", leave.manager_acted_at)
+        print(timezone.localtime(timezone.now()))
         if manager_remark:
             leave.manager_remark = manager_remark
         
@@ -2024,6 +2181,7 @@ def approve_leave_api(request, leave_id):
     })
 # 3. REPLACE the existing reject_leave_api function with this updated version
 @login_required
+@role_required()
 def reject_leave_api(request, leave_id):
     if request.method != "POST":
         return _err("Method not allowed.", status=405)
@@ -2233,6 +2391,7 @@ def reject_leave_api(request, leave_id):
 # ════════════════════════════════════════════════════════════════════
 
 @login_required
+@role_required()
 def leave_detail_api(request, leave_id):
     leave = get_object_or_404(LeaveRequest, id=leave_id)
     role = get_user_role(request.user)
@@ -3225,6 +3384,7 @@ def manager_dashboard_api(request):
         .filter(Q(employee__reporting_manager=request.user) | Q(approvers=request.user))
         .distinct()
         .select_related("employee")
+        .order_by("-start_date", "employee__first_name")  # ✅ ONLY CHANGE - Added this line
     )
 
     team_history_qs = (
@@ -3418,12 +3578,12 @@ def manager_dashboard_api(request):
             "current_year": current_year,
         }
     )
-
 # ════════════════════════════════════════════════════════════════════
 #  NOTIFICATIONS
 # ════════════════════════════════════════════════════════════════════
 
 @login_required
+@role_required()
 def notifications_api(request):
     notes = Notification.objects.filter(user=request.user).order_by("-created_at")
 
@@ -3459,6 +3619,7 @@ def notifications_api(request):
 # ════════════════════════════════════════════════════════════════════
 
 @login_required
+@role_required()
 def employee_detail_api(request, pk):
     role = get_user_role(request.user)
     if not (
@@ -3491,20 +3652,38 @@ def employee_detail_api(request, pk):
 # ════════════════════════════════════════════════════════════════════
 #  CREATE EMPLOYEE
 # ════════════════════════════════════════════════════════════════════
-
 @login_required
+@role_required()
 def create_employee_api(request):
-    if not (request.user.is_superuser or user_has_permission(request.user, "user_create")):
-        return _forbidden("You don't have permission to create employees.")
     if request.method != "POST":
         return _err("Method not allowed.", status=405)
 
     username = request.POST.get("username")
     email = request.POST.get("email")
     password = request.POST.get("password")
-
+    
+    # ========== EMAIL VALIDATION ==========
+    # Check if email is provided
+    if not email or not email.strip():
+        return _err("Email is required.", status=400)
+    
+    # Email format validation using regex
+    import re
+    email_regex = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    if not re.match(email_regex, email):
+        return _err("Please enter a valid email address (e.g., name@company.com).", status=400)
+    
+    # Check if email already exists
+    if User.objects.filter(email=email).exists():
+        return _err(f"Email '{email}' is already registered. Please use a different email address.", status=409)
+    
+    # Check if username already exists
     if User.objects.filter(username=username).exists():
-        return _err("Username already exists.", status=409)
+        return _err(f"Username '{username}' already exists. Please choose a different username.", status=409)
+    
+    # Check password length
+    if not password or len(password) < 6:
+        return _err("Password must be at least 6 characters long.", status=400)
 
     dept_id = request.POST.get("department_id")
     manager_email = request.POST.get("reporting_manager_email")
@@ -3518,7 +3697,15 @@ def create_employee_api(request):
         except (TypeError, ValueError):
             return _err("Invalid joining date. Use YYYY-MM-DD format.", status=400)
 
-    manager_user = User.objects.filter(email=manager_email).first() if manager_email else None
+    # Validate manager email if provided
+    manager_user = None
+    if manager_email:
+        if not re.match(email_regex, manager_email):
+            return _err("Invalid reporting manager email format.", status=400)
+        manager_user = User.objects.filter(email=manager_email).first()
+        if not manager_user:
+            return _err(f"Reporting manager with email '{manager_email}' not found. Please check the email address.", status=404)
+    
     dept_obj = None
     if dept_id:
         try:
@@ -3560,12 +3747,13 @@ def create_employee_api(request):
         status=201,
     )
 
-
+    
 # ════════════════════════════════════════════════════════════════════
 #  TOGGLE EMPLOYEE STATUS
 # ════════════════════════════════════════════════════════════════════
 
 @login_required
+@role_required()
 def toggle_employee_status_api(request, user_id):
     if request.method != "POST":
         return _err("Method not allowed.", status=405)
@@ -3762,6 +3950,7 @@ def admin_leave_policy_api(request):
 
 @csrf_exempt
 @login_required
+@role_required()
 def leave_policy_unified_api(request):
     """
     Unified endpoint for leave policy management.
@@ -4241,6 +4430,7 @@ def admin_apply_to_all_employees_api(request):
 # ════════════════════════════════════════════════════════════════════
 
 @login_required
+@role_required()
 def holiday_list_api(request):
     from users.rbac import user_has_permission
     
@@ -4321,6 +4511,7 @@ def holiday_list_api(request):
 
 @csrf_exempt
 @login_required
+@role_required()
 def holiday_create_api(request):
     from users.rbac import user_has_permission
     
@@ -4374,6 +4565,7 @@ def holiday_create_api(request):
 # ════════════════════════════════════════════════════════════════════
 
 @login_required
+@role_required()
 def holiday_detail_api(request, holiday_id):
     from users.rbac import user_has_permission
 
@@ -4405,6 +4597,7 @@ def holiday_detail_api(request, holiday_id):
 # ════════════════════════════════════════════════════════════════════
 
 @login_required
+@role_required()
 def holiday_edit_api(request, holiday_id):
     from users.rbac import user_has_permission
     
@@ -4449,6 +4642,7 @@ def holiday_edit_api(request, holiday_id):
 # ════════════════════════════════════════════════════════════════════
 
 @login_required
+@role_required()
 def holiday_delete_api(request, holiday_id):
     from users.rbac import user_has_permission
     
@@ -4471,6 +4665,7 @@ def holiday_delete_api(request, holiday_id):
 # ════════════════════════════════════════════════════════════════════
 
 @login_required
+@role_required()
 def holiday_toggle_status_api(request, holiday_id):
     from users.rbac import user_has_permission
 
@@ -4491,6 +4686,7 @@ def holiday_toggle_status_api(request, holiday_id):
 # ════════════════════════════════════════════════════════════════════
 
 @login_required
+@role_required()
 def holiday_bulk_create_api(request):
     from users.rbac import user_has_permission
     
@@ -4543,9 +4739,11 @@ def holiday_bulk_create_api(request):
 
 
 # ════════════════════════════════════════════════════════════════════
-#  HOLIDAYS — PUBLIC (calendar grid, no auth required)
+#  HOLIDAYS — PUBLIC (calendar grid)
 # ════════════════════════════════════════════════════════════════════
 
+@login_required
+@role_required()
 def public_holidays_api(request):
     if not HOLIDAYS_ENABLED:
         return _err("Holiday module not available.", status=503)
@@ -4683,6 +4881,7 @@ def _wants_json_response(request):
 
 @login_required
 @never_cache
+@role_required()
 def unified_dashboard(request):
     role = get_user_role(request.user)
     if role == "Admin":
@@ -4698,6 +4897,7 @@ def unified_dashboard(request):
 
 @login_required
 @never_cache
+@role_required()
 def employee_dashboard(request):
     print(request)
     return _render_template_page(request, "employee_dashboard.html")
@@ -4866,7 +5066,7 @@ def manager_dashboard(request):
         .exclude(employee=request.user)
         .distinct()
         .select_related("employee", "employee__department")
-        .order_by("-created_at")
+        .order_by("-created_at")  # ✅ Fixed
     )
 
     team_on_leave = (
@@ -4878,6 +5078,7 @@ def manager_dashboard(request):
         .filter(Q(employee__reporting_manager=request.user) | Q(approvers=request.user))
         .distinct()
         .select_related("employee")
+        .order_by("-start_date", "employee__first_name")  # ✅ FIXED - Added order_by
     )
 
     team_history_qs = (
@@ -4885,10 +5086,10 @@ def manager_dashboard(request):
         .filter(Q(employee__reporting_manager=request.user) | Q(approvers=request.user))
         .distinct()
         .select_related("employee")
-        .order_by("-created_at")
+        .order_by("-created_at")  # ✅ Fixed
     )
 
-    my_leaves_qs = LeaveRequest.objects.filter(employee=request.user).order_by("-created_at")
+    my_leaves_qs = LeaveRequest.objects.filter(employee=request.user).order_by("-created_at")  # ✅ Fixed
 
     pending_page = Paginator(team_pending, 8).get_page(request.GET.get("page", 1))
     team_history_page = Paginator(team_history_qs, 10).get_page(request.GET.get("hpage", 1))
@@ -4919,7 +5120,11 @@ def manager_dashboard(request):
             }
         )
 
+    # Sort team_data before pagination to ensure consistent ordering
+    team_data.sort(key=lambda x: x["member"]["name"].lower())
     team_page = Paginator(team_data, 8).get_page(request.GET.get("tpage", 1))
+    
+    # team_on_leave already has order_by, so pagination is safe
     onleave_page = Paginator(team_on_leave, 8).get_page(request.GET.get("opage", 1))
 
     active_leave_types = []
@@ -4944,14 +5149,9 @@ def manager_dashboard(request):
         "active_leave_types": active_leave_types,
     }
     return render(request, "manager_dashboard.html", context)
-
-
 @login_required
+@role_required()
 def manager_pending_leaves(request):
-    role_name = get_user_role(request.user)
-    if role_name != "Manager" and not request.user.is_superuser:
-        messages.error(request, "Access denied.")
-        return redirect("dashboard")
 
     search_query = request.GET.get("search", "").strip()
 
@@ -5007,12 +5207,14 @@ def manager_pending_leaves(request):
 
 
 @login_required
+@role_required()
 def manager_leave_balance(request):
     return employee_leave_balance(request)
 
 
 @login_required
 @never_cache
+@role_required()
 def admin_dashboard_page(request):
     wants_json = (
         request.GET.get("format") == "json"
@@ -5025,6 +5227,7 @@ def admin_dashboard_page(request):
 
 
 @login_required
+@role_required()
 def hr_pending_leaves(request):
     return _render_template_page(request, "hr_pending_leaves.html")
 
@@ -5149,6 +5352,7 @@ def hr_leave_analytics(request):
              
 
 @login_required
+@role_required()
 def hr_on_leave_today(request):
     today = date.today()
     on_leave = LeaveRequest.objects.filter(
@@ -5183,6 +5387,7 @@ def hr_on_leave_today(request):
 
 
 @login_required
+@role_required()
 def hr_new_joiners(request):
     if _wants_json_response(request):
         return hr_new_joiners_api(request)
@@ -5211,6 +5416,7 @@ def hr_new_joiners(request):
 
 
 @login_required
+@role_required()
 def hr_departments(request):
     if _wants_json_response(request):
         return hr_departments_api(request)
@@ -5218,6 +5424,7 @@ def hr_departments(request):
 
 
 @login_required
+@role_required()
 def hr_my_leave_balance(request):
     """HR leave balance page - Monthly accrual system"""
     
@@ -5265,6 +5472,7 @@ def hr_my_leave_balance(request):
     return render(request, 'hr_my_leave_balance.html', context)
 
 @login_required
+@role_required()
 def hr_employee_list(request):
     if not (
         request.user.is_superuser
@@ -5346,6 +5554,8 @@ def hr_employee_list(request):
     return _render_template_page(request, "hr_employee_list.html", context)
 
 
+@login_required
+@role_required()
 def employee_list(request):
     if not request.user.is_authenticated:
         return JsonResponse(
@@ -5354,8 +5564,8 @@ def employee_list(request):
         )
     return hr_employee_list_api(request)
 
-
 @login_required
+@role_required()
 def employee_list_page(request):
     if not (
         request.user.is_superuser
@@ -5365,10 +5575,149 @@ def employee_list_page(request):
         or user_has_permission(request.user, "user_delete")
     ):
         raise PermissionDenied
-    return _render_template_page(request, "employee_list.html")
+    
+    from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+    from django.db.models import Q
+    from datetime import date
+    import json
+    
+    # Get filter parameters
+    search_query = request.GET.get('search', '').strip()
+    dept_filter = request.GET.get('dept', '').strip()
+    role_filter = request.GET.get('role', '').strip()
+    status_filter = request.GET.get('status', '').strip()
+    page = request.GET.get('page', 1)
+    per_page = 10  # ← CHANGED: Show 10 employees per page
+    
+    # Base queryset - exclude superusers and admins from regular employee list
+    employees = User.objects.exclude(is_superuser=True).exclude(role__name='Admin')
+    
+    # Apply search filter
+    if search_query:
+        employees = employees.filter(
+            Q(first_name__icontains=search_query) |
+            Q(last_name__icontains=search_query) |
+            Q(email__icontains=search_query) |
+            Q(username__icontains=search_query) |
+            Q(department__name__icontains=search_query) |
+            Q(role__name__icontains=search_query)
+        )
+    
+    # Apply department filter
+    if dept_filter and dept_filter.isdigit():
+        employees = employees.filter(department_id=int(dept_filter))
+    
+    # Apply role filter
+    if role_filter and role_filter.isdigit():
+        employees = employees.filter(role_id=int(role_filter))
+    
+    # Apply status filter
+    today = date.today()
+    
+    if status_filter == 'on_leave':
+        from django.db.models import Exists, OuterRef
+        on_leave_subquery = LeaveRequest.objects.filter(
+            employee=OuterRef('pk'),
+            final_status='APPROVED',
+            start_date__lte=today,
+            end_date__gte=today
+        )
+        employees = employees.filter(Exists(on_leave_subquery))
+    elif status_filter == 'active':
+        employees = employees.filter(is_active=True)
+    elif status_filter == 'inactive':
+        employees = employees.filter(is_active=False)
+    
+    # Order by
+    employees = employees.select_related('role', 'department').order_by('-date_joined', 'first_name')
+    
+    # Get total counts for stats
+    base_employees = User.objects.exclude(is_superuser=True).exclude(role__name='Admin')
+    total_count = base_employees.count()
+    active_count = base_employees.filter(is_active=True).count()
+    inactive_count = base_employees.filter(is_active=False).count()
+    
+    # Count employees on leave today
+    on_leave_count = LeaveRequest.objects.filter(
+        final_status='APPROVED',
+        start_date__lte=today,
+        end_date__gte=today
+    ).values('employee').distinct().count()
+    
+    # Pagination
+    paginator = Paginator(employees, per_page)
+    
+    try:
+        page_obj = paginator.page(page)
+    except PageNotAnInteger:
+        page_obj = paginator.page(1)
+    except EmptyPage:
+        page_obj = paginator.page(paginator.num_pages)
+    
+    # Build employee data with on_leave status
+    employee_data = []
+    for emp in page_obj:
+        is_on_leave = LeaveRequest.objects.filter(
+            employee=emp,
+            final_status='APPROVED',
+            start_date__lte=today,
+            end_date__gte=today
+        ).exists()
+        
+        employee_data.append({
+            'id': emp.id,
+            'name': emp.get_full_name() or emp.username,
+            'username': emp.username,
+            'email': emp.email,
+            'role': emp.role.name if emp.role else 'Employee',
+            'department': emp.department.name if emp.department else None,
+            'is_active': emp.is_active,
+            'date_joined': emp.date_joined.isoformat(),
+            'on_leave': is_on_leave,
+            'initials': (emp.first_name[:1] + emp.last_name[:1]).upper() if emp.first_name and emp.last_name else emp.username[:2].upper(),
+        })
+    
+    # Prepare response
+    response_data = {
+        'success': True,
+        'employees': {
+            'results': employee_data,
+            'page': page_obj.number,
+            'num_pages': paginator.num_pages,
+            'total_count': paginator.count,
+            'has_next': page_obj.has_next(),
+            'has_previous': page_obj.has_previous(),
+            'start_index': page_obj.start_index(),
+            'end_index': page_obj.end_index(),
+        },
+        'total_count': total_count,
+        'active_count': active_count,
+        'inactive_count': inactive_count,
+        'on_leave_count': on_leave_count,
+        'departments': [{'id': d.id, 'name': d.name} for d in Department.objects.all().order_by('name')],
+        'roles': [{'id': r.id, 'name': r.name} for r in Role.objects.exclude(name='Admin').order_by('name')],
+    }
+    
+    # Check if AJAX request (API call)
+    is_api_call = (
+        request.headers.get('X-Requested-With') == 'XMLHttpRequest' or
+        request.GET.get('format') == 'json' or
+        'application/json' in request.headers.get('Accept', '')
+    )
+    
+    if is_api_call:
+        return JsonResponse(response_data)
+    
+    # For non-AJAX, render the template with initial data
+    return render(request, "employee_list.html", {
+        'initial_data': json.dumps(response_data),
+        'departments': Department.objects.all().order_by('name'),
+        'roles': Role.objects.exclude(name='Admin').order_by('name'),
+    })
 
 
 @login_required
+@role_required()
 def employee_detail(request, pk):
     if not (
         request.user.is_superuser
@@ -5378,7 +5727,14 @@ def employee_detail(request, pk):
         or request.user.pk == pk
     ):
         raise PermissionDenied
-    employee = get_object_or_404(User, pk=pk)
+    
+    try:
+        employee = User.objects.get(pk=pk)
+    except User.DoesNotExist:
+        # Employee doesn't exist, redirect to employee list
+        messages.warning(request, "The employee you're looking for no longer exists.")
+        return redirect('employee_list_page')
+    
     return _render_template_page(request, "employee_detail.html", {
         "employee": employee,
         "departments": Department.objects.all().order_by("name"),
@@ -5387,11 +5743,11 @@ def employee_detail(request, pk):
         "edit_mode": request.GET.get("edit") == "1",
     })
 
-
+    
 @login_required
+@login_required
+@role_required()
 def apply_leave(request):
-    if request.method == "POST":
-        return apply_leave_api(request)
     
     current_year = date.today().year
     leave_summary = get_employee_leave_summary_for_balance_display(request.user, current_year)
@@ -5433,11 +5789,13 @@ def apply_leave(request):
 
 
 @login_required
+@role_required()
 def approve_leave(request, leave_id):
     return approve_leave_api(request, leave_id)
 
 
 @login_required
+@role_required()
 def reject_leave(request, leave_id):
     return reject_leave_api(request, leave_id)
 
@@ -5469,6 +5827,7 @@ def notifications(request):
 
 
 @login_required
+@role_required()
 def holiday_list(request):
     from users.rbac import user_has_permission
 
@@ -5640,6 +5999,7 @@ def holiday_list(request):
 
 
 @login_required
+@role_required()
 def holiday_create(request):
     from users.rbac import user_has_permission
 
@@ -5666,6 +6026,7 @@ def holiday_create(request):
 
 
 @login_required
+@role_required()
 def holiday_bulk_create(request):
     from users.rbac import user_has_permission
 
@@ -5697,6 +6058,7 @@ def holiday_bulk_create(request):
     })
 
 @login_required
+@role_required()
 def holiday_edit(request, holiday_id):
     from users.rbac import user_has_permission
 
@@ -5724,16 +6086,19 @@ def holiday_edit(request, holiday_id):
 
 
 @login_required
+@role_required()
 def holiday_delete(request, holiday_id):
     return holiday_delete_api(request, holiday_id)
 
 
 @login_required
+@role_required()
 def holiday_toggle_status(request, holiday_id):
     return holiday_toggle_status_api(request, holiday_id)
 
 
 @login_required
+@role_required()
 def public_holidays(request):
     if _wants_json_response(request):
         return public_holidays_api(request)
@@ -5843,6 +6208,7 @@ def api_admin_dashboard(request):
         {"key": "dashboard_admin", "label": "Admin Dashboard"},
         {"key": "dashboard_hr", "label": "HR Dashboard"},
         {"key": "dashboard_manager", "label": "Manager Dashboard"},
+        {"key": "dashboard_tl", "label": "TL Dashboard"},
         {"key": "dashboard_employee", "label": "Employee Dashboard"},
         {"key": "user_view", "label": "View Users"},
         {"key": "user_create", "label": "Create Users"},
@@ -6034,7 +6400,8 @@ def admin_leave_type_save(request):
         lt.monthly_accrual         = float(request.POST.get("monthly_accrual", lt.monthly_accrual))
         lt.starting_month          = int(request.POST.get("starting_month", getattr(lt, "starting_month", 4) or 4))
         lt.max_consecutive_days    = int(request.POST.get("max_consecutive_days", 0))
-        lt.advance_notice_days     = int(request.POST.get("advance_notice_days", 0))
+        advance_notice = request.POST.get("advance_notice_days", 0)
+        lt.advance_notice_days = int(advance_notice) if advance_notice else 0
         lt.document_required_after = int(request.POST.get("document_required_after", 0))
         lt.carry_forward           = request.POST.get("carry_forward") == "on"
         lt.carry_forward_limit     = float(request.POST.get("carry_forward_limit", 0))
@@ -6369,6 +6736,8 @@ from django.http import JsonResponse
 from django.urls import reverse
 from users.models import Department, User
 
+@login_required
+@role_required()
 def department_list(request):
     """
     Department list view - supports both HTML and JSON responses
@@ -6494,6 +6863,9 @@ def admin_policy_delete(request, policy_id):
 @login_required
 def employee_leave_detail(request, leave_id):
     """Returns leave detail as JSON for the modal popup on employee dashboard."""
+    from django.utils import timezone
+    import pytz
+    
     leave = get_object_or_404(LeaveRequest, id=leave_id)
 
     # Only the employee themselves (or admin/hr/tl/manager) can view
@@ -6505,6 +6877,24 @@ def employee_leave_detail(request, leave_id):
     )
     if not allowed:
         return JsonResponse({'error': 'Forbidden', 'success': False}, status=403)
+
+    # Helper function to format datetime in IST
+    ist = pytz.timezone('Asia/Kolkata')
+    
+    def format_ist(dt, format_string='%d %b %Y, %I:%M %p'):
+        if not dt:
+            return None
+        # If datetime is naive, make it aware (assume UTC)
+        if timezone.is_naive(dt):
+            dt = timezone.make_aware(dt, timezone.utc)
+        return dt.astimezone(ist).strftime(format_string)
+    
+    def format_ist_full(dt):
+        if not dt:
+            return None
+        if timezone.is_naive(dt):
+            dt = timezone.make_aware(dt, timezone.utc)
+        return dt.astimezone(ist).strftime('%A, %d %B %Y at %I:%M %p')
 
     # Build approver status with new approval flow
     approvers_info = []
@@ -6532,7 +6922,7 @@ def employee_leave_detail(request, leave_id):
                 vote_text = 'Pending'
                 vote_icon = '⏳'
                 vote_color = '#ffc107'
-            acted_at = leave.tl_acted_at.strftime('%d %b %Y, %I:%M %p') if leave.tl_acted_at else None
+            acted_at = format_ist(leave.tl_acted_at) if leave.tl_acted_at else None
             
         elif r == 'HR':
             if leave.hr_approved:
@@ -6550,7 +6940,7 @@ def employee_leave_detail(request, leave_id):
                 vote_text = 'Pending'
                 vote_icon = '⏳'
                 vote_color = '#ffc107'
-            acted_at = leave.hr_acted_at.strftime('%d %b %Y, %I:%M %p') if leave.hr_acted_at else None
+            acted_at = format_ist(leave.hr_acted_at) if leave.hr_acted_at else None
             
         elif r == 'Manager':
             if leave.manager_approved:
@@ -6568,7 +6958,7 @@ def employee_leave_detail(request, leave_id):
                 vote_text = 'Pending'
                 vote_icon = '⏳'
                 vote_color = '#ffc107'
-            acted_at = leave.manager_acted_at.strftime('%d %b %Y, %I:%M %p') if leave.manager_acted_at else None
+            acted_at = format_ist(leave.manager_acted_at) if leave.manager_acted_at else None
         else:
             vote = 'pending'
             vote_text = 'Pending'
@@ -6592,6 +6982,7 @@ def employee_leave_detail(request, leave_id):
             'acted_at': acted_at,
             'initials': initials,
             'email': approver.email,
+            'remarks': getattr(leave, f'{r.lower()}_remark', '') if r.lower() in ['tl', 'hr', 'manager'] else '',
         })
 
     # Sort approvers by order
@@ -6624,7 +7015,7 @@ def employee_leave_detail(request, leave_id):
     else:
         total_days = 0
 
-    # Prepare response data
+    # Prepare response data with IST times
     data = {
         'success': True,
         'id': leave.id,
@@ -6648,9 +7039,9 @@ def employee_leave_detail(request, leave_id):
         'is_fully_paid': leave.is_fully_paid,
         'approval_count': leave.approval_count,
         'rejection_count': leave.rejection_count,
-        'created_at': leave.created_at.strftime('%d %b %Y, %I:%M %p'),
-        'created_at_full': leave.created_at.strftime('%A, %d %B %Y at %I:%M %p'),
-        'updated_at': leave.updated_at.strftime('%d %b %Y, %I:%M %p') if leave.updated_at else None,
+        'created_at': format_ist(leave.created_at),  # ✅ IST
+        'created_at_full': format_ist_full(leave.created_at),  # ✅ IST
+        'updated_at': format_ist(leave.updated_at) if leave.updated_at else None,  # ✅ IST
         'approvers': approvers_info,
         'has_attachment': bool(leave.attachment),
         'attachment_url': leave.attachment.url if leave.attachment else None,
@@ -6668,11 +7059,7 @@ def employee_leave_detail(request, leave_id):
         'manager_rejected': leave.manager_rejected,
     }
     return JsonResponse(data)
-
-
-
-
-# Add this after your employee_dashboard function
+ 
 
 @login_required
 def employee_leave_balance(request):
@@ -6828,7 +7215,7 @@ def leave_detail_page(request, leave_id):
             'email': tl.email,
             'role': 'Team Leader',
             'vote': 'approved' if leave.tl_approved else ('rejected' if leave.tl_rejected else 'pending'),
-            'acted_at': leave.tl_acted_at.strftime('%d %b %Y, %I:%M %p') if leave.tl_acted_at else None,
+            'acted_at': timezone.localtime(leave.tl_acted_at).strftime('%d %b %Y, %I:%M %p') if leave.tl_acted_at else None,
             'remarks': leave.tl_remark or '',
         })
     
@@ -6845,7 +7232,7 @@ def leave_detail_page(request, leave_id):
             'email': hr.email,
             'role': 'HR',
             'vote': 'approved' if leave.hr_approved else ('rejected' if leave.hr_rejected else 'pending'),
-            'acted_at': leave.hr_acted_at.strftime('%d %b %Y, %I:%M %p') if leave.hr_acted_at else None,
+            'acted_at': timezone.localtime(leave.hr_acted_at).strftime('%d %b %Y, %I:%M %p') if leave.hr_acted_at else None,
             'remarks': leave.hr_remark or '',
         })
     
@@ -6862,7 +7249,7 @@ def leave_detail_page(request, leave_id):
             'email': manager.email,
             'role': 'Manager',
             'vote': 'approved' if leave.manager_approved else ('rejected' if leave.manager_rejected else 'pending'),
-            'acted_at': leave.manager_acted_at.strftime('%d %b %Y, %I:%M %p') if leave.manager_acted_at else None,
+            'acted_at': timezone.localtime(leave.manager_acted_at).strftime('%d %b %Y, %I:%M %p') if leave.manager_acted_at else None,
             'remarks': leave.manager_remark or '',
         })
     
@@ -6979,7 +7366,7 @@ def leave_detail_page(request, leave_id):
                         'email': tl.email,
                         'role': 'Team Leader',
                         'vote': 'approved' if leave.tl_approved else ('rejected' if leave.tl_rejected else 'pending'),
-                        'acted_at': leave.tl_acted_at.strftime('%d %b %Y, %I:%M %p') if leave.tl_acted_at else None,
+                        'acted_at': timezone.localtime(leave.tl_acted_at).strftime('%d %b %Y, %I:%M %p') if leave.tl_acted_at else None,
                         'remarks': leave.tl_remark or '',
                     })
                 
@@ -6990,7 +7377,7 @@ def leave_detail_page(request, leave_id):
                         'email': hr.email,
                         'role': 'HR',
                         'vote': 'approved' if leave.hr_approved else ('rejected' if leave.hr_rejected else 'pending'),
-                        'acted_at': leave.hr_acted_at.strftime('%d %b %Y, %I:%M %p') if leave.hr_acted_at else None,
+                        'acted_at': timezone.localtime(leave.hr_acted_at).strftime('%d %b %Y, %I:%M %p') if leave.hr_acted_at else None,
                         'remarks': leave.hr_remark or '',
                     })
                 
@@ -7001,7 +7388,7 @@ def leave_detail_page(request, leave_id):
                         'email': manager.email,
                         'role': 'Manager',
                         'vote': 'approved' if leave.manager_approved else ('rejected' if leave.manager_rejected else 'pending'),
-                        'acted_at': leave.manager_acted_at.strftime('%d %b %Y, %I:%M %p') if leave.manager_acted_at else None,
+                        'acted_at': timezone.localtime(leave.manager_acted_at).strftime('%d %b %Y, %I:%M %p') if leave.manager_acted_at else None,
                         'remarks': leave.manager_remark or '',
                     })
                 
@@ -7177,11 +7564,9 @@ def _upsert_default_leave_type(code, quota, leave_year_start_month, user, monthl
 
 @login_required
 @role_required(["Admin"])
+@login_required
+@role_required()
 def admin_settings(request):
-    # Permission check
-    from users.rbac import user_has_permission
-    if not (request.user.is_superuser or user_has_permission(request.user, "settings_view")):
-        return JsonResponse({"success": False, "error": "Access denied."}, status=403) if request.headers.get('X-Requested-With') == 'XMLHttpRequest' else redirect('admin_dashboard')
     
     settings_obj = LeaveSettings.get_solo()
 
@@ -7270,16 +7655,10 @@ def admin_settings(request):
 
 
 @login_required
-@role_required(["Admin"])
+@role_required()
 def admin_settings_save(request):
-    # Permission check
-    from users.rbac import user_has_permission
-    if not (request.user.is_superuser or user_has_permission(request.user, "settings_update")):
-        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            return JsonResponse({"success": False, "error": "Access denied."}, status=403)
-        return redirect("admin_settings")
     
-    if request.method != "POST":
+    if request.method != 'POST':
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             return JsonResponse({"success": False, "error": "Method not allowed."}, status=405)
         return redirect("admin_settings")
@@ -7393,3 +7772,23 @@ def admin_settings_save(request):
     if sync_message:
         messages.info(request, sync_message)
     return redirect("admin_settings.html               ")
+
+
+
+    import pytz
+
+# Add this helper function
+def format_ist(dt, format_string='%d %b %Y, %I:%M %p'):
+    """Convert UTC datetime to IST and format"""
+    if not dt:
+        return None
+    ist = pytz.timezone('Asia/Kolkata')
+    # If datetime is naive, make it aware (assume UTC)
+    if timezone.is_naive(dt):
+        dt = timezone.make_aware(dt, timezone.utc)
+    return dt.astimezone(ist).strftime(format_string)
+
+def format_ist_full(dt):
+    """Convert UTC datetime to IST with full format"""
+    return format_ist(dt, '%A, %d %B %Y at %I:%M %p')
+

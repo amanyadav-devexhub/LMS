@@ -12,9 +12,9 @@ api_views = views
 
 
 API_PERMISSION_MAP = {
-    "unified_dashboard_api": ["dashboard_admin", "dashboard_hr", "dashboard_manager", "dashboard_employee"],
+    "unified_dashboard_api": ["dashboard_admin", "dashboard_hr", "dashboard_manager", "dashboard_tl", "dashboard_employee"],
     "employee_dashboard_api": ["dashboard_employee"],
-    "tl_dashboard_api": ["dashboard_manager"],
+    "tl_dashboard_api": ["dashboard_tl"],
     "hr_dashboard_api": ["dashboard_hr"],
     "manager_dashboard_api": ["dashboard_manager"],
     "employee_leave_balance_api": ["leave_balance_view", "leave_view_own"],
@@ -219,6 +219,8 @@ urlpatterns = [
 
     # kept from old urls.py — same view, cleaner name
     path('api/leave-detail/<int:leave_id>/',  api_endpoint(views.employee_leave_detail),          name='employee_leave_detail'),
+    path('api/leave/<int:leave_id>/approve/', api_endpoint(api_views.approve_leave_api), name='api_approve_leave'),
+    path('api/leave/<int:leave_id>/reject/', api_endpoint(api_views.reject_leave_api), name='api_reject_leave'),
 
     # ── HR ─────────────────────────────────────────────────────────────
     path('api/hr/pending/',        api_endpoint(api_views.hr_pending_leaves_api),  name='api_hr_pending'),

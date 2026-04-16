@@ -54,7 +54,7 @@ def _sidebar_role_from_permissions(user):
         return 'HR'
 
     if perms & {
-        'dashboard_manager', 'team_view', 'leave_view_all', 'leave_approve', 'leave_reject',
+        'dashboard_manager', 'dashboard_tl', 'team_view', 'leave_view_all', 'leave_approve', 'leave_reject',
         'leave_balance_view',
     }:
         # Check if user has TL role
@@ -141,4 +141,12 @@ def rbac_context(request):
     return {
         'rbac_flags': menu_permission_flags(request.user),
         'sidebar_role': _sidebar_role_from_permissions(request.user),
+    }
+
+from django.utils import timezone
+
+def user_timezone(request):
+    return {
+        'current_time_ist': timezone.localtime(timezone.now()),
+        'TIMEZONE': 'Asia/Kolkata'
     }

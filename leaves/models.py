@@ -4,6 +4,7 @@ from django.utils import timezone
 from datetime import date, timedelta
 from users.models import User, Department
 
+
 # ======================
 # SALARY DEDUCTION
 # ======================
@@ -229,21 +230,36 @@ class LeaveRequest(models.Model):
 
     @property
     def leave_duration_days(self):
-        if self.duration == "FULL":
-            if self.end_date and self.end_date != self.start_date:
-                return (self.end_date - self.start_date).days + 1
-            return 1
-        elif self.duration == "HALF":
+        if self.duration == "HALF":
             return 0.5
-        elif self.duration == "SHORT":
-            return (self.short_hours or 4) / 8
-        return 0
+        if self.duration == "SHORT":
+            return round(float(self.short_hours or 4) / 8, 2)
+        if not self.start_date:
+            return 0
 
-    def calculate_paid_unpaid(self, available_balance):
+        try:
+            policy = self.get_policy()
+            end_date = self.end_date or self.start_date
+            holidays = None
+            if policy and not policy.holiday_counts_as_leave:
+                holidays = Holiday.objects.filter(
+                    is_active=True,
+                    date__lte=end_date,
+                ).filter(
+                    models.Q(end_date__isnull=True, date__gte=self.start_date)
+                    | models.Q(end_date__isnull=False, end_date__gte=self.start_date)
+                )
+            return float(self.calculate_leave_duration_with_policy(policy=policy, holidays=holidays))
+        except Exception:
+            # Safe fallback if policy resolution fails.
+            end_date = self.end_date or self.start_date
+            return (end_date - self.start_date).days + 1
+
+    def calculate_paid_unpaid(self, available_balance, total_days=None):
         """
         Calculate how many days are paid vs unpaid based on available balance
         """
-        total_days = float(self.leave_duration_days or 0)
+        total_days = float(self.leave_duration_days if total_days is None else total_days)
         available_balance = max(0.0, float(available_balance or 0))
         
         if total_days <= available_balance:
@@ -307,7 +323,7 @@ class LeaveRequest(models.Model):
         if not config:
             return True, None
         
-        today = timezone.now().date()
+        today = timezone.localtime().date()
         
         # Rule 1: Advance notice check
         if config.advance_notice_days > 0:
@@ -329,6 +345,108 @@ class LeaveRequest(models.Model):
             return False, "This leave type requires a supporting document."
         
         return True, None
+    
+
+    def get_policy(self):
+        """Get the applicable policy for this leave request"""
+        from .models import LeavePolicy
+        
+        employee = self.employee
+        department = getattr(employee, 'department', None)
+        
+        active_policies = LeavePolicy.objects.filter(is_active=True)
+        
+        # Check for department-specific policy first
+        if department:
+            dept_policy = active_policies.filter(
+                applicable_departments=department
+            ).order_by('-is_default', 'name').first()
+            if dept_policy:
+                return dept_policy
+        
+        # Return default policy or first active
+        default_policy = active_policies.filter(is_default=True).first()
+        if default_policy:
+            return default_policy
+        
+        return active_policies.first()
+    
+    def calculate_leave_duration_with_policy(self, policy=None, holidays=None):
+        """
+        Calculate leave duration considering policy rules:
+        - weekend_counts_as_leave
+        - holiday_counts_as_leave
+        """
+        if self.duration == "HALF":
+            return 0.5
+        elif self.duration == "SHORT":
+            return round(float(self.short_hours or 4) / 8, 2)
+        
+        # FULL day calculation
+        if not self.start_date:
+            return 0
+        
+        end_date = self.end_date or self.start_date
+        
+        if policy is None:
+            from .models import LeavePolicy
+            policy = LeavePolicy.objects.filter(is_default=True, is_active=True).first()
+        
+        # Calculate total days based on policy flags, day by day.
+        total_days = 0
+        current_date = self.start_date
+        
+        holiday_ranges = []
+        if holidays is not None:
+            for holiday in holidays:
+                h_start = holiday.date
+                h_end = holiday.end_date or holiday.date
+                holiday_ranges.append((h_start, h_end))
+
+        while current_date <= end_date:
+            is_weekend = current_date.weekday() >= 5  # Saturday=5, Sunday=6
+
+            if is_weekend and policy and not policy.weekend_counts_as_leave:
+                current_date += timedelta(days=1)
+                continue
+
+            is_holiday = False
+            if policy and not policy.holiday_counts_as_leave and holiday_ranges:
+                is_holiday = any(start <= current_date <= end for start, end in holiday_ranges)
+
+            if is_holiday:
+                current_date += timedelta(days=1)
+                continue
+
+            total_days += 1
+            
+            current_date += timedelta(days=1)
+        
+        return total_days
+
+    def get_policy(self):
+        """Get the applicable policy for this leave request"""
+        from .models import LeavePolicy
+        
+        employee = self.employee
+        department = getattr(employee, 'department', None)
+        
+        active_policies = LeavePolicy.objects.filter(is_active=True)
+        
+        # Check for department-specific policy first
+        if department:
+            dept_policy = active_policies.filter(
+                applicable_departments=department
+            ).order_by('-is_default', 'name').first()
+            if dept_policy:
+                return dept_policy
+        
+        # Return default policy or first active
+        default_policy = active_policies.filter(is_default=True).first()
+        if default_policy:
+            return default_policy
+        
+        return active_policies.first()
 
 
 # -----------------------
@@ -421,8 +539,10 @@ class Holiday(models.Model):
             return (self.end_date - self.date).days + 1
         return 1
 
+   
     @property
     def display_date(self):
+        """Return formatted date string for display (no timezone needed for dates)"""
         if self.end_date and self.end_date != self.date:
             return f"{self.date.strftime('%d %b')} - {self.end_date.strftime('%d %b, %Y')}"
         return self.date.strftime('%d %B, %Y')
@@ -582,7 +702,7 @@ class LeaveTypeConfig(models.Model):
     def get_current_leave_year(self, as_of_date=None):
         """Get the current leave year for this leave type."""
         if as_of_date is None:
-            as_of_date = timezone.now().date()
+            as_of_date = timezone.localtime().date()
         start_month = self.starting_month
         if as_of_date.month >= start_month:
             return as_of_date.year
@@ -592,7 +712,7 @@ class LeaveTypeConfig(models.Model):
     def get_leave_year_range(self, as_of_date=None):
         """Get (start_date, end_date) for the leave year."""
         if as_of_date is None:
-            as_of_date = timezone.now().date()
+            as_of_date = timezone.localtime().date()
         year = self.get_current_leave_year(as_of_date)
         start_date = date(year, self.starting_month, 1)
 
@@ -606,7 +726,7 @@ class LeaveTypeConfig(models.Model):
     def get_months_elapsed_in_leave_year(self, as_of_date=None):
         """Get how many months have passed in the current leave year."""
         if as_of_date is None:
-            as_of_date = timezone.now().date()
+            as_of_date = timezone.localtime().date()
         year = self.get_current_leave_year(as_of_date)
         start_date = date(year, self.starting_month, 1)
 
@@ -733,7 +853,7 @@ class EmployeeLeaveAllocation(models.Model):
         return 0.0
 
     def get_accrued_days(self, as_of_date=None):
-        as_of_date = as_of_date or timezone.now().date()
+        as_of_date = as_of_date or timezone.localtime().date()
 
         if self.leave_type.quota_type == 'ANNUAL_POOL':
             settings_obj = LeaveSettings.get_solo()
