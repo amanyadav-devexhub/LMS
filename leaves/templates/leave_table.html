@@ -32,11 +32,11 @@
                 </td>
                 <td>
                     {% if leave.duration == 'FULL' %}
-                        <span class="badge badge-duration"><i class="fa-regular fa-calendar-day"></i> Full Day</span>
+                        <span class="badge badge-duration"><i class="fa-solid fa-calendar-day"></i> Full Day</span>
                     {% elif leave.duration == 'HALF' %}
-                        <span class="badge badge-duration"><i class="fa-regular fa-clock"></i> Half Day</span>
+                        <span class="badge badge-duration"><i class="fa-solid fa-clock"></i> Half Day</span>
                     {% elif leave.duration == 'SHORT' %}
-                        <span class="badge badge-urgent"><i class="fa-regular fa-hourglass-half"></i> Short</span>
+                        <span class="badge badge-urgent"><i class="fa-solid fa-hourglass-half"></i> Short</span>
                     {% else %}
                         <span class="badge badge-duration">{{ leave.duration }}</span>
                     {% endif %}

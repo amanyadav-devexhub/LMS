@@ -772,24 +772,25 @@
                 <span class="nav-text">My Profile</span>
             </a>
 
-        {# ── TL ── #}
+{# ── TL ── #}
 {% elif sidebar_role == 'TL' %}
 
     <div class="nav-label">Main</div>
-    {% if rbac_flags.dashboard_manager %}
-    <a href="{% url 'dashboard' %}"
-       class="nav-item {% if request.resolver_match.url_name == 'dashboard' or request.resolver_match.url_name == 'tl_dashboard' and not request.GET.tab %}active{% endif %}" data-tl="dashboard">
+    {% if rbac_flags.dashboard_tl %}
+    <a href="{% url 'tl_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'tl_dashboard' %}active{% endif %}">
         <span class="nav-icon"><i class="fa-solid fa-gauge-high"></i></span>
         <span class="nav-text">Dashboard</span>
     </a>
     {% endif %}
+    
     {% if rbac_flags.leave_apply %}
     <a href="{% url 'apply_leave' %}" class="nav-item {% if request.resolver_match.url_name == 'apply_leave' %}active{% endif %}">
         <span class="nav-icon"><i class="fa-solid fa-paper-plane"></i></span>
         <span class="nav-text">Apply Leave</span>
     </a>
     {% endif %}
-    {% if rbac_flags.leave_balance_view or rbac_flags.leave_view_own %}
+    
+    {% if rbac_flags.leave_balance_view %}
     <a href="{% url 'employee_leave_balance' %}" class="nav-item {% if request.resolver_match.url_name == 'employee_leave_balance' %}active{% endif %}">
         <span class="nav-icon"><i class="fa-solid fa-wallet"></i></span>
         <span class="nav-text">My Leave Balance</span>
@@ -798,20 +799,17 @@
 
     <div class="nav-label">My Team</div>
     {% if rbac_flags.leave_approve %}
-    <a href="{% url 'tl_dashboard' %}?tab=pending"
-       class="nav-item" data-tl="pending"
-       onclick="if(window.switchTab){event.preventDefault();switchTab('pending');}">
+    <a href="{% url 'tl_dashboard' %}" class="nav-item" onclick="event.preventDefault(); if(window.switchTab) switchTab('pending');">
         <span class="nav-icon"><i class="fa-solid fa-inbox"></i></span>
         <span class="nav-text">Pending Requests</span>
         {% if pending_count|default:0 > 0 %}
-            <span data-counter="pending">{{ pending_count }}</span>
+            <span class="nav-badge">{{ pending_count }}</span>
         {% endif %}
     </a>
     {% endif %}
+    
     {% if rbac_flags.team_view %}
-    <a href="{% url 'tl_dashboard' %}?tab=onleave"
-       class="nav-item" data-tl="onleave"
-       onclick="if(window.switchTab){event.preventDefault();switchTab('onleave');}">
+    <a href="{% url 'tl_dashboard' %}" class="nav-item" onclick="event.preventDefault(); if(window.switchTab) switchTab('onleave');">
         <span class="nav-icon"><i class="fa-solid fa-calendar-day"></i></span>
         <span class="nav-text">On Leave Today</span>
         {% if on_leave_count|default:0 > 0 %}
@@ -819,28 +817,24 @@
         {% endif %}
     </a>
     {% endif %}
-    {% if rbac_flags.leave_balance_view or rbac_flags.leave_view_own %}
-    <a href="{% url 'tl_dashboard' %}?tab=balance"
-       class="nav-item" data-tl="balance"
-       onclick="if(window.switchTab){event.preventDefault();switchTab('balance');}">
+    
+    {% if rbac_flags.leave_balance_view %}
+    <a href="{% url 'tl_dashboard' %}" class="nav-item" onclick="event.preventDefault(); if(window.switchTab) switchTab('balance');">
         <span class="nav-icon"><i class="fa-solid fa-wallet"></i></span>
         <span class="nav-text">Leave Balances</span>
     </a>
+    {% endif %}
 
     <div class="nav-label">History</div>
-    {% endif %}
     {% if rbac_flags.leave_view_own %}
-    <a href="{% url 'tl_dashboard' %}?tab=myleaves"
-       class="nav-item" data-tl="myleaves"
-       onclick="if(window.switchTab){event.preventDefault();switchTab('myleaves');}">
+    <a href="{% url 'tl_dashboard' %}" class="nav-item" onclick="event.preventDefault(); if(window.switchTab) switchTab('myleaves');">
         <span class="nav-icon"><i class="fa-solid fa-user-clock"></i></span>
         <span class="nav-text">My Leave History</span>
     </a>
     {% endif %}
+    
     {% if rbac_flags.leave_view_all %}
-    <a href="{% url 'tl_dashboard' %}?tab=teamhistory"
-       class="nav-item" data-tl="teamhistory"
-       onclick="if(window.switchTab){event.preventDefault();switchTab('teamhistory');}">
+    <a href="{% url 'tl_dashboard' %}" class="nav-item" onclick="event.preventDefault(); if(window.switchTab) switchTab('teamhistory');">
         <span class="nav-icon"><i class="fa-solid fa-clock-rotate-left"></i></span>
         <span class="nav-text">Team Leave History</span>
     </a>
@@ -854,15 +848,12 @@
         <span class="nav-badge js-unread-badge" data-badge-kind="nav" {% if unread_count|default:0 <= 0 %}style="display:none;"{% endif %}>{{ unread_count|default:0 }}</span>
     </a>
     {% endif %}
-    <!-- FIXED: Changed from {% url 'dashboard' %} to tl_dashboard with profile tab -->
-   <!-- FIXED: Changed from {% url 'dashboard' %} to profile_dashboard -->
-        <a href="{% url 'profile_dashboard' %}"
-        class="nav-item" data-tl="profile"
-        onclick="if(window.switchTab){event.preventDefault();switchTab('profile');}">
-            <span class="nav-icon"><i class="fa-solid fa-circle-user"></i></span>
-            <span class="nav-text">My Profile</span>
-        </a>
-            
+    <a href="{% url 'profile_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'profile_dashboard' %}active{% endif %}">
+        <span class="nav-icon"><i class="fa-solid fa-circle-user"></i></span>
+        <span class="nav-text">My Profile</span>
+    </a>
+
+
         {# ── MANAGER ── #}
         {% elif sidebar_role == 'Manager' %}
             <div class="nav-label">Main</div>

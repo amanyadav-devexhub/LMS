@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load tz %}
 {% block title %}Leave Request Details — LeaveSetu{% endblock %}
 {% block page_title %}Leave Request Details{% endblock %}
 
@@ -624,7 +625,7 @@
                         <div class="attachment-details">
                             <div class="attachment-name">{{ file_name }}</div>
                             <div class="attachment-meta">
-                                <span><i class="fa-regular fa-clock"></i> Uploaded: {{ leave.created_at|date:"d M Y" }}</span>
+                                <span><i class="fa-regular fa-clock"></i> Uploaded: {{ leave.created_at|date:"l, j F Y, h:i A" }}</span>
                                 <span><i class="fa-regular fa-hard-drive"></i> 
                                     {% if leave.attachment.size < 1024 %}
                                         {{ leave.attachment.size }} B
@@ -670,39 +671,29 @@
                     </div>
                     <div class="approval-info">
                         <h4>{{ approver.name }}</h4>
-                        <p>{{ approver.role }}</p>
-                        <p style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">
-                            {{ approver.email }}
-                        </p>
+                        <p>{{ approver.role }} - {{ approver.email }} </p>
+                        <p  style="font-size: 11px; color: var(--text-muted); margin-top: 15px;">
+                                                    {% if approver.remarks %}
+                            <span style="font-size: 11px; color: var(--text-muted);">
+                                <i class="fa-regular fa-comment"></i> {{ approver.remarks }}
+                            </span><br>
+                        {% endif %}
+                                          {% if approver.acted_at %}
+                            <span style="font-size: 11px; color: var(--text-muted);">
+                                ({{ approver.acted_at }})
+                            </span>
+                        {% endif %}
+
+                    </p>
                     </div>
                 </div>
                 <div class="approval-status">
                     {% if approver.vote == 'approved' %}
                         <i class="fa-solid fa-circle-check" style="color: #05c98a; font-size: 20px;"></i>
                         <span class="approved">Approved</span>
-                        {% if approver.acted_at %}
-                            <span style="font-size: 11px; color: var(--text-muted); margin-left: 8px;">
-                                ({{ approver.acted_at }})
-                            </span>
-                        {% endif %}
-                        {% if approver.remarks %}
-                            <span style="font-size: 11px; color: var(--text-muted); margin-left: 8px;">
-                                <i class="fa-regular fa-comment"></i> {{ approver.remarks }}
-                            </span>
-                        {% endif %}
                     {% elif approver.vote == 'rejected' %}
                         <i class="fa-solid fa-circle-xmark" style="color: #f04058; font-size: 20px;"></i>
                         <span class="rejected">Rejected</span>
-                        {% if approver.acted_at %}
-                            <span style="font-size: 11px; color: var(--text-muted); margin-left: 8px;">
-                                ({{ approver.acted_at }})
-                            </span>
-                        {% endif %}
-                        {% if approver.remarks %}
-                            <span style="font-size: 11px; color: var(--text-muted); margin-left: 8px;">
-                                <i class="fa-regular fa-comment"></i> {{ approver.remarks }}
-                            </span>
-                        {% endif %}
                     {% else %}
                         <i class="fa-regular fa-clock" style="color: #f5a623; font-size: 20px;"></i>
                         <span class="pending">Pending</span>
@@ -887,107 +878,71 @@ function updateApproverStatus(approvers) {
     });
 }
 
-// Handle form submission with AJAX - ✅ FIXED to use JSON API endpoint
-$(document).ready(function() {
-    $('#approvalForm').on('submit', function(e) {
-        e.preventDefault();
-        
-        const action = $('#action').val();
-        const remarks = $('#remarks').val();
-        const submitBtn = $('#submitBtn');
-        const originalText = submitBtn.html();
-        
-        // ✅ FIX: Use the JSON API endpoint instead of HTML page URL
-        const apiUrl = '/api/leave-detail/' + currentLeaveId + '/';
-        
-        // Disable button and show loading
-        submitBtn.prop('disabled', true).html('<i class="fa-solid fa-spinner fa-spin"></i> Processing...');
-        
-        $.ajax({
-            url: apiUrl,
-            method: 'POST',
-            data: {
-                action: action,
-                remarks: remarks,
-                csrfmiddlewaretoken: $('input[name="csrfmiddlewaretoken"]').val()
-            },
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest'
-            },
-            success: function(response) {
-                console.log('AJAX Response:', response);
+$('#approvalForm').on('submit', function(e) {
+    e.preventDefault();
+    
+    const action = $('#action').val();
+    const remarks = $('#remarks').val();
+    const submitBtn = $('#submitBtn');
+    const originalText = submitBtn.html();
+    
+    // ✅ FIX: Use the correct approve/reject API endpoints
+    let apiUrl = '';
+    if (action === 'approve') {
+        apiUrl = '/api/leave/' + currentLeaveId + '/approve/';
+    } else {
+        apiUrl = '/api/leave/' + currentLeaveId + '/reject/';
+    }
+    
+    // Disable button and show loading
+    submitBtn.prop('disabled', true).html('<i class="fa-solid fa-spinner fa-spin"></i> Processing...');
+    
+    $.ajax({
+        url: apiUrl,  // ✅ Now using correct URL
+        method: 'POST',
+        data: {
+            remarks: remarks,
+            csrfmiddlewaretoken: $('input[name="csrfmiddlewaretoken"]').val()
+        },
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        success: function(response) {
+            console.log('AJAX Response:', response);
+            
+            if (response.success) {
+                closeModal();
+                showToast(response.message, 'success');
                 
-                if (response.success) {
-                    // Close modal
-                    closeModal();
-                    
-                    // Show success message
-                    showToast(response.message, 'success');
-                    
-                    // Update final status badge
-                    const statusBadge = $('#statusBadge');
-                    const statusClass = response.final_status.toLowerCase();
-                    
-                    statusBadge.removeClass('status-approved status-rejected status-pending');
-                    statusBadge.addClass(`status-${statusClass}`);
-                    
-                    let statusIcon = '';
-                    let statusText = '';
-                    
-                    if (response.final_status === 'APPROVED') {
-                        statusIcon = '<i class="fa-solid fa-check-circle"></i>';
-                        statusText = 'Approved';
-                    } else if (response.final_status === 'REJECTED') {
-                        statusIcon = '<i class="fa-solid fa-times-circle"></i>';
-                        statusText = 'Rejected';
-                    } else {
-                        statusIcon = '<i class="fa-solid fa-clock"></i>';
-                        statusText = 'Pending';
-                    }
-                    
-                    statusBadge.html(`${statusIcon} ${statusText}`);
-                    
-                    // Update approvers section
-                    if (response.approvers && response.approvers.length > 0) {
-                        updateApproverStatus(response.approvers);
-                    }
-                    
-                    // Keep action buttons for manager (they can override again)
-                    {% if not is_manager %}
-                        if (!response.can_approve) {
-                            $('#actionButtons').remove();
-                        }
-                    {% endif %}
-                    
-                    // Reload page after 2 seconds to show updated data
-                    setTimeout(function() {
-                        location.reload();
-                    }, 2000);
-                    
-                } else {
-                    showToast(response.message || 'An error occurred', 'error');
-                }
-            },
-            error: function(xhr) {
-                console.error('AJAX Error:', xhr);
-                let errorMessage = 'An error occurred. Please try again.';
+                // Update status badge
+                const statusBadge = $('#statusBadge');
+                const statusClass = response.final_status?.toLowerCase() || response.status?.toLowerCase() || 'pending';
                 
-                if (xhr.responseJSON && xhr.responseJSON.message) {
-                    errorMessage = xhr.responseJSON.message;
-                } else if (xhr.status === 403) {
-                    errorMessage = 'You are not authorized to perform this action.';
-                } else if (xhr.status === 400) {
-                    errorMessage = xhr.responseJSON?.error || 'Invalid request. Please try again.';
-                }
-                
-                showToast(errorMessage, 'error');
-            },
-            complete: function() {
-                // Re-enable button
-                submitBtn.prop('disabled', false).html(originalText);
+                // ... rest of success handler
+                setTimeout(function() {
+                    location.reload();
+                }, 2000);
+            } else {
+                showToast(response.message || response.error || 'An error occurred', 'error');
             }
-        });
+        },
+        error: function(xhr) {
+            console.error('AJAX Error:', xhr);
+            let errorMessage = 'An error occurred. Please try again.';
+            
+            if (xhr.responseJSON && xhr.responseJSON.error) {
+                errorMessage = xhr.responseJSON.error;
+            } else if (xhr.responseJSON && xhr.responseJSON.message) {
+                errorMessage = xhr.responseJSON.message;
+            }
+            
+            showToast(errorMessage, 'error');
+        },
+        complete: function() {
+            submitBtn.prop('disabled', false).html(originalText);
+        }
     });
+});
     
     // Close modal when clicking outside
     $(document).on('click', '.modal-overlay', function(e) {
@@ -1002,6 +957,6 @@ $(document).ready(function() {
             closeModal();
         }
     });
-});
+
 </script>
 {% endblock %}

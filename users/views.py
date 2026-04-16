@@ -108,6 +108,8 @@ def login_view(request):
         redirect_url = "/dashboard/"
     elif "dashboard_hr" in permission_codes:
         redirect_url = "/hr_dashboard/"
+    elif "dashboard_tl" in permission_codes:
+        redirect_url = "/tl_dashboard/"
     elif "dashboard_manager" in permission_codes:
         redirect_url = "/manager_dashboard/"
     elif "dashboard_employee" in permission_codes:
@@ -1177,8 +1179,55 @@ def _permission_group_meta(module_key):
     )
 
 
+def _allowed_permission_codes_for_role(role):
+    """Return the set of permission codenames visible/assignable for this role in the UI."""
+    canonical_role = Role.get_canonical_name(getattr(role, "name", "") or "")
+
+    base_flags = ROLE_DEFAULTS.get(canonical_role)
+    if not base_flags:
+        # Unknown/custom role: do not hide permissions unexpectedly.
+        return None
+
+    allowed_codes = set()
+    for module_key, _, _ in MODULES:
+        module_flags = dict(base_flags)
+        module_flags.update(MODULE_ROLE_RESTRICTIONS.get((canonical_role, module_key), {}))
+
+        action_map = LEGACY_MATRIX_ACTIONS.get(module_key, {})
+        if module_flags.get("can_view"):
+            allowed_codes.update(action_map.get("can_view", []))
+        if module_flags.get("can_create"):
+            allowed_codes.update(action_map.get("can_create", []))
+        if module_flags.get("can_edit"):
+            allowed_codes.update(action_map.get("can_edit", []))
+        if module_flags.get("can_delete"):
+            allowed_codes.update(action_map.get("can_delete", []))
+
+    # Keep exactly one dashboard permission based on role.
+    allowed_codes -= {
+        "dashboard_admin",
+        "dashboard_hr",
+        "dashboard_manager",
+        "dashboard_tl",
+        "dashboard_employee",
+    }
+    if canonical_role == "Admin":
+        allowed_codes.add("dashboard_admin")
+    elif canonical_role == "HR":
+        allowed_codes.add("dashboard_hr")
+    elif canonical_role == "Manager":
+        allowed_codes.add("dashboard_manager")
+    elif canonical_role == "TL":
+        allowed_codes.add("dashboard_tl")
+    else:
+        allowed_codes.add("dashboard_employee")
+
+    return allowed_codes
+
+
 def _build_role_permission_groups(role):
     ensure_permission_catalog()
+    allowed_codes = _allowed_permission_codes_for_role(role)
 
     assignment_map = {
         assignment.permission.codename: assignment.is_enabled
@@ -1191,6 +1240,10 @@ def _build_role_permission_groups(role):
     grouped = {}
     for permission in RBACPermission.objects.filter(is_active=True).order_by("module", "name", "codename"):
         module_key = permission.module or "general"
+
+        if allowed_codes is not None and permission.codename not in allowed_codes:
+            continue
+
         if module_key not in grouped:
             meta = _permission_group_meta(module_key)
             grouped[module_key] = {
@@ -1519,7 +1572,7 @@ ROLE_DEFAULTS = {
     'Admin':    dict(can_view=True,  can_create=True,  can_edit=True,  can_delete=True),
     'HR':       dict(can_view=True,  can_create=True,  can_edit=True,  can_delete=False),
     'Manager':  dict(can_view=True,  can_create=False, can_edit=True,  can_delete=False),
-    'TL':       dict(can_view=True,  can_create=False, can_edit=True,  can_delete=False),
+    'TL':       dict(can_view=True,  can_create=True,  can_edit=True,  can_delete=False),
     'Employee': dict(can_view=True,  can_create=False, can_edit=False, can_delete=False),
 }
 
@@ -1530,19 +1583,23 @@ MODULE_ROLE_RESTRICTIONS = {
     ('HR',       'holiday'): dict(can_view=True,  can_create=True,  can_edit=True,  can_delete=True),
     ('HR',       'departments'):  dict(can_view=False, can_create=False, can_edit=False, can_delete=False),
     ('TL',       'leave_type'): dict(can_view=False, can_create=False, can_edit=False, can_delete=False),
+    ('TL', 'leaves'): dict(can_view=True, can_create=True, can_edit=True, can_delete=False),
+    ('TL',       'dashboard'):    dict(can_view=True, can_create=False, can_edit=False, can_delete=False),
     ('TL',       'leave_policy'): dict(can_view=False, can_create=False, can_edit=False, can_delete=False),
     ('TL',       'settings'): dict(can_view=False, can_create=False, can_edit=False, can_delete=False),
     ('TL',       'holiday'): dict(can_view=True,  can_create=False, can_edit=False, can_delete=False),
     ('TL',       'departments'):  dict(can_view=False, can_create=False, can_edit=False, can_delete=False),
-    ('TL',       'salary'):       dict(can_view=False, can_create=False, can_edit=False, can_delete=False),
+    ('TL',       'salary'):       dict(can_view=True, can_create=False, can_edit=True, can_delete=False),
     ('Employee', 'leave_type'): dict(can_view=False, can_create=False, can_edit=False, can_delete=False),
+    ('Employee', 'leaves'): dict(can_view=True, can_create=True, can_edit=False, can_delete=False),
     ('Employee', 'leave_policy'): dict(can_view=False, can_create=False, can_edit=False, can_delete=False),
     ('Employee', 'settings'): dict(can_view=False, can_create=False, can_edit=False, can_delete=False),
     ('Employee', 'holiday'): dict(can_view=True,  can_create=False, can_edit=False, can_delete=False),
     ('Employee', 'departments'):  dict(can_view=False, can_create=False, can_edit=False, can_delete=False),
-    ('Employee', 'salary'):       dict(can_view=False, can_create=False, can_edit=False, can_delete=False),
+    ('Employee', 'salary'):       dict(can_view=True, can_create=False, can_edit=False, can_delete=False),
     ('Employee', 'bank'):         dict(can_view=True,  can_create=False, can_edit=True,  can_delete=False),
     ('Employee', 'employees'):    dict(can_view=False, can_create=False, can_edit=False, can_delete=False),
+    ('Employee', 'verification'): dict(can_view=True,  can_create=False, can_edit=False, can_delete=False),
     ('Manager',  'leave_type'): dict(can_view=False, can_create=False, can_edit=False, can_delete=False),
     ('Manager',  'leave_policy'): dict(can_view=False, can_create=False, can_edit=False, can_delete=False),
     ('Manager',  'settings'): dict(can_view=False, can_create=False, can_edit=False, can_delete=False),
@@ -1811,19 +1868,30 @@ def role_permission_save(request):
             messages.error(request, "Role not found.")
             return redirect('role_permission_list')
 
-        json_permissions = payload.get("permissions", {}) if isinstance(payload.get("permissions", {}), dict) else {}
+        # Handle both old CRUD format (dict) and new codename list format (list)
+        raw_permissions = payload.get("permissions", {})
         explicit_codes = payload.get("permission_codes", [])
-        if not isinstance(explicit_codes, list):
+        
+        # If permissions is a list (new format from codename display), use it directly
+        if isinstance(raw_permissions, list):
+            explicit_codes = raw_permissions
+        elif not isinstance(explicit_codes, list):
             explicit_codes = []
-        explicit_codes = {
-            str(code).strip()
-            for code in explicit_codes
-            if str(code).strip()
-        } or {
-            code.strip()
-            for code in request.POST.getlist("permission_codes")
-            if code.strip()
-        }
+        
+        if explicit_codes:
+            explicit_codes = {
+                str(code).strip()
+                for code in explicit_codes
+                if str(code).strip()
+            }
+        else:
+            explicit_codes = {
+                code.strip()
+                for code in request.POST.getlist("permission_codes")
+                if code.strip()
+            }
+        
+        json_permissions = raw_permissions if isinstance(raw_permissions, dict) else {}
 
         if explicit_codes:
             ensure_permission_catalog()
